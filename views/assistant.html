@@ -1,0 +1,188 @@
+{{template "layout/start"}}
+
+<div class="flex justify-between items-center mb-8">
+  <div>
+    <h1 class="text-3xl font-bold">AI Assistant</h1>
+    <p class="text-base-content/70">Get help with coding, debugging, and development tasks</p>
+  </div>
+  <div class="flex items-center space-x-2">
+    <div class="badge badge-primary">Claude-powered</div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  
+  <!-- Main Chat Interface -->
+  <div class="lg:col-span-2">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Ask Claude
+        </h2>
+        
+        <!-- Chat Messages Container -->
+        <div id="chat-messages" class="space-y-4 mb-6 max-h-96 overflow-y-auto">
+          <div class="chat chat-start">
+            <div class="chat-image avatar">
+              <div class="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <div class="chat-header">
+              Claude
+              <time class="text-xs opacity-50">now</time>
+            </div>
+            <div class="chat-bubble">
+              Hello! I'm Claude, your AI assistant. I can help you with coding questions, explain code, suggest improvements, and more. What would you like to work on?
+            </div>
+          </div>
+        </div>
+        
+        <!-- Question Form -->
+        <form hx-post="{{host}}/assistant/ask" 
+              hx-target="#chat-messages" 
+              hx-swap="beforeend"
+              hx-on="htmx:afterRequest: if(event.detail.successful) this.reset()">
+          <div class="join w-full">
+            <input type="text" 
+                   name="question" 
+                   placeholder="Ask me anything about coding..." 
+                   class="input input-bordered join-item flex-1" 
+                   required>
+            <button type="submit" class="btn btn-primary join-item">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    
+    <!-- Quick Actions -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Quick Actions</h3>
+        <div class="space-y-2">
+          <button class="btn btn-outline btn-sm w-full justify-start" 
+                  onclick="document.querySelector('input[name=question]').value='Can you help me with code review?'; document.querySelector('form').requestSubmit();">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Code Review
+          </button>
+          <button class="btn btn-outline btn-sm w-full justify-start"
+                  onclick="document.querySelector('input[name=question]').value='I have a bug in my code, can you help debug it?'; document.querySelector('form').requestSubmit();">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            Debug Help
+          </button>
+          <button class="btn btn-outline btn-sm w-full justify-start"
+                  onclick="document.querySelector('input[name=question]').value='How can I improve the performance of my code?'; document.querySelector('form').requestSubmit();">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Performance Tips
+          </button>
+          <button class="btn btn-outline btn-sm w-full justify-start"
+                  onclick="document.querySelector('input[name=question]').value='What are the best practices for this technology?'; document.querySelector('form').requestSubmit();">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Best Practices
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Conversations -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Recent Conversations</h3>
+        <div class="space-y-2">
+          {{range assistant.RecentActions}}
+          <div class="p-3 bg-base-200 rounded-lg">
+            <div class="font-medium text-sm">{{.Title}}</div>
+            <div class="text-xs text-base-content/70">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</div>
+            <div class="flex items-center space-x-1 mt-1">
+              {{if eq .Status "completed"}}
+                <div class="badge badge-success badge-xs">Completed</div>
+              {{else if eq .Status "active"}}
+                <div class="badge badge-warning badge-xs">Active</div>
+              {{else}}
+                <div class="badge badge-error badge-xs">Failed</div>
+              {{end}}
+              {{if .RepoID}}
+                <div class="badge badge-outline badge-xs">Repository</div>
+              {{end}}
+            </div>
+          </div>
+          {{else}}
+          <div class="text-center py-6 text-base-content/50">
+            <p class="text-sm">No conversations yet</p>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Capabilities -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h3 class="card-title text-lg">I can help with:</h3>
+        <ul class="space-y-2 text-sm">
+          <li class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Code review and optimization</span>
+          </li>
+          <li class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Debugging and troubleshooting</span>
+          </li>
+          <li class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Explaining complex concepts</span>
+          </li>
+          <li class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Best practices recommendations</span>
+          </li>
+          <li class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Documentation generation</span>
+          </li>
+          <li class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Testing strategies</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+{{template "layout/end"}}

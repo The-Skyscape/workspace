@@ -13,12 +13,12 @@
       </svg>
       Create Repository
     </button>
-    <button class="btn btn-outline">
+    <a href="{{host}}/assistant" class="btn btn-outline" hx-boost="true">
       <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
       Ask Claude
-    </button>
+    </a>
   </div>
 </div>
 
@@ -105,9 +105,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
                   </svg>
                 </button>
-                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                  <li><a href="/repos/{{.ID}}">View Repository</a></li>
-                  <li><a hx-post="/repos/{{.ID}}/launch-workspace">Launch Workspace</a></li>
+                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52" hx-boost="true">
+                  <li><a href="{{host}}/repos/{{.ID}}">View Repository</a></li>
+                  <li><a hx-post="{{host}}/repos/{{.ID}}/launch-workspace">Launch Workspace</a></li>
                 </ul>
               </div>
             </div>
@@ -147,12 +147,12 @@
             </svg>
             Launch Workspace
           </button>
-          <button class="btn btn-outline btn-sm w-full justify-start">
+          <a href="{{host}}/assistant" class="btn btn-outline btn-sm w-full justify-start" hx-boost="true">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             Ask Claude
-          </button>
+          </a>
         </div>
       </div>
     </div>
@@ -169,7 +169,7 @@
               <div class="font-medium">{{.Name}}</div>
               <div class="text-sm text-success">Running on port {{.Port}}</div>
             </div>
-            <a href="/workspace/{{.ID}}" class="btn btn-success btn-xs">Connect</a>
+            <a href="{{host}}/workspace/{{.ID}}" class="btn btn-success btn-xs" hx-boost="true">Connect</a>
           </div>
           {{end}}
           {{else}}
@@ -188,7 +188,7 @@
 <dialog id="create_repo_modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">Create New Repository</h3>
-    <form hx-post="/repos/create" hx-target="body" hx-swap="outerHTML">
+    <form hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML">
       <div class="space-y-4">
         <div class="form-control">
           <label class="label">

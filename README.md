@@ -1,172 +1,127 @@
-# workspace
+## Claude Workspace Generation Prompt (Skyscape)
 
-A modern todo application built with TheSkyscape DevTools, featuring real-time updates and beautiful UI components.
+You are generating the initial implementation for the **Skyscape workspace**, a secure, AI-powered developer environment built using the MVC pattern provided by `devtools`. The application uses HTMX with HATEOAS, daisyUI for UI components, and Go.
 
-## Features
+The backend will manage all server-side state, and the frontend will use **HTMX** to interact with server-rendered views only — no API endpoints are needed, only server-side callbacks that render, redirect, or refresh pages. All permissions and view logic are defined in controllers, which have access to the current `User`, as well as the `GitRepo` and `Workspace` models.
 
-- ✅ **Task Management** - Create, edit, and organize todos with priorities
-- 📅 **Due Dates** - Set and track deadlines for your tasks
-- ⚡ **Real-time Updates** - HTMX-powered interface with no page refreshes
-- 🎨 **Beautiful UI** - DaisyUI components with responsive design
-- 🔐 **User Authentication** - Secure login and personal task lists
-- 📊 **Statistics** - Track your productivity with todo stats
+---
 
-## Getting Started
+### 🧭 Site Map & Feature Overview
 
-1. **Install dependencies:**
-   ```bash
-   go mod tidy
-   ```
+#### 1. Homepage (`/`)
 
-2. **Run the application:**
-   ```bash
-   go run .
-   ```
+* If not logged in → show CTA, login/register buttons
+* If authenticated → redirect to `/dashboard`
+* Use daisyUI `hero`, `btn`, `card`, and brand logo
 
-3. **Visit your app:**
-   Open http://localhost:8080 in your browser
+#### 2. Dashboard (`/dashboard`)
 
-## Project Structure
+* Shows list of owned and shared repositories (via `Permission`)
+* Buttons:
 
-```
-workspace/
-├── controllers/     # Request handlers
-│   ├── home.go     # Home page controller
-│   └── todos.go    # Todo CRUD operations
-├── models/         # Data models
-│   └── todo.go     # Todo model and repository
-├── views/          # HTML templates
-│   ├── layout.html # Main layout
-│   ├── home/       # Home page views
-│   └── todos/      # Todo-related views
-├── main.go         # Application entry point
-└── go.mod          # Dependencies
-```
+  * “Create Repository” (opens modal)
+  * “Ask Claude Something” (AI assistant)
+* Sidebar:
 
-## Usage
+  * User avatar
+  * Link to `/settings`
+  * Button: “Launch Workspace” → runs Docker
 
-### Creating Todos
+#### 3. Repository View (`/repos/:id`)
 
-1. **Sign up** or **sign in** to your account
-2. Navigate to **My Todos**
-3. Fill in the **Add New Todo** form:
-   - **Title**: What needs to be done?
-   - **Description**: Additional details (optional)
-   - **Priority**: Low, Medium, or High
-   - **Due Date**: When it should be completed (optional)
+* Tabs: `tabs`, `tab-active`, HTMX-loaded:
 
-### Managing Todos
+  * Code View: Read-only Git tree using `GitRepo`
+  * Issues: list + create/edit modal
+  * Pull Requests: list + open new PR
+  * Actions: log of AI interactions
+* Buttons:
 
-- **Complete**: Click the checkbox to mark as done
-- **Uncomplete**: Click the checkbox again to mark as pending
-- **Delete**: Click the trash icon to remove permanently
+  * “Launch Workspace”
+  * “Generate PR with AI”
+  * “Ask Claude a Question”
 
-### Real-time Updates
+#### 4. Pull Request Create/Edit (`/repos/:id/prs/new`)
 
-The interface uses HTMX to provide real-time updates:
-- New todos appear instantly when created
-- Status changes update immediately
-- No page refreshes required
+* Form:
 
-## API Endpoints
+  * Title
+  * Description
+  * Branch selectors (use `GitRepo`)
+* Claude Assist: suggest description, auto-open PR from change
+* Status: draft / open / merged / closed
 
-The todo controller provides these endpoints:
+#### 5. Issue Tracker (`/repos/:id/issues`)
 
-- `GET /todos` - Display todo dashboard
-- `POST /todos/create` - Create a new todo
-- `POST /todos/complete` - Mark todo as completed
-- `POST /todos/uncomplete` - Mark todo as pending
-- `DELETE /todos/delete` - Delete a todo
+* List in cards (`card`, `badge`, `avatar`)
+* Filters: status, tags (use `dropdown` or `tabs`)
+* Modal: Create/Edit issue
+* Mention system (`@user`) optional for future
 
-## Customization
+#### 6. Actions Log (`/repos/:id/actions`)
 
-### Adding New Fields
+* Table of:
 
-To add new fields to todos:
+  * Claude PR generations
+  * Claude Q\&A
+  * Summarizations
+* Rerun or clone previous actions
 
-1. **Update the model:**
-   ```go
-   // models/todo.go
-   type Todo struct {
-       database.Model
-       // ... existing fields
-       Category string `json:"category"`
-   }
-   ```
+#### 7. Workspace Launcher (`/workspace/:repoID`)
 
-2. **Update the form:**
-   ```html
-   <!-- views/todos/index.html -->
-   <input type="text" name="category" class="input input-bordered">
-   ```
+* Controller starts a code-server Docker container via `Workspace` model
+* Show status:
 
-3. **Update the controller:**
-   ```go
-   // controllers/todos.go
-   todo.Category = t.Request.FormValue("category")
-   ```
+  * Provisioning
+  * Running (redirect to workspace)
+  * Failed (with retry)
+* Button: “Shutdown Workspace”
 
-### Styling
+#### 8. Auth Pages (`/login`, `/register`, `/logout`)
 
-The application uses DaisyUI themes. Change the theme using environment variables:
+* Forms styled with `input`, `label`, `btn`, `form-control`
+* Flash error messages on invalid login
+* Redirect to `/dashboard` after success
 
-```bash
-export THEME=dark          # Dark theme
-export THEME=light         # Light theme
-export THEME=corporate     # Corporate theme (default)
-export THEME=retro         # Retro theme
-```
+#### 9. User Settings (`/settings`)
 
-Available themes: https://daisyui.com/docs/themes/
+* Edit email, password
+* Toggle Claude assistant
+* Default docker image for new workspaces
 
-## Deployment
+---
 
-Deploy to DigitalOcean using the launch-app tool:
+### ✨ UI Guidelines (daisyUI)
 
-```bash
-launch-app workspace --provider=digitalocean
-```
+Use daisyUI classes throughout:
 
-## Development
+* Buttons: `btn`, `btn-primary`, `btn-outline`
+* Forms: `input`, `label`, `form-control`, `modal`
+* Layouts: `card`, `tabs`, `navbar`, `drawer`
+* Colors: soft pastel, match Skyscape brand (dreamy/cloudy)
 
-### Hot Reload
+---
 
-Install Air for automatic reloading:
+### 🔄 Controller + HTMX Behavior
 
-```bash
-go install github.com/cosmtrek/air@latest
-air
-```
+* Controllers define:
 
-### Adding Authentication Features
+  * Callback permissions
+  * Rendered templates (`views/`)
+  * `hx-get`, `hx-post`, `hx-swap`, `hx-target` logic
+* Views use partials and fragments to swap components
+* HATEOAS: No APIs — only navigable actions from links and buttons
 
-The app includes built-in authentication. To customize:
+---
 
-- **Signup/Signin views**: Modify authentication templates
-- **User profiles**: Extend the User model
-- **Permissions**: Add role-based access control
+### ✅ Deliverables
 
-### Database
+* Implement all models in `models/`
+* Create views using `views/` templates and daisyUI
+* Write controllers with logic for:
 
-Uses SQLite with automatic migrations. The database file is created automatically at:
-- Development: `./data/workspace.db`
-- Production: `~/.theskyscape/workspace.db`
-
-## Documentation
-
-- [TheSkyscape DevTools Documentation](https://github.com/The-Skyscape/devtools)
-- [DaisyUI Components](https://daisyui.com/components/)
-- [HTMX Documentation](https://htmx.org/docs/)
-- [Go Templates](https://pkg.go.dev/text/template)
-
-## Contributing
-
-1. Fork the project
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
+  * Access control
+  * Git interactions (via `GitRepo`)
+  * Workspace lifecycle (via `Workspace`)
+  * AI assistant actions (via `Action`)
+* Ensure all flows work cleanly with HTMX over server-rendered pages

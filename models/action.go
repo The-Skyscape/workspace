@@ -1,17 +1,18 @@
 package models
 
 import (
-	"time"
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
 type Action struct {
 	application.Model
-	Type      string    // "pr_generation", "qa", "summarization"
-	Content   string    // The AI action content
+	Type      string    // "conversation", "pr_generation", "code_review", "summarization"
+	Title     string    // Action title/summary
+	Question  string    // User's original question
+	Response  string    // AI response
+	Status    string    // "active", "completed", "failed"
 	RepoID    string
 	UserID    string
-	Timestamp time.Time
 }
 
 func (*Action) Table() string { return "actions" }

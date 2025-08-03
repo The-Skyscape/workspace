@@ -24,7 +24,7 @@
         </div>
         <div>
           <h2 class="card-title">
-            <a href="/repos/{{.ID}}" class="link link-hover">{{.Name}}</a>
+            <a href="{{host}}/repos/{{.ID}}" class="link link-hover" hx-boost="true">{{.Name}}</a>
           </h2>
           <div class="flex items-center space-x-4 text-sm text-base-content/70">
             <div class="flex items-center space-x-1">
@@ -44,7 +44,7 @@
       </div>
       
       <div class="flex items-center space-x-2">
-        <a href="/repos/{{.ID}}" class="btn btn-ghost btn-sm">
+        <a href="{{host}}/repos/{{.ID}}" class="btn btn-ghost btn-sm" hx-boost="true">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -52,7 +52,7 @@
           View
         </a>
         <button class="btn btn-primary btn-sm" 
-                hx-post="/repos/{{.ID}}/launch-workspace" 
+                hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
                 hx-target="body" 
                 hx-swap="outerHTML">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -66,11 +66,11 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
             </svg>
           </button>
-          <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-            <li><a href="/repos/{{.ID}}">View Repository</a></li>
-            <li><a href="/repos/{{.ID}}/issues">Issues</a></li>
-            <li><a href="/repos/{{.ID}}/prs">Pull Requests</a></li>
-            <li><a href="/repos/{{.ID}}/actions">AI Actions</a></li>
+          <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52" hx-boost="true">
+            <li><a href="{{host}}/repos/{{.ID}}">View Repository</a></li>
+            <li><a href="{{host}}/repos/{{.ID}}/issues">Issues</a></li>
+            <li><a href="{{host}}/repos/{{.ID}}/prs">Pull Requests</a></li>
+            <li><a href="{{host}}/repos/{{.ID}}/actions">AI Actions</a></li>
             <li class="menu-title">Danger Zone</li>
             <li><a class="text-error">Delete Repository</a></li>
           </ul>
@@ -99,7 +99,7 @@
 <dialog id="create_repo_modal" class="modal">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">Create New Repository</h3>
-    <form hx-post="/repos/create" hx-target="body" hx-swap="outerHTML">
+    <form hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML">
       <div class="space-y-4">
         <div class="form-control">
           <label class="label">

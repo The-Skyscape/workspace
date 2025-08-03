@@ -25,10 +25,13 @@ func (c *WorkspacesController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
 	auth := app.Use("auth").(*authentication.Controller)
+	http.Handle("GET /workspace", app.ProtectFunc(c.redirectToUserWorkspace, auth.Required))
 	http.Handle("GET /workspace/{id}", app.Serve("workspace-launcher.html", auth.Required))
 	http.Handle("POST /workspace/{id}/start", app.ProtectFunc(c.startWorkspace, auth.Required))
 	http.Handle("POST /workspace/{id}/stop", app.ProtectFunc(c.stopWorkspace, auth.Required))
 	http.Handle("DELETE /workspace/{id}", app.ProtectFunc(c.deleteWorkspace, auth.Required))
+
+	http.Handle("/coder/", http.StripPrefix("/coder/", models.Coding.Workspace(auth)))
 }
 
 // Handle is called when each request is handled
@@ -43,7 +46,7 @@ func (c *WorkspacesController) CurrentWorkspace() (*coding.Workspace, error) {
 	if id == "" {
 		return nil, errors.New("workspace ID not found")
 	}
-	
+
 	// For now, we'll get the workspace by user ID since that's what the coding package supports
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
@@ -60,7 +63,7 @@ func (c *WorkspacesController) getCurrentWorkspaceFromRequest(r *http.Request) (
 	if id == "" {
 		return nil, errors.New("workspace ID not found")
 	}
-	
+
 	// For now, we'll get the workspace by user ID since that's what the coding package supports
 	auth := c.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
@@ -79,6 +82,32 @@ func (c *WorkspacesController) WorkspaceRepo() (*coding.GitRepo, error) {
 	}
 
 	return workspace.Repo()
+}
+
+// redirectToUserWorkspace redirects to the user's workspace proxy or creates one
+func (c *WorkspacesController) redirectToUserWorkspace(w http.ResponseWriter, r *http.Request) {
+	auth := c.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("unauthorized"))
+		return
+	}
+
+	// Check if user has a workspace
+	workspace, err := models.Coding.GetWorkspace(user.ID)
+	if err != nil || workspace == nil {
+		// Create workspace if it doesn't exist
+		workspaces, _ := models.Coding.Workspaces()
+		port := 8000 + len(workspaces)
+		workspace, err = models.Coding.NewWorkspace(user.ID, port, nil)
+		if err != nil {
+			c.Render(w, r, "error-message.html", err)
+			return
+		}
+	}
+
+	// Redirect to workspace proxy which handles starting/loading
+	http.Redirect(w, r, "/coder/", http.StatusSeeOther)
 }
 
 // startWorkspace handles starting a workspace container

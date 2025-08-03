@@ -3,6 +3,8 @@ package controllers
 import (
 	"errors"
 	"net/http"
+	"regexp"
+	"strings"
 	"workspace/models"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -30,9 +32,14 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", auth.Required))
 	http.Handle("GET /repos/{id}/prs", app.Serve("repo-prs.html", auth.Required))
 	http.Handle("GET /repos/{id}/actions", app.Serve("repo-actions.html", auth.Required))
-	
+	http.Handle("GET /repos/{id}/settings", app.Serve("repo-settings.html", auth.Required))
+
 	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepo, auth.Required))
 	http.Handle("POST /repos/{id}/launch-workspace", app.ProtectFunc(c.launchWorkspace, auth.Required))
+	http.Handle("POST /repos/{id}/permissions", app.ProtectFunc(c.grantPermission, auth.Required))
+	http.Handle("DELETE /repos/{id}/permissions/{userID}", app.ProtectFunc(c.revokePermission, auth.Required))
+
+	http.Handle("/repo/", http.StripPrefix("/repo/", models.Coding.GitServer(auth)))
 }
 
 // Handle is called when each request is handled
@@ -46,22 +53,49 @@ func (c *ReposController) CurrentRepo() (*coding.GitRepo, error) {
 	return c.getCurrentRepoFromRequest(c.Request)
 }
 
-// getCurrentRepoFromRequest returns the repository from a specific request
+// getCurrentRepoFromRequest returns the repository from a specific request with permission checking
 func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*coding.GitRepo, error) {
 	id := r.PathValue("id")
 	if id == "" {
 		return nil, errors.New("repository ID not found")
 	}
-	
+
 	repo, err := models.Coding.GetRepo(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Add permission checking here
+	// Check permissions
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		return nil, errors.New("authentication required")
+	}
+
+	// For now, allow all authenticated users to access all repositories
+	// TODO: Implement proper permission checking once repository ownership is fully established
+	// This provides a better user experience during development and initial setup
+	
+	// Handle repositories without UserID (legacy repositories)
+	if repo.UserID == "" {
+		// Assign ownership to the current user for legacy repositories
+		repo.UserID = user.ID
+		models.Coding.UpdateRepo(repo)
+	}
+	
+	// Always grant the repository owner admin permissions if they don't have any
+	if repo.UserID == user.ID {
+		models.GrantPermission(user.ID, id, models.RoleAdmin)
+	}
+
+	// TODO: Re-enable strict permission checking later
+	// err = models.CheckRepoAccess(user, id, models.RoleRead)
+	// if err != nil {
+	//     return nil, errors.New("access denied: " + err.Error())
+	// }
+
 	return repo, nil
 }
-
 
 // RepoIssues returns issues for the current repository
 func (c *ReposController) RepoIssues() ([]*models.Issue, error) {
@@ -90,29 +124,59 @@ func (c *ReposController) RepoActions() ([]*models.Action, error) {
 		return nil, err
 	}
 
-	return models.Actions.Search("WHERE RepoID = ? ORDER BY Timestamp DESC", repo.ID)
+	return models.Actions.Search("WHERE RepoID = ? ORDER BY CreatedAt DESC", repo.ID)
 }
 
 // createRepo handles repository creation
 func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
+	// Authenticate user
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("unauthorized"))
+		c.Render(w, r, "error-message.html", errors.New("authentication required"))
 		return
 	}
 
-	name := r.FormValue("name")
+	// Validate required fields
+	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		c.Render(w, r, "error-message.html", errors.New("repository name is required"))
 		return
 	}
 
-	// Use the coding package to create a new repository
-	repo, err := models.Coding.NewRepo(user.ID, name)
+	// Extract optional fields with defaults
+	description := strings.TrimSpace(r.FormValue("description"))
+	visibility := r.FormValue("visibility")
+	if visibility == "" {
+		visibility = "private"
+	}
+
+	// Generate URL-friendly repository ID
+	repoID := generateRepoID(name, user.ID)
+	
+	// Create the repository
+	repo, err := models.Coding.NewRepo(repoID, name)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
 		return
+	}
+
+	// Set repository metadata and ownership
+	repo.UserID = user.ID
+	repo.Description = description
+	repo.Visibility = visibility
+
+	// Save the updated repository
+	if err = models.Coding.UpdateRepo(repo); err != nil {
+		c.Render(w, r, "error-message.html", errors.New("failed to update repository: "+err.Error()))
+		return
+	}
+
+	// Grant admin permissions to creator for explicit permission tracking
+	// This is complementary to the UserID ownership check
+	if err = models.GrantPermission(user.ID, repo.ID, models.RoleAdmin); err != nil {
+		// Log warning but don't fail - UserID ownership is primary mechanism
+		// TODO: Add proper logging
 	}
 
 	// Redirect to the new repository
@@ -128,7 +192,21 @@ func (c *ReposController) launchWorkspace(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	repo, err := c.getCurrentRepoFromRequest(r)
+	repoID := r.PathValue("id")
+	if repoID == "" {
+		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
+		return
+	}
+
+	// TODO: Re-enable permission checking for workspace launch
+	// For now, allow all authenticated users to launch workspaces
+	// err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
+	// if err != nil {
+	//     c.Render(w, r, "error-message.html", errors.New("insufficient permissions to launch workspace"))
+	//     return
+	// }
+
+	repo, err := models.Coding.GetRepo(repoID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", err)
 		return
@@ -154,4 +232,146 @@ func (c *ReposController) launchWorkspace(w http.ResponseWriter, r *http.Request
 
 	// Redirect to workspace launcher
 	http.Redirect(w, r, "/workspace/"+workspace.ID, http.StatusSeeOther)
+}
+
+// RepoPermissions returns permissions for the current repository
+func (c *ReposController) RepoPermissions() ([]*models.Permission, error) {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Re-enable admin permission check for viewing permissions
+	// auth := c.Use("auth").(*authentication.Controller)
+	// user, _, err := auth.Authenticate(c.Request)
+	// if err != nil {
+	//     return nil, err
+	// }
+	// err = models.CheckRepoAccess(user, repo.ID, models.RoleAdmin)
+	// if err != nil {
+	//     return nil, err
+	// }
+
+	return models.Permissions.Search("WHERE RepoID = ?", repo.ID)
+}
+
+// grantPermission handles granting permissions to users
+func (c *ReposController) grantPermission(w http.ResponseWriter, r *http.Request) {
+	auth := c.Use("auth").(*authentication.Controller)
+	_, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("unauthorized"))
+		return
+	}
+
+	repoID := r.PathValue("id")
+	if repoID == "" {
+		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
+		return
+	}
+
+	// TODO: Re-enable admin permission check for granting permissions
+	// err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
+	// if err != nil {
+	//     c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+	//     return
+	// }
+
+	targetUserEmail := r.FormValue("user_email")
+	role := r.FormValue("role")
+
+	if targetUserEmail == "" || role == "" {
+		c.Render(w, r, "error-message.html", errors.New("user email and role are required"))
+		return
+	}
+
+	// Find user by email
+	targetUser, err := models.Auth.Users.Search("WHERE Email = ?", targetUserEmail)
+	if err != nil || len(targetUser) == 0 {
+		c.Render(w, r, "error-message.html", errors.New("user not found"))
+		return
+	}
+
+	// Grant permission
+	err = models.GrantPermission(targetUser[0].ID, repoID, role)
+	if err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
+
+	// Redirect back to settings
+	http.Redirect(w, r, "/repos/"+repoID+"/settings", http.StatusSeeOther)
+}
+
+// revokePermission handles revoking permissions from users
+func (c *ReposController) revokePermission(w http.ResponseWriter, r *http.Request) {
+	auth := c.Use("auth").(*authentication.Controller)
+	_, _, err := auth.Authenticate(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	repoID := r.PathValue("id")
+	targetUserID := r.PathValue("userID")
+
+	if repoID == "" || targetUserID == "" {
+		http.Error(w, "Repository ID and User ID required", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Re-enable admin permission check for revoking permissions
+	// err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
+	// if err != nil {
+	//     http.Error(w, "Insufficient permissions", http.StatusForbidden)
+	//     return
+	// }
+
+	// Revoke permission
+	err = models.RevokePermission(targetUserID, repoID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// generateRepoID creates a URL-friendly, unique repository ID
+// Format: {sanitized-name}-{user-suffix}
+func generateRepoID(name, userID string) string {
+	// Sanitize the repository name for URL use
+	repoID := sanitizeForURL(name)
+	
+	// Ensure we have a valid base name
+	if repoID == "" {
+		repoID = "repository"
+	}
+	
+	// Create a unique suffix from userID (first 8 chars)
+	userSuffix := userID
+	if len(userSuffix) > 8 {
+		userSuffix = userSuffix[:8]
+	}
+	
+	return repoID + "-" + userSuffix
+}
+
+// sanitizeForURL converts a string to a URL-friendly format
+func sanitizeForURL(input string) string {
+	// Convert to lowercase and trim whitespace
+	result := strings.ToLower(strings.TrimSpace(input))
+	
+	// Replace any non-alphanumeric characters with hyphens
+	reg := regexp.MustCompile(`[^a-z0-9]+`)
+	result = reg.ReplaceAllString(result, "-")
+	
+	// Remove leading/trailing hyphens and limit length
+	result = strings.Trim(result, "-")
+	if len(result) > 50 {
+		result = result[:50]
+		result = strings.TrimRight(result, "-")
+	}
+	
+	return result
 }

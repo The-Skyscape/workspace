@@ -1,0 +1,61 @@
+{{template "layout/start"}}
+<div class="hero min-h-screen bg-base-200">
+  <div class="hero-content flex-col lg:flex-row-reverse">
+    <div class="text-center lg:text-left">
+      <h1 class="text-5xl font-bold">Join Skyscape!</h1>
+      <p class="py-6">Create your account to start building with Git repositories, containerized workspaces, and AI-powered development tools.</p>
+    </div>
+    <div class="card flex-shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
+      <div class="card-body">
+        <h2 class="card-title justify-center mb-4">Create Account</h2>
+        
+        <div class="error text-center text-error mb-4"></div>
+        
+        <form hx-post="{{host}}/_auth/signup" hx-target="previous .error" class="space-y-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Full Name</span>
+            </label>
+            <input type="text" name="name" placeholder="Enter your full name" class="input input-bordered" required>
+          </div>
+          
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Email</span>
+            </label>
+            <input type="email" name="email" placeholder="Enter your email" class="input input-bordered" required>
+          </div>
+          
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Handle</span>
+            </label>
+            <input type="text" name="handle" placeholder="Choose a unique handle" class="input input-bordered" required>
+            <label class="label">
+              <span class="label-text-alt">This will be your username</span>
+            </label>
+          </div>
+          
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Password</span>
+            </label>
+            <input type="password" name="password" placeholder="Create a strong password" class="input input-bordered" required>
+          </div>
+          
+          <div class="form-control mt-6">
+            <button class="btn btn-primary">Create Account</button>
+          </div>
+        </form>
+        
+        <div class="divider">OR</div>
+        
+        <div class="text-center">
+          <p class="text-sm">Already have an account?</p>
+          <a href="{{host}}/signin" class="btn btn-outline btn-sm mt-2">Sign In</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{template "layout/end"}}

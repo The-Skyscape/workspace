@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
 </head>
 <body>
     <div class="navbar bg-base-100 shadow-lg">
@@ -18,9 +19,10 @@
             </a>
             {{if auth.CurrentUser}}
             <div class="hidden lg:flex navbar-center">
-                <ul class="menu menu-horizontal px-1">
+                <ul class="menu menu-horizontal px-1" hx-boost="true">
                     <li><a href="{{host}}/dashboard">Dashboard</a></li>
                     <li><a href="{{host}}/repos">Repositories</a></li>
+                    <li><a href="{{host}}/assistant">AI Assistant</a></li>
                 </ul>
             </div>
             {{end}}
@@ -33,13 +35,13 @@
                             <img src="{{auth.CurrentUser.Avatar}}" alt="{{auth.CurrentUser.Name}}" />
                         </div>
                     </label>
-                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52" hx-boost="true">
                         <li><span class="text-sm opacity-70">{{auth.CurrentUser.Name}}</span></li>
                         <li><a href="{{host}}/_auth/signout">Sign Out</a></li>
                     </ul>
                 </div>
             {{else}}
-                <a href="{{host}}/_auth/signin" class="btn btn-primary">Sign In</a>
+                <a href="{{host}}/signin" class="btn btn-primary">Sign In</a>
             {{end}}
         </div>
     </div>

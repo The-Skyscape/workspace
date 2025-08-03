@@ -24,8 +24,10 @@ func (c *HomeController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
 	auth := app.Use("auth").(*authentication.Controller)
-	http.Handle("GET /", app.Serve("home.html", nil))
+	http.Handle("GET /{$}", app.Serve("home.html", nil))
 	http.Handle("GET /dashboard", app.Serve("dashboard.html", auth.Required))
+	http.Handle("GET /signin", app.Serve("signin.html", nil))
+	http.Handle("GET /signup", app.Serve("signup.html", nil))
 }
 
 // Handle is called when each request is handled
