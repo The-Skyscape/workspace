@@ -3,7 +3,7 @@ module workspace
 go 1.24.5
 
 require (
-	github.com/The-Skyscape/devtools v0.1.0
+	github.com/The-Skyscape/devtools v1.0.2
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/sosedoff/gitkit v0.4.0
@@ -21,4 +21,4 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 )
 
-replace github.com/The-Skyscape/devtools => ../
+// replace github.com/The-Skyscape/devtools => ../
