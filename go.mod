@@ -19,4 +19,4 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 )
 
-replace github.com/The-Skyscape/devtools => ../
+replace github.com/The-Skyscape/devtools => ../devtools

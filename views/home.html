@@ -9,8 +9,8 @@
 
       {{if not auth.CurrentUser}}
       <div class="space-x-4">
-        <a href="{{auth.SigninURL}}" class="btn btn-primary btn-lg">Get Started</a>
-        <a href="{{auth.SignupURL}}" class="btn btn-outline btn-lg">Sign Up</a>
+        <a href="{{host}}/_auth/signin" class="btn btn-primary btn-lg">Get Started</a>
+        <a href="{{host}}/_auth/signup" class="btn btn-outline btn-lg">Sign Up</a>
       </div>
       {{else}}
       <div class="space-y-4">

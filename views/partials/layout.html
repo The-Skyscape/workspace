@@ -11,6 +11,7 @@
   <div class="navbar bg-base-100 shadow-lg">
     <div class="navbar-start">
       <a class="btn btn-ghost text-xl" href="{{host}}/home">
+        <img src="{{host}}/public/SkyscapeLogo.svg" alt="Skyscape" class="h-8 w-8 mr-2">
         {{home.AppName}}
       </a>
     </div>
@@ -25,11 +26,11 @@
         </label>
         <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
           <li><span class="text-sm opacity-70">{{.Name}}</span></li>
-          <li><a href="{{host}}/auth/signout">Sign Out</a></li>
+          <li><a href="{{host}}/_auth/signout">Sign Out</a></li>
         </ul>
       </div>
       {{else}}
-      <a href="{{host}}/auth/signin" class="btn btn-primary">Sign In</a>
+      <a href="{{host}}/_auth/signin" class="btn btn-primary">Sign In</a>
       {{end}}
     </div>
   </div>
