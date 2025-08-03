@@ -3,23 +3,25 @@
 {{if auth.CurrentUser}}
 <!-- Authenticated User: Dashboard Content -->
 <!-- Header -->
-<div class="flex justify-between items-center mb-8">
+<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0 mb-8">
   <div>
-    <h1 class="text-3xl font-bold">Dashboard</h1>
+    <h1 class="text-2xl sm:text-3xl font-bold">Dashboard</h1>
     <p class="text-base-content/70">Welcome back, {{auth.CurrentUser.Name}}!</p>
   </div>
-  <div class="space-x-2">
-    <button class="btn btn-primary" onclick="create_repo_modal.showModal()">
-      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+    <button class="btn btn-primary btn-sm sm:btn-md" onclick="create_repo_modal.showModal()">
+      <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
       </svg>
-      Create Repository
+      <span class="hidden sm:inline">Create Repository</span>
+      <span class="sm:hidden">New Repo</span>
     </button>
-    <a href="{{host}}/repos" class="btn btn-outline" hx-boost="true">
-      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <a href="{{host}}/repos" class="btn btn-outline btn-sm sm:btn-md" hx-boost="true">
+      <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
       </svg>
-      View All Repos
+      <span class="hidden sm:inline">View All Repos</span>
+      <span class="sm:hidden">All Repos</span>
     </a>
   </div>
 </div>
@@ -87,27 +89,27 @@
 
         <div class="space-y-3">
           {{range home.UserRepos}}
-          <div class="flex items-center justify-between p-4 border border-base-300 rounded-lg hover:bg-base-50">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-base-300 rounded-lg hover:bg-base-50 space-y-3 sm:space-y-0">
             <div class="flex items-center space-x-3">
               <div class="avatar avatar-placeholder">
                 <div class="bg-neutral-focus text-neutral-content rounded-full w-10">
                   <span class="text-xs">{{printf "%.2s" .Name}}</span>
                 </div>
               </div>
-              <div>
-                <div class="font-semibold">{{.Name}}</div>
+              <div class="min-w-0 flex-1">
+                <div class="font-semibold truncate">{{.Name}}</div>
                 <div class="text-sm text-base-content/70">{{.Visibility}} repository</div>
               </div>
             </div>
-            <div class="flex items-center space-x-2">
-              <div class="badge badge-outline">{{.Visibility}}</div>
+            <div class="flex items-center justify-between sm:justify-end space-x-2">
+              <div class="badge badge-outline badge-sm">{{.Visibility}}</div>
               <div class="dropdown dropdown-end">
                 <button class="btn btn-ghost btn-sm" tabindex="0">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
                   </svg>
                 </button>
-                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52" hx-boost="true">
+                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48" hx-boost="true">
                   <li><a href="{{host}}/repos/{{.ID}}">View Repository</a></li>
                   <li><a hx-post="{{host}}/repos/{{.ID}}/launch-workspace">Launch Workspace</a></li>
                 </ul>
@@ -257,23 +259,23 @@
 
 <!-- Public Homepage: Developer Portfolio -->
 {{with home.DeveloperProfile}}
-<div class="hero min-h-96 bg-gradient-to-br from-primary/10 to-secondary/10">
-  <div class="hero-content">
-    <div class="flex flex-col lg:flex-row items-center space-y-6 lg:space-y-0 lg:space-x-12 max-w-6xl">
+<div class="hero min-h-96 bg-gradient-to-br from-primary/10 to-secondary/10 px-4">
+  <div class="hero-content w-full">
+    <div class="flex flex-col lg:flex-row items-center space-y-6 lg:space-y-0 lg:space-x-12 max-w-6xl w-full">
       <!-- Developer Avatar -->
       <div class="avatar">
-        <div class="w-48 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+        <div class="w-32 sm:w-40 lg:w-48 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
           <img src="{{host}}{{.avatar}}" alt="{{.name}}" onerror="this.src='https://ui-avatars.com/api/?name={{.name}}&size=200&background=3b82f6&color=white'" />
         </div>
       </div>
 
       <!-- Developer Info -->
-      <div class="text-center lg:text-left space-y-4">
-        <h1 class="text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+      <div class="text-center lg:text-left space-y-4 w-full">
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           {{.name}}
         </h1>
-        <p class="text-2xl text-base-content/80">{{.title}}</p>
-        <p class="text-lg text-base-content/70 max-w-2xl">{{.bio}}</p>
+        <p class="text-lg sm:text-xl lg:text-2xl text-base-content/80">{{.title}}</p>
+        <p class="text-base sm:text-lg text-base-content/70 max-w-2xl">{{.bio}}</p>
 
         <!-- Contact Links -->
         <div class="flex flex-wrap justify-center lg:justify-start gap-3 mt-6">
@@ -282,7 +284,7 @@
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-            Website
+            <span class="hidden sm:inline">Website</span>
           </a>
           {{end}}
           {{if .github}}
@@ -297,14 +299,14 @@
 
         <!-- Stats -->
         {{with home.PublicRepoStats}}
-        <div class="stats stats-vertical lg:stats-horizontal shadow-lg bg-base-100 mt-6">
+        <div class="stats stats-vertical sm:stats-horizontal shadow-lg bg-base-100 mt-6 w-full max-w-md lg:max-w-none">
           <div class="stat">
-            <div class="stat-value text-primary">{{.total_repos}}</div>
-            <div class="stat-title">Public Repositories</div>
+            <div class="stat-value text-primary text-2xl sm:text-3xl">{{.total_repos}}</div>
+            <div class="stat-title text-sm">Public Repositories</div>
           </div>
           <div class="stat">
-            <div class="stat-value text-secondary">{{len (home.PublicRepos)}}</div>
-            <div class="stat-title">Open Source Projects</div>
+            <div class="stat-value text-secondary text-2xl sm:text-3xl">{{len (home.PublicRepos)}}</div>
+            <div class="stat-title text-sm">Open Source Projects</div>
           </div>
         </div>
         {{end}}
@@ -382,11 +384,11 @@
 </div>
 
 <!-- Call to Action for Authentication -->
-<div class="bg-base-200 py-16">
+<div class="bg-base-200 py-16 px-4">
   <div class="text-center max-w-4xl mx-auto">
-    <h2 class="text-3xl font-bold mb-4">Want to create your own workspace?</h2>
-    <p class="text-xl text-base-content/70 mb-8">Join Skyscape to create repositories, launch workspaces, and build with AI assistance</p>
-    <div class="space-x-4">
+    <h2 class="text-2xl sm:text-3xl font-bold mb-4">Want to create your own workspace?</h2>
+    <p class="text-lg sm:text-xl text-base-content/70 mb-8">Join Skyscape to create repositories, launch workspaces, and build with AI assistance</p>
+    <div class="flex flex-col sm:flex-row sm:justify-center gap-4 sm:gap-6">
       <a href="{{host}}/signup" class="btn btn-primary btn-lg">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />

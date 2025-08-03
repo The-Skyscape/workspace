@@ -1,10 +1,11 @@
 package models
 
 import (
+	"workspace/internal/coding"
+
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/database"
 	"github.com/The-Skyscape/devtools/pkg/database/local"
-	"github.com/The-Skyscape/devtools/pkg/coding"
 )
 
 var (

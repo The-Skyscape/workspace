@@ -1,0 +1,212 @@
+{{template "layout/start"}}
+{{with repos.CurrentRepo}}
+{{template "repo-breadcrumbs.html" .}}
+
+{{template "repo-header.html" .}}
+
+{{template "repo-tabs.html" .}}
+
+<!-- File Viewer -->
+{{with repos.CurrentFile}}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+  <!-- Main File Content -->
+  <div class="lg:col-span-3">
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body p-0">
+        <!-- File Header -->
+        <div class="flex items-center justify-between p-6 border-b border-base-300">
+          <div class="flex items-center space-x-3">
+            {{if .IsDir}}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+            </svg>
+            {{else}}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            {{end}}
+            <div>
+              <h2 class="text-xl font-bold">{{.Name}}</h2>
+              <div class="text-sm text-base-content/70">
+                {{if .IsDir}}Directory{{else}}{{.Size}} bytes{{end}}
+                • {{.ModTime.Format "Jan 2, 2006 3:04 PM"}}
+                {{if not .IsDir}}• {{.Language}}{{end}}
+              </div>
+            </div>
+          </div>
+          
+          {{if not .IsDir}}
+          <div class="flex items-center space-x-2">
+            <button class="btn btn-outline btn-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Edit
+            </button>
+            <button class="btn btn-outline btn-sm" _="on click writeText('{{.Content}}') to navigator.clipboard">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copy
+            </button>
+          </div>
+          {{end}}
+        </div>
+
+        <!-- File Content -->
+        {{if .IsDir}}
+        <div class="p-6">
+          <div class="text-center py-8">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+            </svg>
+            <p class="text-lg">This is a directory</p>
+            <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}" class="btn btn-primary mt-4">Browse Directory</a>
+          </div>
+        </div>
+        {{else if .IsBinary}}
+        <div class="p-6">
+          <div class="text-center py-8">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <p class="text-lg">Binary file</p>
+            <p class="text-base-content/70 mb-4">{{.Size}} bytes</p>
+            <button class="btn btn-outline">Download</button>
+          </div>
+        </div>
+        {{else}}
+        <!-- File Content -->
+        {{if repos.IsMarkdown .Name}}
+        <!-- Markdown Content -->
+        <div class="p-6">
+          <div class="prose prose-lg max-w-none">
+            {{repos.RenderMarkdown .Content}}
+          </div>
+        </div>
+        {{else}}
+        <!-- Code Content with Line Numbers -->
+        <div class="relative">
+          <pre class="overflow-x-auto"><code class="language-{{.Language}} block text-sm" style="padding: 0;">{{range $index, $line := repos.FileLines}}<span class="flex"><span class="select-none text-base-content/40 pr-4 pl-4 py-0 text-right bg-base-200 border-r border-base-300" style="min-width: 4rem; user-select: none;">{{printf "%d" (printf "%d" $index)}}</span><span class="px-4 py-0 flex-1 whitespace-pre">{{$line}}</span></span>{{end}}</code></pre>
+        </div>
+        {{end}}
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+
+    <!-- File Actions -->
+    {{if not .IsDir}}
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <h3 class="card-title text-lg">File Actions</h3>
+        <div class="space-y-2">
+          <button class="btn btn-outline btn-sm w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit File
+          </button>
+          <button class="btn btn-outline btn-sm w-full" _="on click writeText('{{.Content}}') to navigator.clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy Content
+          </button>
+          {{if not .IsBinary}}
+          <button class="btn btn-outline btn-sm w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download
+          </button>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    {{end}}
+
+    <!-- File Info -->
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <h3 class="card-title text-lg">File Information</h3>
+        <div class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Type</span>
+            <span>{{if .IsDir}}Directory{{else if .IsBinary}}Binary{{else}}Text{{end}}</span>
+          </div>
+          {{if not .IsDir}}
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Language</span>
+            <span>{{.Language}}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Size</span>
+            <span>{{.Size}} bytes</span>
+          </div>
+          {{if not .IsBinary}}
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Lines</span>
+            <span>{{len repos.FileLines}}</span>
+          </div>
+          {{end}}
+          {{end}}
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Modified</span>
+            <span class="text-right">{{.ModTime.Format "Jan 2, 2006"}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Navigation</h3>
+        <div class="space-y-2">
+          <a href="{{host}}/repos/{{$.ID}}/files" class="btn btn-outline btn-sm w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
+            </svg>
+            Repository Root
+          </a>
+          <button class="btn btn-primary btn-sm w-full"
+                  hx-post="{{host}}/repos/{{$.ID}}/launch-workspace"
+                  hx-target="body"
+                  hx-swap="outerHTML">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Open in Workspace
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{{else}}
+<div class="text-center py-16">
+  <h2 class="text-2xl font-bold mb-4 text-error">File Not Found</h2>
+  <p class="text-base-content/70 mb-6">The file you're looking for doesn't exist.</p>
+  <a href="{{host}}/repos/{{$.ID}}/files" class="btn btn-primary">Back to Repository</a>
+</div>
+{{end}}
+{{else}}
+<div class="text-center py-16">
+  <h2 class="text-2xl font-bold mb-4 text-error">Repository Not Found</h2>
+  <p class="text-base-content/70 mb-6">The repository you're looking for doesn't exist or you don't have access to it.</p>
+  <a href="{{host}}/repos" class="btn btn-primary">Back to Repositories</a>
+</div>
+{{end}}
+
+<!-- Syntax Highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+
+{{template "layout/end"}}

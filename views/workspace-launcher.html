@@ -7,31 +7,33 @@
   </ul>
 </div>
 
-<div class="flex items-center justify-between mb-8">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-8">
   <div>
-    <h1 class="text-3xl font-bold">Code Workspace</h1>
+    <h1 class="text-2xl sm:text-3xl font-bold">Code Workspace</h1>
     <p class="text-base-content/70">Containerized VS Code environment</p>
   </div>
 
   <div class="flex items-center space-x-2">
     {{if eq .Status "running"}}
-    <div class="badge badge-success">Running</div>
-    <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="badge badge-success badge-sm sm:badge-md">Running</div>
+    <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm sm:btn-md">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
       </svg>
-      Open Workspace
+      <span class="hidden sm:inline">Open Workspace</span>
+      <span class="sm:hidden">Open</span>
     </a>
     {{else}}
-    <div class="badge badge-warning">Stopped</div>
-    <button class="btn btn-primary"
+    <div class="badge badge-warning badge-sm sm:badge-md">Stopped</div>
+    <button class="btn btn-primary btn-sm sm:btn-md"
             hx-post="{{host}}/workspace/{{.ID}}/start"
             hx-target="#workspace-status"
             hx-swap="outerHTML">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h8m-9-4V8a2 2 0 012-2h8a2 2 0 012 2v2M7 16h10l1 2H6l1-2z" />
       </svg>
-      Start Workspace
+      <span class="hidden sm:inline">Start Workspace</span>
+      <span class="sm:hidden">Start</span>
     </button>
     {{end}}
   </div>

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 	"workspace/models"
+	"workspace/internal/coding"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/coding"
 )
 
 // Public is a factory function with the prefix and instance

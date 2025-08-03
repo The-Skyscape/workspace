@@ -1,127 +1,206 @@
-## Claude Workspace Generation Prompt (Skyscape)
+# Skyscape Workspace
 
-You are generating the initial implementation for the **Skyscape workspace**, a secure, AI-powered developer environment built using the MVC pattern provided by `devtools`. The application uses HTMX with HATEOAS, daisyUI for UI components, and Go.
+A GitHub-like developer workspace platform built with TheSkyscape DevTools, featuring AI-powered development tools, containerized workspaces, and comprehensive project management.
 
-The backend will manage all server-side state, and the frontend will use **HTMX** to interact with server-rendered views only — no API endpoints are needed, only server-side callbacks that render, redirect, or refresh pages. All permissions and view logic are defined in controllers, which have access to the current `User`, as well as the `GitRepo` and `Workspace` models.
+## ✨ Features
+
+### 🏠 **Public Developer Portfolio**
+- Professional homepage with developer profile and bio
+- Public repository showcase with visibility controls
+- Community issue submission for open source projects
+- Mobile-responsive design across all devices
+
+### 🔐 **Authenticated Developer Environment**
+- Private repository management with Git integration
+- One-click containerized VS Code workspaces
+- Complete issue and pull request lifecycle management
+- Advanced code search with context highlighting
+- README rendering with markdown support
+- Permission-based access control system
+
+### 🎯 **Project Management**
+- **Issues**: Full CRUD operations with status management
+- **Pull Requests**: Create, merge, close with branch selection
+- **Actions**: AI-powered automation and workflow management
+- **File Browser**: Syntax highlighting and file type detection
+- **Search**: Regex-based code search across repository files
+
+### 🚀 **Development Tools**
+- **Workspaces**: Docker-based VS Code environments
+- **Git Integration**: Commit history and branch management
+- **File Management**: Browse, view, and edit repository files
+- **Mobile Support**: Responsive design for development on any device
+
+## 🛠 Technology Stack
+
+- **Backend**: Go with TheSkyscape DevTools MVC framework
+- **Frontend**: HTMX + DaisyUI + TailwindCSS
+- **Database**: SQLite3 with automatic migrations
+- **Authentication**: JWT-based with bcrypt password hashing
+- **Containerization**: Docker for isolated development environments
+- **UI Framework**: DaisyUI components with mobile-first design
+
+## 📱 Architecture
+
+### MVC Pattern
+- **Models**: Database entities with Table() methods and global repositories
+- **Views**: HTML templates with HTMX integration and DaisyUI styling
+- **Controllers**: HTTP handlers with factory functions and Setup/Handle methods
+- **Internal Packages**: Self-contained modules for Git and workspace management
+
+### Key Components
+- **Repository Management**: Self-contained Git integration with file browsing and version control
+- **Workspace Orchestration**: Docker container lifecycle management
+- **Permission System**: Role-based access control (read/write/admin)
+- **Activity Logging**: Comprehensive audit trail for all user actions
+- **Search Engine**: File content indexing with context-aware results
+- **Internal Coding Package**: Dedicated Git repository and workspace management (moved from devtools)
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Go 1.21+
+- Docker
+- Git
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd workspace
+   ```
+
+2. **Set environment variables**
+   ```bash
+   export AUTH_SECRET="your-super-secret-jwt-key"
+   export PORT=8080  # Optional, defaults to 5000
+   ```
+
+3. **Run the application**
+   ```bash
+   go run .
+   ```
+
+4. **Visit the application**
+   ```
+   http://localhost:8080
+   ```
+
+### Development Commands
+
+```bash
+# Run with hot reload
+go run .
+
+# Build for production
+go build -o workspace
+
+# Run tests
+go test ./...
+
+# Update dependencies
+go mod tidy
+```
+
+## 📋 Environment Variables
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `AUTH_SECRET` | JWT signing secret | - | ✅ |
+| `PORT` | Application server port | `5000` | ❌ |
+| `THEME` | DaisyUI theme | `corporate` | ❌ |
+| `CONGO_SSL_FULLCHAIN` | SSL certificate path | `/root/fullchain.pem` | ❌ |
+| `CONGO_SSL_PRIVKEY` | SSL private key path | `/root/privkey.pem` | ❌ |
+
+## 🎨 User Interface
+
+### Desktop Experience
+- Clean, GitHub-like interface with comprehensive navigation
+- Advanced file browser with syntax highlighting
+- Responsive grid layouts and professional typography
+- Modal-based workflows for creating issues and pull requests
+
+### Mobile Experience
+- Collapsible hamburger navigation menu
+- Touch-optimized buttons and form controls
+- Responsive tables with hidden columns on small screens
+- Mobile-first design patterns throughout
+
+## 🔒 Security Features
+
+- **Authentication**: Secure JWT-based sessions with httpOnly cookies
+- **Authorization**: Role-based permissions (read/write/admin) for repositories
+- **Password Security**: bcrypt hashing with secure defaults
+- **Path Traversal Protection**: Validated file access within repository boundaries
+- **Input Validation**: Comprehensive server-side validation for all forms
+
+## 🏗 Development Patterns
+
+### Controller Factory Pattern
+```go
+func Repos() (string, *ReposController) {
+    return "repos", &ReposController{}
+}
+```
+
+### Template Integration
+- Controllers accessible as `{{controllerName.Method}}` in templates
+- Built-in helpers: `{{theme}}`, `{{host}}`, `{{auth.CurrentUser}}`
+- HTMX integration with `c.Refresh(w, r)` for dynamic updates
+
+### Permission Checking
+```go
+err := models.CheckRepoAccess(user, repoID, models.RoleWrite)
+if err != nil {
+    return errors.New("insufficient permissions")
+}
+```
+
+## 🔧 Deployment
+
+### Using TheSkyscape launch-app
+```bash
+go build -o workspace
+export DIGITAL_OCEAN_API_KEY="your-token"
+# Note: launch-app tool is from the parent devtools repository
+../launch-app --name workspace --domain workspace.example.com --binary ./workspace
+```
+
+### Docker Deployment
+```bash
+docker build -t skyscape-workspace .
+docker run -p 8080:8080 -e AUTH_SECRET="your-secret" skyscape-workspace
+```
+
+## 📖 API Reference
+
+The application uses HTMX for dynamic updates rather than traditional REST APIs. All interactions are handled through server-rendered templates with HTMX attributes:
+
+- `hx-get` - Dynamic content loading
+- `hx-post` - Form submissions
+- `hx-swap` - Content replacement strategies
+- `hx-target` - Element targeting for updates
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is built using TheSkyscape DevTools and follows its licensing terms.
+
+## 🙏 Acknowledgments
+
+- Built with [TheSkyscape DevTools](https://github.com/The-Skyscape/devtools)
+- UI components by [DaisyUI](https://daisyui.com/)
+- Dynamic interactions powered by [HTMX](https://htmx.org/)
+- Icons by [Heroicons](https://heroicons.com/)
 
 ---
 
-### 🧭 Site Map & Feature Overview
-
-#### 1. Homepage (`/`)
-
-* If not logged in → show CTA, login/register buttons
-* If authenticated → redirect to `/dashboard`
-* Use daisyUI `hero`, `btn`, `card`, and brand logo
-
-#### 2. Dashboard (`/dashboard`)
-
-* Shows list of owned and shared repositories (via `Permission`)
-* Buttons:
-
-  * “Create Repository” (opens modal)
-  * “Ask Claude Something” (AI assistant)
-* Sidebar:
-
-  * User avatar
-  * Link to `/settings`
-  * Button: “Launch Workspace” → runs Docker
-
-#### 3. Repository View (`/repos/:id`)
-
-* Tabs: `tabs`, `tab-active`, HTMX-loaded:
-
-  * Code View: Read-only Git tree using `GitRepo`
-  * Issues: list + create/edit modal
-  * Pull Requests: list + open new PR
-  * Actions: log of AI interactions
-* Buttons:
-
-  * “Launch Workspace”
-  * “Generate PR with AI”
-  * “Ask Claude a Question”
-
-#### 4. Pull Request Create/Edit (`/repos/:id/prs/new`)
-
-* Form:
-
-  * Title
-  * Description
-  * Branch selectors (use `GitRepo`)
-* Claude Assist: suggest description, auto-open PR from change
-* Status: draft / open / merged / closed
-
-#### 5. Issue Tracker (`/repos/:id/issues`)
-
-* List in cards (`card`, `badge`, `avatar`)
-* Filters: status, tags (use `dropdown` or `tabs`)
-* Modal: Create/Edit issue
-* Mention system (`@user`) optional for future
-
-#### 6. Actions Log (`/repos/:id/actions`)
-
-* Table of:
-
-  * Claude PR generations
-  * Claude Q\&A
-  * Summarizations
-* Rerun or clone previous actions
-
-#### 7. Workspace Launcher (`/workspace/:repoID`)
-
-* Controller starts a code-server Docker container via `Workspace` model
-* Show status:
-
-  * Provisioning
-  * Running (redirect to workspace)
-  * Failed (with retry)
-* Button: “Shutdown Workspace”
-
-#### 8. Auth Pages (`/login`, `/register`, `/logout`)
-
-* Forms styled with `input`, `label`, `btn`, `form-control`
-* Flash error messages on invalid login
-* Redirect to `/dashboard` after success
-
-#### 9. User Settings (`/settings`)
-
-* Edit email, password
-* Toggle Claude assistant
-* Default docker image for new workspaces
-
----
-
-### ✨ UI Guidelines (daisyUI)
-
-Use daisyUI classes throughout:
-
-* Buttons: `btn`, `btn-primary`, `btn-outline`
-* Forms: `input`, `label`, `form-control`, `modal`
-* Layouts: `card`, `tabs`, `navbar`, `drawer`
-* Colors: soft pastel, match Skyscape brand (dreamy/cloudy)
-
----
-
-### 🔄 Controller + HTMX Behavior
-
-* Controllers define:
-
-  * Callback permissions
-  * Rendered templates (`views/`)
-  * `hx-get`, `hx-post`, `hx-swap`, `hx-target` logic
-* Views use partials and fragments to swap components
-* HATEOAS: No APIs — only navigable actions from links and buttons
-
----
-
-### ✅ Deliverables
-
-* Implement all models in `models/`
-* Create views using `views/` templates and daisyUI
-* Write controllers with logic for:
-
-  * Access control
-  * Git interactions (via `GitRepo`)
-  * Workspace lifecycle (via `Workspace`)
-  * AI assistant actions (via `Action`)
-* Ensure all flows work cleanly with HTMX over server-rendered pages
+**Skyscape Workspace** - Where cloud development meets developer productivity ☁️✨

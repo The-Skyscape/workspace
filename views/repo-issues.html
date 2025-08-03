@@ -83,7 +83,7 @@
 
 <div class="flex items-center justify-between mb-6">
   <h2 class="text-2xl font-bold">Issues</h2>
-  <button class="btn btn-primary">
+  <button class="btn btn-primary" onclick="create_issue_modal.showModal()">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
     </svg>
@@ -91,14 +91,127 @@
   </button>
 </div>
 
+<!-- Issues List -->
+{{with repos.RepoIssues}}
+{{if .}}
+<div class="space-y-4">
+  {{range .}}
+  <div class="card bg-base-100 shadow hover:shadow-lg transition-shadow">
+    <div class="card-body">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center space-x-3 mb-2">
+            <h3 class="font-semibold text-lg">{{.Title}}</h3>
+            {{if eq .Status "open"}}
+            <div class="badge badge-success">Open</div>
+            {{else}}
+            <div class="badge badge-neutral">Closed</div>
+            {{end}}
+          </div>
+          {{if .Body}}
+          <p class="text-base-content/70 mb-3">{{.Body}}</p>
+          {{end}}
+          <div class="flex items-center space-x-4 text-sm text-base-content/50">
+            <div class="flex items-center space-x-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
+            </div>
+            {{if .Tags}}
+            <div class="badge badge-outline badge-sm">{{.Tags}}</div>
+            {{end}}
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          {{if eq .Status "open"}}
+          <button class="btn btn-outline btn-sm"
+                  hx-post="{{host}}/repos/{{$.ID}}/issues/{{.ID}}/close"
+                  hx-target="body"
+                  hx-swap="outerHTML">
+            Close
+          </button>
+          {{else}}
+          <button class="btn btn-outline btn-sm"
+                  hx-post="{{host}}/repos/{{$.ID}}/issues/{{.ID}}/reopen"
+                  hx-target="body"
+                  hx-swap="outerHTML">
+            Reopen
+          </button>
+          {{end}}
+          <div class="dropdown dropdown-end">
+            <button class="btn btn-ghost btn-sm" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li><a>Edit Issue</a></li>
+              <li><a>Add Comment</a></li>
+              <li class="menu-title">Danger Zone</li>
+              <li><a class="text-error">Delete Issue</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{else}}
+<!-- No Issues -->
 <div class="text-center py-16">
   <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-6 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
   </svg>
   <h2 class="text-2xl font-bold mb-4">No issues yet</h2>
   <p class="text-base-content/70 mb-6">Create your first issue to start tracking work</p>
-  <button class="btn btn-primary btn-lg">Create Issue</button>
+  <button class="btn btn-primary btn-lg" onclick="create_issue_modal.showModal()">Create First Issue</button>
 </div>
+{{end}}
+{{end}}
+
+<!-- Create Issue Modal -->
+<dialog id="create_issue_modal" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Create New Issue</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/issues/create" hx-target="body" hx-swap="outerHTML">
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Title <span class="text-error">*</span></span>
+          </label>
+          <input type="text" name="title" placeholder="Brief description of the issue" class="input input-bordered" required>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Description</span>
+          </label>
+          <textarea name="body" class="textarea textarea-bordered h-32" placeholder="Provide more details about the issue, steps to reproduce, expected behavior, etc."></textarea>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Labels</span>
+          </label>
+          <input type="text" name="tags" placeholder="bug, enhancement, question" class="input input-bordered">
+          <label class="label">
+            <span class="label-text-alt">Comma-separated tags</span>
+          </label>
+        </div>
+
+        <div class="modal-action">
+          <button type="submit" class="btn btn-primary">Create Issue</button>
+          <button type="button" class="btn" onclick="create_issue_modal.close()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
 {{else}}
 <div class="text-center py-16">
   <h2 class="text-2xl font-bold mb-4 text-error">Repository Not Found</h2>

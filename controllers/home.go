@@ -3,10 +3,10 @@ package controllers
 import (
 	"net/http"
 	"workspace/models"
+	"workspace/internal/coding"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
-	"github.com/The-Skyscape/devtools/pkg/coding"
 )
 
 // Home is a factory function with the prefix and instance

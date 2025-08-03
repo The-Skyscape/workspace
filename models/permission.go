@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"net/http"
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 )
@@ -158,4 +159,30 @@ func CheckRepoAccess(user *authentication.User, repoID, requiredRole string) err
 	}
 
 	return nil
+}
+
+// RequireRepoAccess creates a middleware that combines authentication with repository permission checking
+// Built on top of auth.Required for consistent authentication + authorization
+func RequireRepoAccess(auth *authentication.Controller, requiredRole string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get authenticated user  
+		user, _, err := auth.Authenticate(r)
+		if err != nil {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract repository ID from path
+		repoID := r.PathValue("id")
+		if repoID == "" {
+			http.Error(w, "Repository ID required", http.StatusBadRequest)
+			return
+		}
+
+		// Check repository permissions
+		if err := CheckRepoAccess(user, repoID, requiredRole); err != nil {
+			http.Error(w, "Access denied: "+err.Error(), http.StatusForbidden)
+			return
+		}
+	}
 }
