@@ -1,0 +1,222 @@
+{{template "layout/start"}}
+
+<!-- Header -->
+<div class="flex justify-between items-center mb-8">
+  <div>
+    <h1 class="text-3xl font-bold">Dashboard</h1>
+    <p class="text-base-content/70">Welcome back, {{auth.CurrentUser.Name}}!</p>
+  </div>
+  <div class="space-x-2">
+    <button class="btn btn-primary" onclick="create_repo_modal.showModal()">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Create Repository
+    </button>
+    <button class="btn btn-outline">
+      <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      Ask Claude
+    </button>
+  </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+  <div class="stat bg-base-100 shadow rounded-box">
+    <div class="stat-figure text-primary">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+      </svg>
+    </div>
+    <div class="stat-title">Repositories</div>
+    <div class="stat-value">{{len (home.UserRepos)}}</div>
+    <div class="stat-desc">Active projects</div>
+  </div>
+
+  <div class="stat bg-base-100 shadow rounded-box">
+    <div class="stat-figure text-secondary">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+      </svg>
+    </div>
+    <div class="stat-title">Workspaces</div>
+    <div class="stat-value">{{len (home.UserWorkspaces)}}</div>
+    <div class="stat-desc">Running environments</div>
+  </div>
+
+  <div class="stat bg-base-100 shadow rounded-box">
+    <div class="stat-figure text-accent">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+    </div>
+    <div class="stat-title">Recent Activity</div>
+    <div class="stat-value">24h</div>
+    <div class="stat-desc">Last commit</div>
+  </div>
+
+  <div class="stat bg-base-100 shadow rounded-box">
+    <div class="stat-figure text-warning">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+      </svg>
+    </div>
+    <div class="stat-title">AI Actions</div>
+    <div class="stat-value">12</div>
+    <div class="stat-desc">This week</div>
+  </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  
+  <!-- Repositories -->
+  <div class="lg:col-span-2">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+          </svg>
+          My Repositories
+        </h2>
+        
+        <div class="space-y-3">
+          {{range home.UserRepos}}
+          <div class="flex items-center justify-between p-4 border border-base-300 rounded-lg hover:bg-base-50">
+            <div class="flex items-center space-x-3">
+              <div class="avatar placeholder">
+                <div class="bg-neutral-focus text-neutral-content rounded-full w-10">
+                  <span class="text-xs">{{printf "%.2s" .Name}}</span>
+                </div>
+              </div>
+              <div>
+                <div class="font-semibold">{{.Name}}</div>
+                <div class="text-sm text-base-content/70">{{.Visibility}} repository</div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <div class="badge badge-outline">{{.Visibility}}</div>
+              <div class="dropdown dropdown-end">
+                <button class="btn btn-ghost btn-sm" tabindex="0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                  </svg>
+                </button>
+                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                  <li><a href="/repos/{{.ID}}">View Repository</a></li>
+                  <li><a hx-post="/repos/{{.ID}}/launch-workspace">Launch Workspace</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          {{else}}
+          <div class="text-center py-12 text-base-content/50">
+            <svg class="w-16 h-16 mx-auto mb-4 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+            <p class="text-lg font-medium">No repositories yet</p>
+            <p>Create your first repository to get started</p>
+            <button class="btn btn-primary mt-4" onclick="create_repo_modal.showModal()">Create Repository</button>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    
+    <!-- Quick Actions -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Quick Actions</h3>
+        <div class="space-y-2">
+          <button class="btn btn-outline btn-sm w-full justify-start" onclick="create_repo_modal.showModal()">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            New Repository
+          </button>
+          <button class="btn btn-outline btn-sm w-full justify-start">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            Launch Workspace
+          </button>
+          <button class="btn btn-outline btn-sm w-full justify-start">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Ask Claude
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Running Workspaces -->
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Active Workspaces</h3>
+        <div class="space-y-2">
+          {{range home.UserWorkspaces}}
+          {{if eq .Status "running"}}
+          <div class="flex items-center justify-between p-3 bg-success/10 rounded-lg">
+            <div>
+              <div class="font-medium">{{.Name}}</div>
+              <div class="text-sm text-success">Running on port {{.Port}}</div>
+            </div>
+            <a href="/workspace/{{.ID}}" class="btn btn-success btn-xs">Connect</a>
+          </div>
+          {{end}}
+          {{else}}
+          <div class="text-center py-6 text-base-content/50">
+            <p>No active workspaces</p>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Create Repository Modal -->
+<dialog id="create_repo_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Create New Repository</h3>
+    <form hx-post="/repos/create" hx-target="body" hx-swap="outerHTML">
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Repository Name</span>
+          </label>
+          <input type="text" name="name" placeholder="my-awesome-project" class="input input-bordered" required>
+        </div>
+        
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Visibility</span>
+          </label>
+          <select name="visibility" class="select select-bordered">
+            <option value="private">Private</option>
+            <option value="public">Public</option>
+          </select>
+        </div>
+        
+        <div class="modal-action">
+          <button type="submit" class="btn btn-primary">Create Repository</button>
+          <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+{{template "layout/end"}}

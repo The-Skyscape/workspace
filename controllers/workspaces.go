@@ -1,0 +1,137 @@
+package controllers
+
+import (
+	"errors"
+	"net/http"
+	"workspace/models"
+
+	"github.com/The-Skyscape/devtools/pkg/application"
+	"github.com/The-Skyscape/devtools/pkg/authentication"
+	"github.com/The-Skyscape/devtools/pkg/coding"
+)
+
+// Workspaces is a factory function with the prefix and instance
+func Workspaces() (string, *WorkspacesController) {
+	return "workspaces", &WorkspacesController{}
+}
+
+// WorkspacesController handles workspace lifecycle management
+type WorkspacesController struct {
+	application.BaseController
+}
+
+// Setup is called when the application is started
+func (c *WorkspacesController) Setup(app *application.App) {
+	c.BaseController.Setup(app)
+
+	auth := app.Use("auth").(*authentication.Controller)
+	http.Handle("GET /workspace/{id}", app.Serve("workspace-launcher.html", auth.Required))
+	http.Handle("POST /workspace/{id}/start", app.ProtectFunc(c.startWorkspace, auth.Required))
+	http.Handle("POST /workspace/{id}/stop", app.ProtectFunc(c.stopWorkspace, auth.Required))
+	http.Handle("DELETE /workspace/{id}", app.ProtectFunc(c.deleteWorkspace, auth.Required))
+}
+
+// Handle is called when each request is handled
+func (c *WorkspacesController) Handle(req *http.Request) application.Controller {
+	c.Request = req
+	return c
+}
+
+// CurrentWorkspace returns the workspace from the URL path
+func (c *WorkspacesController) CurrentWorkspace() (*coding.Workspace, error) {
+	id := c.Request.PathValue("id")
+	if id == "" {
+		return nil, errors.New("workspace ID not found")
+	}
+	
+	// For now, we'll get the workspace by user ID since that's what the coding package supports
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, errors.New("unauthorized")
+	}
+
+	return models.Coding.GetWorkspace(user.ID)
+}
+
+// getCurrentWorkspaceFromRequest returns the workspace from a specific request
+func (c *WorkspacesController) getCurrentWorkspaceFromRequest(r *http.Request) (*coding.Workspace, error) {
+	id := r.PathValue("id")
+	if id == "" {
+		return nil, errors.New("workspace ID not found")
+	}
+	
+	// For now, we'll get the workspace by user ID since that's what the coding package supports
+	auth := c.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		return nil, errors.New("unauthorized")
+	}
+
+	return models.Coding.GetWorkspace(user.ID)
+}
+
+// WorkspaceRepo returns the repository associated with the current workspace
+func (c *WorkspacesController) WorkspaceRepo() (*coding.GitRepo, error) {
+	workspace, err := c.CurrentWorkspace()
+	if err != nil {
+		return nil, err
+	}
+
+	return workspace.Repo()
+}
+
+// startWorkspace handles starting a workspace container
+func (c *WorkspacesController) startWorkspace(w http.ResponseWriter, r *http.Request) {
+	workspace, err := c.getCurrentWorkspaceFromRequest(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
+
+	auth := c.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("unauthorized"))
+		return
+	}
+
+	// Start the workspace using the coding package
+	go func() {
+		if err := workspace.Start(user); err != nil {
+			// TODO: Handle error better
+			return
+		}
+	}()
+
+	c.Refresh(w, r)
+}
+
+// stopWorkspace handles stopping a workspace container
+func (c *WorkspacesController) stopWorkspace(w http.ResponseWriter, r *http.Request) {
+	_, err := c.getCurrentWorkspaceFromRequest(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
+
+	// TODO: Implement workspace stop functionality
+	// workspace.Stop()
+
+	c.Refresh(w, r)
+}
+
+// deleteWorkspace handles deleting a workspace
+func (c *WorkspacesController) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
+	_, err := c.getCurrentWorkspaceFromRequest(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
+
+	// TODO: Implement workspace deletion
+	// Stop and delete the workspace
+
+	// Redirect to dashboard
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}

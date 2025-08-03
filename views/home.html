@@ -1,0 +1,68 @@
+{{template "layout/start"}}
+<div class="hero min-h-96 bg-gradient-to-br from-primary/10 to-secondary/10">
+  <div class="hero-content text-center">
+    <div class="max-w-2xl">
+      <h1 class="text-6xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+        {{home.AppName}}
+      </h1>
+      <p class="py-6 text-xl">{{home.AppDescription}}</p>
+
+      {{if not auth.CurrentUser}}
+      <div class="space-x-4">
+        <a href="{{auth.SigninURL}}" class="btn btn-primary btn-lg">Get Started</a>
+        <a href="{{auth.SignupURL}}" class="btn btn-outline btn-lg">Sign Up</a>
+      </div>
+      {{else}}
+      <div class="space-y-4">
+        <div class="text-xl">Welcome back, {{auth.CurrentUser.Name}}! 👋</div>
+        <a href="/dashboard" class="btn btn-primary btn-lg">Go to Dashboard</a>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+  <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card-body text-center">
+      <div class="text-4xl mb-4">🐙</div>
+      <h2 class="card-title justify-center">Git Repositories</h2>
+      <p>Manage your code repositories with full Git integration and access control.</p>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card-body text-center">
+      <div class="text-4xl mb-4">🖥️</div>
+      <h2 class="card-title justify-center">Code Workspaces</h2>
+      <p>Launch containerized VS Code environments with your repositories ready to go.</p>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card-body text-center">
+      <div class="text-4xl mb-4">🤖</div>
+      <h2 class="card-title justify-center">AI Assistant</h2>
+      <p>Get help with code reviews, pull requests, and repository management.</p>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+  <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card-body text-center">
+      <div class="text-4xl mb-4">🔧</div>
+      <h2 class="card-title justify-center">Issue Tracking</h2>
+      <p>Track bugs, features, and tasks with a built-in issue management system.</p>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+    <div class="card-body text-center">
+      <div class="text-4xl mb-4">🔀</div>
+      <h2 class="card-title justify-center">Pull Requests</h2>
+      <p>Collaborate on code changes with pull request reviews and merging.</p>
+    </div>
+  </div>
+</div>
+{{template "layout/end"}}

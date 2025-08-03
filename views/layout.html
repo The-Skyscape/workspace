@@ -1,0 +1,57 @@
+{{define "layout/start"}}
+<!DOCTYPE html>
+<html lang="en" data-theme="{{theme}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyscape Workspace</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+</head>
+<body>
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="navbar-start">
+            <a class="btn btn-ghost text-xl" href="{{host}}/">Skyscape Workspace</a>
+            {{if auth.CurrentUser}}
+            <div class="hidden lg:flex navbar-center">
+                <ul class="menu menu-horizontal px-1">
+                    <li><a href="{{host}}/dashboard">Dashboard</a></li>
+                    <li><a href="{{host}}/repos">Repositories</a></li>
+                </ul>
+            </div>
+            {{end}}
+        </div>
+        <div class="navbar-end">
+            {{if auth.CurrentUser}}
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+                        <div class="w-10 rounded-full">
+                            <img src="{{auth.CurrentUser.Avatar}}" alt="{{auth.CurrentUser.Name}}" />
+                        </div>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+                        <li><span class="text-sm opacity-70">{{auth.CurrentUser.Name}}</span></li>
+                        <li><a href="{{host}}/auth/signout">Sign Out</a></li>
+                    </ul>
+                </div>
+            {{else}}
+                <a href="{{host}}/auth/signin" class="btn btn-primary">Sign In</a>
+            {{end}}
+        </div>
+    </div>
+
+    <main class="container mx-auto p-4">
+{{end}}
+
+{{define "layout/end"}}
+    </main>
+
+    <footer class="footer footer-center p-4 bg-base-300 text-base-content mt-auto">
+        <div>
+            <p>Built with <a href="https://github.com/The-Skyscape/devtools" class="link">TheSkyscape DevTools</a></p>
+        </div>
+    </footer>
+</body>
+</html>
+{{end}}
