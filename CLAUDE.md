@@ -4,7 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-This is a **workspace** application built with TheSkyscape DevTools - a Go-based web application framework with built-in authentication, database management, and HTMX-powered UI.
+This is a **workspace** application built with TheSkyscape DevTools - a developer-focused platform featuring a public portfolio homepage, AI-powered development tools, and containerized workspaces. The application serves both as a personal developer portfolio and a full-featured development environment.
+
+## Key Features
+
+### Public Developer Portfolio
+- **Homepage**: Professional developer profile with avatar, bio, and contact links
+- **Public Repositories**: Showcase of open source projects with visibility controls
+- **Public Issue Submission**: Allow community contributions via issue reporting
+- **Repository Browsing**: Public access to view repository information and clone URLs
+
+### Authenticated Developer Environment  
+- **Private Repositories**: Full Git repository management with permissions
+- **AI Assistant**: Claude integration for code assistance and repository analysis
+- **Containerized Workspaces**: One-click VS Code environments with Docker
+- **Issue & PR Management**: Complete project management tools
 
 ## Architecture
 

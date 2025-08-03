@@ -10,7 +10,7 @@
 
 <div class="flex items-center justify-between mb-8">
   <div class="flex items-center space-x-4">
-    <div class="avatar placeholder">
+    <div class="avatar avatar-placeholder">
       <div class="bg-primary text-primary-content rounded w-16 h-16">
         <span class="text-xl">{{printf "%.2s" .Name}}</span>
       </div>
@@ -33,12 +33,12 @@
       </div>
     </div>
   </div>
-  
+
   <div class="flex items-center space-x-2">
     <div class="badge badge-primary">Claude-powered</div>
-    <button class="btn btn-primary" 
-            hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-            hx-target="body" 
+    <button class="btn btn-primary"
+            hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+            hx-target="body"
             hx-swap="outerHTML">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -83,7 +83,7 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-  
+
   <!-- Main Chat Interface -->
   <div class="lg:col-span-2">
     <div class="card bg-base-100 shadow-xl">
@@ -94,7 +94,7 @@
           </svg>
           Ask Claude about {{.Name}}
         </h2>
-        
+
         <!-- Repository Context Alert -->
         <div class="alert alert-info mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
@@ -105,7 +105,7 @@
             <div class="text-xs">Claude has access to information about the <strong>{{.Name}}</strong> repository</div>
           </div>
         </div>
-        
+
         <!-- Chat Messages Container -->
         <div id="chat-messages" class="space-y-4 mb-6 max-h-96 overflow-y-auto">
           <div class="chat chat-start">
@@ -125,17 +125,17 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Question Form -->
-        <form hx-post="{{host}}/repos/{{.ID}}/assistant/ask" 
-              hx-target="#chat-messages" 
+        <form hx-post="{{host}}/repos/{{.ID}}/assistant/ask"
+              hx-target="#chat-messages"
               hx-swap="beforeend"
               hx-on="htmx:afterRequest: if(event.detail.successful) this.reset()">
           <div class="join w-full">
-            <input type="text" 
-                   name="question" 
-                   placeholder="Ask me about {{.Name}}..." 
-                   class="input input-bordered join-item flex-1" 
+            <input type="text"
+                   name="question"
+                   placeholder="Ask me about {{.Name}}..."
+                   class="input input-bordered join-item flex-1"
                    required>
             <button type="submit" class="btn btn-primary join-item">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -151,13 +151,13 @@
 
   <!-- Sidebar -->
   <div class="space-y-6">
-    
+
     <!-- Repository-Specific Quick Actions -->
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <h3 class="card-title text-lg">Quick Actions for {{.Name}}</h3>
         <div class="space-y-2">
-          <button class="btn btn-outline btn-sm w-full justify-start" 
+          <button class="btn btn-outline btn-sm w-full justify-start"
                   onclick="document.querySelector('input[name=question]').value='Can you review this repository and suggest improvements?'; document.querySelector('form').requestSubmit();">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -228,11 +228,11 @@
             <div class="text-xs text-base-content/70">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</div>
             <div class="flex items-center space-x-1 mt-1">
               {{if eq .Status "completed"}}
-                <div class="badge badge-success badge-xs">Completed</div>
+              <div class="badge badge-success badge-xs">Completed</div>
               {{else if eq .Status "active"}}
-                <div class="badge badge-warning badge-xs">Active</div>
+              <div class="badge badge-warning badge-xs">Active</div>
               {{else}}
-                <div class="badge badge-error badge-xs">Failed</div>
+              <div class="badge badge-error badge-xs">Failed</div>
               {{end}}
               <div class="badge badge-outline badge-xs">{{.Type}}</div>
             </div>
@@ -245,7 +245,7 @@
         </div>
       </div>
     </div>
-    
+
   </div>
 </div>
 {{else}}

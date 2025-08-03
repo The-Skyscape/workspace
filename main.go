@@ -22,6 +22,7 @@ func main() {
 		application.WithController(controllers.Repos()),
 		application.WithController(controllers.Workspaces()),
 		application.WithController(controllers.Assistant()),
+		application.WithController(controllers.Public()),
 		application.WithHostPrefix(cmp.Or(os.Getenv("PREFIX"), "")),
 		application.WithDaisyTheme(cmp.Or(os.Getenv("THEME"), "corporate")),
 	)

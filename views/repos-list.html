@@ -17,7 +17,7 @@
   <div class="card-body">
     <div class="flex items-center justify-between">
       <div class="flex items-center space-x-4">
-        <div class="avatar placeholder">
+        <div class="avatar avatar-placeholder">
           <div class="bg-primary text-primary-content rounded w-12 h-12">
             <span class="text-sm">{{printf "%.2s" .Name}}</span>
           </div>
@@ -42,7 +42,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="flex items-center space-x-2">
         <a href="{{host}}/repos/{{.ID}}" class="btn btn-ghost btn-sm" hx-boost="true">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,9 +51,9 @@
           </svg>
           View
         </a>
-        <button class="btn btn-primary btn-sm" 
-                hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-                hx-target="body" 
+        <button class="btn btn-primary btn-sm"
+                hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+                hx-target="body"
                 hx-swap="outerHTML">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -110,14 +110,14 @@
             <span class="label-text-alt">Use only letters, numbers, and hyphens</span>
           </label>
         </div>
-        
+
         <div class="form-control">
           <label class="label">
             <span class="label-text">Description</span>
           </label>
           <textarea name="description" placeholder="A brief description of your project" class="textarea textarea-bordered"></textarea>
         </div>
-        
+
         <div class="form-control">
           <label class="label">
             <span class="label-text">Visibility</span>
@@ -127,14 +127,14 @@
             <option value="public">Public - Anyone can see this repository</option>
           </select>
         </div>
-        
+
         <div class="form-control">
           <label class="cursor-pointer label">
             <span class="label-text">Initialize with README</span>
             <input type="checkbox" name="init_readme" checked="checked" class="checkbox">
           </label>
         </div>
-        
+
         <div class="modal-action">
           <button type="submit" class="btn btn-primary">Create Repository</button>
           <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>

@@ -9,7 +9,7 @@
 
 <div class="flex items-center justify-between mb-8">
   <div class="flex items-center space-x-4">
-    <div class="avatar placeholder">
+    <div class="avatar avatar-placeholder">
       <div class="bg-primary text-primary-content rounded w-16 h-16">
         <span class="text-xl">{{printf "%.2s" .Name}}</span>
       </div>
@@ -32,11 +32,11 @@
       </div>
     </div>
   </div>
-  
+
   <div class="flex items-center space-x-2">
-    <button class="btn btn-primary" 
-            hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-            hx-target="body" 
+    <button class="btn btn-primary"
+            hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+            hx-target="body"
             hx-swap="outerHTML">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -50,7 +50,7 @@
         </svg>
       </button>
       <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52" hx-boost="true">
-        <li><a href="{{host}}/repo/{{.Name}}.git">Clone URL</a></li>
+        <li><a href="{{host}}/repo/{{.ID}}.git">Clone URL</a></li>
         <li><a>Repository Settings</a></li>
         <li class="menu-title">Danger Zone</li>
         <li><a class="text-error">Delete Repository</a></li>
@@ -96,7 +96,7 @@
 
 <!-- Repository Content -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  
+
   <!-- Main Content -->
   <div class="lg:col-span-2">
     <div class="card bg-base-100 shadow-lg">
@@ -105,23 +105,23 @@
           <h2 class="card-title">Repository Files</h2>
           <div class="badge badge-outline">main</div>
         </div>
-        
+
         <!-- File Browser Placeholder -->
         <div class="mockup-code">
           <pre data-prefix="$"><code>git clone /git/{{.Name}}.git</code></pre>
           <pre data-prefix=">" class="text-warning"><code>Cloning into '{{.Name}}'...</code></pre>
           <pre data-prefix=">" class="text-success"><code>done.</code></pre>
         </div>
-        
+
         <div class="text-center py-8 text-base-content/50">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <h3 class="text-lg font-medium mb-2">Repository Browser</h3>
           <p class="mb-4">File browsing will be available when you launch a workspace</p>
-          <button class="btn btn-primary" 
-                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-                  hx-target="body" 
+          <button class="btn btn-primary"
+                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+                  hx-target="body"
                   hx-swap="outerHTML">
             Launch Workspace to Browse Files
           </button>
@@ -129,18 +129,18 @@
       </div>
     </div>
   </div>
-  
+
   <!-- Sidebar -->
   <div class="space-y-6">
-    
+
     <!-- Quick Actions -->
     <div class="card bg-base-100 shadow-lg">
       <div class="card-body">
         <h3 class="card-title text-lg">Quick Actions</h3>
         <div class="space-y-2">
-          <button class="btn btn-outline btn-sm w-full justify-start" 
-                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-                  hx-target="body" 
+          <button class="btn btn-outline btn-sm w-full justify-start"
+                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+                  hx-target="body"
                   hx-swap="outerHTML">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -162,7 +162,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Repository Info -->
     <div class="card bg-base-100 shadow-lg">
       <div class="card-body">
@@ -183,7 +183,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Clone Repository -->
     <div class="card bg-base-100 shadow-lg">
       <div class="card-body">
@@ -193,8 +193,8 @@
             <span class="label-text">HTTPS</span>
           </label>
           <div class="join">
-            <input type="text" value="{{req.URL.Scheme}}://{{req.URL.Host}}{{host}}/repo/{{.Name}}.git" class="input input-bordered join-item flex-1" readonly>
-            <button class="btn join-item" _="on click writeText('{{req.URL.Scheme}}://{{req.URL.Host}}{{host}}/repo/{{.Name}}.git') to navigator.clipboard">
+            <input type="text" value="git clone {{host}}/repo/{{.ID}}.git" class="input input-bordered join-item flex-1" readonly>
+            <button class="btn join-item" _="on click writeText('git clone {{host}}/repo/{{.ID}}.git') to navigator.clipboard">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
@@ -203,7 +203,7 @@
         </div>
       </div>
     </div>
-    
+
   </div>
 </div>
 {{else}}

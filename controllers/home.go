@@ -23,9 +23,7 @@ type HomeController struct {
 func (c *HomeController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
-	auth := app.Use("auth").(*authentication.Controller)
 	http.Handle("GET /{$}", app.Serve("home.html", nil))
-	http.Handle("GET /dashboard", app.Serve("dashboard.html", auth.Required))
 	http.Handle("GET /signin", app.Serve("signin.html", nil))
 	http.Handle("GET /signup", app.Serve("signup.html", nil))
 }
@@ -68,4 +66,44 @@ func (c *HomeController) UserWorkspaces() ([]*coding.Workspace, error) {
 
 	// Get workspaces for the user
 	return models.Coding.Workspaces()
+}
+
+// PublicRepos returns all public repositories for display on homepage
+func (c *HomeController) PublicRepos() ([]*coding.GitRepo, error) {
+	// Get all public repositories (no authentication required)
+	return models.Coding.SearchRepos("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
+}
+
+// DeveloperProfile returns developer information for the homepage
+func (c *HomeController) DeveloperProfile() map[string]interface{} {
+	// For now, return static developer information
+	// TODO: Make this configurable through a settings system
+	return map[string]interface{}{
+		"name":        "Developer",
+		"title":       "Full Stack Developer & AI Enthusiast",
+		"bio":         "Building innovative solutions with AI-powered tools and modern web technologies",
+		"avatar":      "/public/developer-avatar.jpg", // TODO: Add default avatar
+		"location":    "Remote",
+		"company":     "Independent",
+		"website":     "https://skyscape.dev",
+		"github":      "github.com/developer",
+		"twitter":     "@developer",
+	}
+}
+
+// PublicRepoStats returns statistics about public repositories
+func (c *HomeController) PublicRepoStats() (map[string]int, error) {
+	repos, err := c.PublicRepos()
+	if err != nil {
+		return nil, err
+	}
+
+	// Count repositories by language/type (simplified for now)
+	stats := map[string]int{
+		"total_repos":   len(repos),
+		"public_repos":  len(repos),
+		"private_repos": 0, // Don't show private repo count on public homepage
+	}
+
+	return stats, nil
 }

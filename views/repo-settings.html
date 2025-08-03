@@ -9,7 +9,7 @@
 
 <div class="flex items-center justify-between mb-8">
   <div class="flex items-center space-x-4">
-    <div class="avatar placeholder">
+    <div class="avatar avatar-placeholder">
       <div class="bg-primary text-primary-content rounded w-16 h-16">
         <span class="text-xl">{{printf "%.2s" .Name}}</span>
       </div>
@@ -33,11 +33,11 @@
       </div>
     </div>
   </div>
-  
+
   <div class="flex items-center space-x-2">
-    <button class="btn btn-primary" 
-            hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-            hx-target="body" 
+    <button class="btn btn-primary"
+            hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+            hx-target="body"
             hx-swap="outerHTML">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -83,10 +83,10 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-  
+
   <!-- Main Settings -->
   <div class="lg:col-span-2 space-y-8">
-    
+
     <!-- Repository Information -->
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
@@ -101,24 +101,24 @@
               <span class="label-text-alt">Repository names cannot be changed after creation</span>
             </label>
           </div>
-          
+
           <div class="form-control">
             <label class="label">
               <span class="label-text">Description</span>
             </label>
             <textarea class="textarea textarea-bordered" placeholder="Describe your repository">{{.Description}}</textarea>
           </div>
-          
+
           <div class="form-control">
             <label class="label">
               <span class="label-text">Visibility</span>
             </label>
             <select class="select select-bordered">
-              <option value="private" {{if eq .Visibility "private"}}selected{{end}}>Private - Only you and collaborators can see this repository</option>
-              <option value="public" {{if eq .Visibility "public"}}selected{{end}}>Public - Anyone can see this repository</option>
+              <option value="private" {{if eq .Visibility "private" }}selected{{end}}>Private - Only you and collaborators can see this repository</option>
+              <option value="public" {{if eq .Visibility "public" }}selected{{end}}>Public - Anyone can see this repository</option>
             </select>
           </div>
-          
+
           <div class="card-actions justify-end">
             <button type="submit" class="btn btn-primary">Update Repository</button>
           </div>
@@ -131,7 +131,7 @@
       <div class="card-body">
         <h2 class="card-title">Access Management</h2>
         <p class="text-base-content/70 mb-4">Manage who can access this repository and their permission levels.</p>
-        
+
         <!-- Add Collaborator -->
         <div class="bg-base-200 p-4 rounded-lg mb-6">
           <h3 class="font-semibold mb-3">Add Collaborator</h3>
@@ -147,7 +147,7 @@
             </div>
           </form>
         </div>
-        
+
         <!-- Current Permissions -->
         <div id="permissions-list">
           <h3 class="font-semibold mb-3">Current Access</h3>
@@ -155,7 +155,7 @@
             <!-- Repository Owner -->
             <div class="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
               <div class="flex items-center space-x-3">
-                <div class="avatar placeholder">
+                <div class="avatar avatar-placeholder">
                   <div class="w-8 h-8 rounded-full bg-primary text-primary-content">
                     <span class="text-xs">{{printf "%.2s" auth.CurrentUser.Name}}</span>
                   </div>
@@ -170,12 +170,12 @@
                 <span class="text-sm text-base-content/70">Full access</span>
               </div>
             </div>
-            
+
             <!-- Explicit Permissions -->
             {{range repos.RepoPermissions}}
             <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
               <div class="flex items-center space-x-3">
-                <div class="avatar placeholder">
+                <div class="avatar avatar-placeholder">
                   <div class="w-8 h-8 rounded-full bg-neutral text-neutral-content">
                     <span class="text-xs">U</span>
                   </div>
@@ -187,7 +187,7 @@
               </div>
               <div class="flex items-center space-x-2">
                 <div class="badge badge-outline">{{.Role}}</div>
-                <button class="btn btn-ghost btn-xs text-error" 
+                <button class="btn btn-ghost btn-xs text-error"
                         hx-delete="{{host}}/repos/{{$.ID}}/permissions/{{.UserID}}"
                         hx-target="closest .flex"
                         hx-swap="outerHTML"
@@ -205,12 +205,12 @@
         </div>
       </div>
     </div>
-    
+
   </div>
 
   <!-- Sidebar -->
   <div class="space-y-6">
-    
+
     <!-- Repository Stats -->
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
@@ -230,8 +230,8 @@
           </div>
           <div class="flex justify-between">
             <span class="text-base-content/70">Clone URL</span>
-            <button class="btn btn-ghost btn-xs" 
-                    _="on click writeText('{{req.URL.Scheme}}://{{req.URL.Host}}{{host}}/repo/{{.Name}}.git') to navigator.clipboard">
+            <button class="btn btn-ghost btn-xs"
+                    _="on click writeText('git clone {{host}}/repo/{{.ID}}.git') to navigator.clipboard">
               Copy
             </button>
           </div>
@@ -256,9 +256,9 @@
             </svg>
             Ask Claude
           </a>
-          <button class="btn btn-primary btn-sm w-full justify-start" 
-                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace" 
-                  hx-target="body" 
+          <button class="btn btn-primary btn-sm w-full justify-start"
+                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+                  hx-target="body"
                   hx-swap="outerHTML">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -274,7 +274,7 @@
       <div class="card-body">
         <h3 class="card-title text-lg text-error">Danger Zone</h3>
         <p class="text-sm text-base-content/70 mb-4">These actions cannot be undone</p>
-        <button class="btn btn-error btn-outline btn-sm w-full" 
+        <button class="btn btn-error btn-outline btn-sm w-full"
                 onclick="delete_repo_modal.showModal()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -283,7 +283,7 @@
         </button>
       </div>
     </div>
-    
+
   </div>
 </div>
 
@@ -301,12 +301,12 @@
           <div class="text-xs">This action cannot be undone. This will permanently delete the repository, all commits, issues, and workspace data.</div>
         </div>
       </div>
-      
+
       <p>Please type <strong>{{.Name}}</strong> to confirm:</p>
       <input type="text" id="confirm_delete" placeholder="Repository name" class="input input-bordered w-full">
-      
+
       <div class="modal-action">
-        <button type="button" class="btn btn-error" 
+        <button type="button" class="btn btn-error"
                 onclick="if(document.getElementById('confirm_delete').value === '{{.Name}}') { /* TODO: Implement delete */ alert('Delete functionality not yet implemented'); delete_repo_modal.close(); } else { alert('Repository name does not match'); }"
                 disabled>
           Delete Repository
