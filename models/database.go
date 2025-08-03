@@ -23,4 +23,5 @@ var (
 	PullRequests = database.Manage(DB, new(PullRequest))
 	Permissions  = database.Manage(DB, new(Permission))
 	Actions      = database.Manage(DB, new(Action))
+	Activities   = database.Manage(DB, new(Activity))
 )

@@ -70,7 +70,7 @@
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
     </svg>
-    AI Actions ({{len (repos.RepoActions)}})
+    Actions ({{len (repos.RepoActions)}})
   </a>
   <a href="{{host}}/repos/{{.ID}}/settings" class="tab">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -82,23 +82,196 @@
 </div>
 
 <div class="flex items-center justify-between mb-6">
-  <h2 class="text-2xl font-bold">AI Actions</h2>
-  <button class="btn btn-primary">
+  <h2 class="text-2xl font-bold">Automated Actions</h2>
+  <button class="btn btn-primary" onclick="create_action_modal.showModal()">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
     </svg>
-    Ask Claude
+    Create Action
   </button>
 </div>
 
+<!-- Actions List -->
+{{with repos.RepoActions}}
+{{if .}}
+<div class="space-y-4">
+  {{range .}}
+  <div class="card bg-base-100 shadow hover:shadow-lg transition-shadow">
+    <div class="card-body">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center space-x-3 mb-2">
+            <h3 class="font-semibold text-lg">{{.Title}}</h3>
+            <div class="badge badge-outline">{{.Type}}</div>
+            {{if eq .Status "active"}}
+            <div class="badge badge-success">Active</div>
+            {{else if eq .Status "running"}}
+            <div class="badge badge-warning">Running</div>
+            {{else if eq .Status "disabled"}}
+            <div class="badge badge-neutral">Disabled</div>
+            {{else if eq .Status "failed"}}
+            <div class="badge badge-error">Failed</div>
+            {{else}}
+            <div class="badge badge-info">{{.Status}}</div>
+            {{end}}
+          </div>
+          {{if .Description}}
+          <p class="text-base-content/70 mb-3">{{.Description}}</p>
+          {{end}}
+          <div class="flex items-center space-x-4 text-sm text-base-content/50">
+            <div class="flex items-center space-x-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Created {{.CreatedAt.Format "Jan 2, 2006"}}</span>
+            </div>
+            {{if .LastRun}}
+            <div class="flex items-center space-x-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span>Last run {{.LastRun.Format "Jan 2, 3:04 PM"}}</span>
+            </div>
+            {{end}}
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button class="btn btn-ghost btn-sm">Edit</button>
+          {{if eq .Type "manual"}}
+          <button class="btn btn-primary btn-sm">Run</button>
+          {{end}}
+          <div class="dropdown dropdown-end">
+            <button class="btn btn-ghost btn-sm" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li><a>View Logs</a></li>
+              <li><a>{{if eq .Status "active"}}Disable{{else}}Enable{{end}}</a></li>
+              <li class="menu-title">Danger Zone</li>
+              <li><a class="text-error">Delete Action</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{else}}
 <div class="text-center py-16">
   <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-6 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
   </svg>
-  <h2 class="text-2xl font-bold mb-4">No AI actions yet</h2>
-  <p class="text-base-content/70 mb-6">Start a conversation with Claude about your code</p>
-  <button class="btn btn-primary btn-lg">Start AI Chat</button>
+  <h2 class="text-2xl font-bold mb-4">No automated actions yet</h2>
+  <p class="text-base-content/70 mb-6">Create automated workflows to handle repository tasks</p>
+  <button class="btn btn-primary btn-lg" onclick="create_action_modal.showModal()">Create First Action</button>
 </div>
+{{end}}
+{{end}}
+
+<!-- Create Action Modal -->
+<dialog id="create_action_modal" class="modal">
+  <div class="modal-box w-11/12 max-w-3xl">
+    <h3 class="font-bold text-lg mb-4">Create Automated Action</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/actions/create" hx-target="body" hx-swap="outerHTML">
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Action Name <span class="text-error">*</span></span>
+            </label>
+            <input type="text" name="title" placeholder="Deploy to staging" class="input input-bordered" required>
+          </div>
+          
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Trigger Type <span class="text-error">*</span></span>
+            </label>
+            <select name="type" class="select select-bordered" required>
+              <option value="">Select trigger type</option>
+              <option value="on_push">On Push to Branch</option>
+              <option value="on_pr">On Pull Request</option>
+              <option value="on_issue">On Issue Created</option>
+              <option value="scheduled">Scheduled (Cron)</option>
+              <option value="manual">Manual Run Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Description</span>
+          </label>
+          <input type="text" name="description" placeholder="Brief description of what this action does" class="input input-bordered">
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Trigger Configuration</span>
+          </label>
+          <textarea name="trigger" class="textarea textarea-bordered h-20" placeholder='{"branch": "main", "paths": ["src/**"]}'></textarea>
+          <label class="label">
+            <span class="label-text-alt">JSON configuration for trigger conditions (optional)</span>
+          </label>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Script/Commands <span class="text-error">*</span></span>
+          </label>
+          <textarea name="script" class="textarea textarea-bordered h-32" placeholder="#!/bin/bash
+echo 'Starting build...'
+npm test
+npm run build" required></textarea>
+          <label class="label">
+            <span class="label-text-alt">Bash script or commands to execute when triggered</span>
+          </label>
+        </div>
+
+        <!-- Examples Dropdown -->
+        <div class="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" /> 
+          <div class="collapse-title text-sm font-medium">💡 Action Examples</div>
+          <div class="collapse-content text-xs">
+            <div class="space-y-2">
+              <div class="card bg-base-100 p-3">
+                <div class="font-medium">Build & Test on Push</div>
+                <div class="text-base-content/70 mb-2">Type: on_push, Trigger: {"branch": "main"}</div>
+                <pre class="text-xs">#!/bin/bash
+npm install
+npm test
+npm run build</pre>
+              </div>
+              <div class="card bg-base-100 p-3">
+                <div class="font-medium">Auto-merge approved PRs</div>
+                <div class="text-base-content/70 mb-2">Type: on_pr, Trigger: {"status": "approved"}</div>
+                <pre class="text-xs">#!/bin/bash
+gh pr merge $PR_NUMBER --squash</pre>
+              </div>
+              <div class="card bg-base-100 p-3">
+                <div class="font-medium">Daily backup</div>
+                <div class="text-base-content/70 mb-2">Type: scheduled, Trigger: {"cron": "0 2 * * *"}</div>
+                <pre class="text-xs">#!/bin/bash
+tar -czf backup-$(date +%Y%m%d).tar.gz .
+aws s3 cp backup-*.tar.gz s3://backup-bucket/</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button type="submit" class="btn btn-primary">Create Action</button>
+          <button type="button" class="btn" onclick="create_action_modal.close()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
 {{else}}
 <div class="text-center py-16">
   <h2 class="text-2xl font-bold mb-4 text-error">Repository Not Found</h2>

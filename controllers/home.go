@@ -107,3 +107,26 @@ func (c *HomeController) PublicRepoStats() (map[string]int, error) {
 
 	return stats, nil
 }
+
+// RecentActivity returns recent activities for the dashboard
+func (c *HomeController) RecentActivity() ([]*models.Activity, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, nil
+	}
+
+	// Get recent activities for the current user
+	return models.Activities.Search("WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 10", user.ID)
+}
+
+// PublicActivity returns recent public activities for the homepage
+func (c *HomeController) PublicActivity() ([]*models.Activity, error) {
+	// Get recent activities for public repositories only
+	return models.Activities.Search(`
+		WHERE RepoID IN (
+			SELECT ID FROM repositories WHERE Visibility = 'public'
+		) OR Type IN ('repo_created', 'repo_updated')
+		ORDER BY CreatedAt DESC LIMIT 10
+	`)
+}

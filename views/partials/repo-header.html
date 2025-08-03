@@ -1,0 +1,39 @@
+<!-- Repository Header -->
+<div class="flex items-center justify-between mb-8">
+  <div class="flex items-center space-x-4">
+    <div class="avatar avatar-placeholder">
+      <div class="bg-primary text-primary-content rounded w-16 h-16">
+        <span class="text-xl">{{printf "%.2s" .Name}}</span>
+      </div>
+    </div>
+    <div>
+      <h1 class="text-3xl font-bold">{{.Name}}</h1>
+      <div class="flex items-center space-x-4 text-sm text-base-content/70">
+        <div class="flex items-center space-x-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span>{{.Visibility}}</span>
+        </div>
+        <div class="flex items-center space-x-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Updated {{.UpdatedAt.Format "Jan 2, 2006"}}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center space-x-2">
+    <button class="btn btn-primary"
+            hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
+            hx-target="body"
+            hx-swap="outerHTML">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+      Launch Workspace
+    </button>
+  </div>
+</div>

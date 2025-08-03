@@ -36,6 +36,7 @@ func (c *ReposController) Setup(app *application.App) {
 
 	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepo, auth.Required))
 	http.Handle("POST /repos/{id}/launch-workspace", app.ProtectFunc(c.launchWorkspace, auth.Required))
+	http.Handle("POST /repos/{id}/actions/create", app.ProtectFunc(c.createAction, auth.Required))
 	http.Handle("POST /repos/{id}/permissions", app.ProtectFunc(c.grantPermission, auth.Required))
 	http.Handle("DELETE /repos/{id}/permissions/{userID}", app.ProtectFunc(c.revokePermission, auth.Required))
 
@@ -179,6 +180,10 @@ func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
 		// TODO: Add proper logging
 	}
 
+	// Log the repository creation activity
+	models.LogActivity("repo_created", "Created repository "+repo.Name, 
+		"New "+repo.Visibility+" repository created", user.ID, repo.ID, "repository", repo.ID)
+
 	// Redirect to the new repository
 	http.Redirect(w, r, "/repos/"+repo.ID, http.StatusSeeOther)
 }
@@ -230,8 +235,89 @@ func (c *ReposController) launchWorkspace(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Log the workspace launch activity
+	models.LogActivity("workspace_launched", "Launched workspace for "+repo.Name, 
+		"Development workspace created", user.ID, repo.ID, "workspace", workspace.ID)
+
 	// Redirect to workspace launcher
 	http.Redirect(w, r, "/workspace/"+workspace.ID, http.StatusSeeOther)
+}
+
+// createAction handles automated action creation
+func (c *ReposController) createAction(w http.ResponseWriter, r *http.Request) {
+	// Authenticate user
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		return
+	}
+
+	repoID := r.PathValue("id")
+	if repoID == "" {
+		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
+		return
+	}
+
+	// Check if repository exists and user has access
+	_, err = c.getCurrentRepoFromRequest(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
+
+	// Validate required fields
+	title := strings.TrimSpace(r.FormValue("title"))
+	actionType := strings.TrimSpace(r.FormValue("type"))
+	script := strings.TrimSpace(r.FormValue("script"))
+
+	if title == "" || actionType == "" || script == "" {
+		c.Render(w, r, "error-message.html", errors.New("title, type, and script are required"))
+		return
+	}
+
+	// Validate action type
+	validTypes := map[string]bool{
+		"on_push":    true,
+		"on_pr":      true,
+		"on_issue":   true,
+		"scheduled":  true,
+		"manual":     true,
+	}
+	if !validTypes[actionType] {
+		c.Render(w, r, "error-message.html", errors.New("invalid action type"))
+		return
+	}
+
+	// Extract optional fields
+	description := strings.TrimSpace(r.FormValue("description"))
+	trigger := strings.TrimSpace(r.FormValue("trigger"))
+
+	// Create the action
+	action := &models.Action{
+		Type:        actionType,
+		Title:       title,
+		Description: description,
+		Trigger:     trigger,
+		Script:      script,
+		Status:      "active",
+		RepoID:      repoID,
+		UserID:      user.ID,
+	}
+
+	// Save the action
+	_, err = models.Actions.Insert(action)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("failed to create action: "+err.Error()))
+		return
+	}
+
+	// Log the action creation activity
+	models.LogActivity("action_created", "Created action: "+action.Title, 
+		"New "+action.Type+" action created", user.ID, repoID, "action", action.ID)
+
+	// Refresh the page to show the new action
+	c.Refresh(w, r)
 }
 
 // RepoPermissions returns permissions for the current repository
