@@ -185,45 +185,55 @@
 
 <!-- Create Pull Request Modal -->
 <dialog id="create_pr_modal" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
+  <div class="modal-box w-11/12">
     <h3 class="font-bold text-lg mb-4">Create Pull Request</h3>
     <form hx-post="{{host}}/repos/{{.ID}}/prs/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-6">
-        <!-- Pull Request Information -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">Pull Request Information</legend>
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Title <span class="text-error">*</span></span>
+          </label>
           <input type="text" name="title" placeholder="Brief description of the changes" class="input input-bordered" required>
-          <p class="label">Title <span class="text-error">*</span></p>
-          
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Description</span>
+          </label>
           <textarea name="body" class="textarea textarea-bordered h-32" placeholder="Describe what changes this pull request makes and why"></textarea>
-          <p class="label">Description (optional)</p>
-        </fieldset>
+        </div>
 
-        <!-- Branch Selection -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">Branch Selection</legend>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <select name="base_branch" class="select select-bordered" required>
-                <option value="">Select base branch</option>
-                {{range repos.RepoBranches}}
-                <option value="{{.Name}}" {{if .IsDefault}}selected{{end}}>{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
-                {{end}}
-              </select>
-              <p class="label">Base Branch <span class="text-error">*</span> - Branch to merge into</p>
-            </div>
-
-            <div>
-              <select name="compare_branch" class="select select-bordered" required>
-                <option value="">Select compare branch</option>
-                {{range repos.RepoBranches}}
-                <option value="{{.Name}}">{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
-                {{end}}
-              </select>
-              <p class="label">Compare Branch <span class="text-error">*</span> - Branch with your changes</p>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Base Branch <span class="text-error">*</span></span>
+            </label>
+            <select name="base_branch" class="select select-bordered" required>
+              <option value="">Select base branch</option>
+              {{range repos.RepoBranches}}
+              <option value="{{.Name}}" {{if .IsDefault}}selected{{end}}>{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
+              {{end}}
+            </select>
+            <label class="label">
+              <span class="label-text-alt">Branch to merge into</span>
+            </label>
           </div>
-        </fieldset>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Compare Branch <span class="text-error">*</span></span>
+            </label>
+            <select name="compare_branch" class="select select-bordered" required>
+              <option value="">Select compare branch</option>
+              {{range repos.RepoBranches}}
+              <option value="{{.Name}}">{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
+              {{end}}
+            </select>
+            <label class="label">
+              <span class="label-text-alt">Branch with your changes</span>
+            </label>
+          </div>
+        </div>
 
         <div class="alert alert-info">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">

@@ -186,3 +186,72 @@ func RequireRepoAccess(auth *authentication.Controller, requiredRole string) fun
 		}
 	}
 }
+
+// GetUserAccessibleRepos returns all repositories a user has access to
+// This includes owned repositories, repositories with explicit permissions, and public repositories
+func GetUserAccessibleRepos(userID string) ([]*GitRepo, error) {
+	if userID == "" {
+		return nil, errors.New("userID is required")
+	}
+
+	// Get all repositories the user owns
+	ownedRepos, err := GitRepos.Search("WHERE UserID = ?", userID)
+	if err != nil {
+		return nil, errors.New("failed to get owned repositories: " + err.Error())
+	}
+
+	// Get repositories with explicit permissions
+	permissions, err := Permissions.Search("WHERE UserID = ?", userID)
+	if err != nil {
+		return nil, errors.New("failed to get user permissions: " + err.Error())
+	}
+
+	// Collect repository IDs with permissions
+	permissionRepoIDs := make(map[string]bool)
+	for _, perm := range permissions {
+		permissionRepoIDs[perm.RepoID] = true
+	}
+
+	// Get repositories with explicit permissions
+	var permissionRepos []*GitRepo
+	for repoID := range permissionRepoIDs {
+		repo, err := GitRepos.Get(repoID)
+		if err == nil {
+			permissionRepos = append(permissionRepos, repo)
+		}
+	}
+
+	// Get public repositories (excluding already owned/permitted ones)
+	publicRepos, err := GitRepos.Search("WHERE Visibility = ?", "public")
+	if err != nil {
+		return nil, errors.New("failed to get public repositories: " + err.Error())
+	}
+
+	// Deduplicate repositories
+	repoMap := make(map[string]*GitRepo)
+	
+	// Add owned repositories
+	for _, repo := range ownedRepos {
+		repoMap[repo.ID] = repo
+	}
+	
+	// Add permission repositories
+	for _, repo := range permissionRepos {
+		repoMap[repo.ID] = repo
+	}
+	
+	// Add public repositories (if not already included)
+	for _, repo := range publicRepos {
+		if _, exists := repoMap[repo.ID]; !exists {
+			repoMap[repo.ID] = repo
+		}
+	}
+
+	// Convert map to slice
+	var allRepos []*GitRepo
+	for _, repo := range repoMap {
+		allRepos = append(allRepos, repo)
+	}
+
+	return allRepos, nil
+}

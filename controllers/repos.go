@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -239,7 +240,7 @@ func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
 		"New "+repo.Visibility+" repository created", user.ID, repo.ID, "repository", repo.ID)
 
 	// Redirect to the new repository
-	http.Redirect(w, r, "/repos/"+repo.ID, http.StatusSeeOther)
+	c.Redirect(w, r, "/repos/"+repo.ID)
 }
 
 // launchWorkspace handles workspace creation for a repository
@@ -270,30 +271,49 @@ func (c *ReposController) launchWorkspace(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Check if workspace already exists
-	existingWorkspace, err := models.GetWorkspace(user.ID)
-	if err == nil && existingWorkspace != nil {
-		http.Redirect(w, r, "/workspace/"+existingWorkspace.ID, http.StatusSeeOther)
-		return
+	// Check if user already has a workspace for this repository
+	userWorkspaces, err := models.GetUserWorkspaces(user.ID)
+	if err == nil {
+		for _, ws := range userWorkspaces {
+			if ws.RepoID == repoID && ws.Status() == "running" {
+				// Redirect to existing workspace for this repo
+				c.Redirect(w, r, "/coder/"+ws.ID+"/")
+				return
+			}
+		}
 	}
 
-	// Get available port
+	// Get available port - start at 8000 and increment
 	workspaces, _ := models.GetWorkspaces()
-	port := 8000 + len(workspaces)
+	port := 8000
+	usedPorts := make(map[int]bool)
+	for _, ws := range workspaces {
+		usedPorts[ws.Port] = true
+	}
+	for usedPorts[port] {
+		port++
+	}
 
-	// Create new workspace using coding package
+	// Create new workspace
 	workspace, err := models.NewWorkspace(user.ID, port, repo)
 	if err != nil {
 		c.Render(w, r, "error-message.html", err)
 		return
 	}
 
+	// Start the workspace asynchronously
+	go func() {
+		if err := workspace.Start(user, repo); err != nil {
+			log.Printf("Failed to start workspace %s: %v", workspace.ID, err)
+		}
+	}()
+
 	// Log the workspace launch activity
 	models.LogActivity("workspace_launched", "Launched workspace for "+repo.Name,
 		"Development workspace created", user.ID, repo.ID, "workspace", workspace.ID)
 
-	// Redirect to workspace launcher
-	http.Redirect(w, r, "/workspace/"+workspace.ID, http.StatusSeeOther)
+	// Redirect to workspace with loading page
+	c.Redirect(w, r, "/coder/"+workspace.ID+"/")
 }
 
 // createAction handles automated action creation
@@ -385,7 +405,7 @@ func (c *ReposController) runAction(w http.ResponseWriter, r *http.Request) {
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
-	
+
 	if repoID == "" || actionID == "" {
 		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
 		return
@@ -424,6 +444,18 @@ func (c *ReposController) runAction(w http.ResponseWriter, r *http.Request) {
 
 	// Refresh the page to show updated status
 	c.Refresh(w, r)
+}
+
+// AllRepos returns all repositories the current user has access to
+func (c *ReposController) AllRepos() ([]*models.GitRepo, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all repositories with access
+	return models.GetUserAccessibleRepos(user.ID)
 }
 
 // RepoPermissions returns permissions for the current repository
@@ -491,8 +523,8 @@ func (c *ReposController) grantPermission(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Redirect back to settings
-	http.Redirect(w, r, "/repos/"+repoID+"/settings", http.StatusSeeOther)
+	// Refresh to show updated settings
+	c.Refresh(w, r)
 }
 
 // revokePermission handles revoking permissions from users
@@ -561,20 +593,20 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Get current path and branch
 	path := c.Request.PathValue("path")
 	if path == "" {
 		path = "."
 	}
 	branch := c.CurrentBranch()
-	
+
 	// Use git to browse files on the selected branch
 	gitBlob, err := repo.Open(branch, path)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if !gitBlob.IsDirectory {
 		// If it's a file, return single file info
 		fileInfo := &FileInfo{
@@ -583,10 +615,10 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 			IsDir:    false,
 			Language: getLanguageFromExtension(filepath.Ext(path)),
 		}
-		
+
 		// Get file size and check if binary
 		fileInfo.Size = gitBlob.Size()
-		
+
 		// Read content if not binary
 		content, err := gitBlob.Content()
 		if err == nil {
@@ -595,16 +627,16 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 				fileInfo.Content = content
 			}
 		}
-		
+
 		return []*FileInfo{fileInfo}, nil
 	}
-	
+
 	// List directory contents using git
 	blobs, err := gitBlob.Files()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var files []*FileInfo
 	for _, blob := range blobs {
 		// Get file size for files
@@ -612,7 +644,7 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 		if !blob.IsDirectory {
 			size = blob.Size()
 		}
-		
+
 		fileInfo := &FileInfo{
 			Name:     blob.Path,
 			Path:     filepath.Join(path, blob.Path),
@@ -641,31 +673,31 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	path := c.Request.PathValue("path")
 	if path == "" {
 		return nil, errors.New("file path required")
 	}
-	
+
 	branch := c.CurrentBranch()
-	
+
 	// Use git to access the file on the selected branch
 	gitBlob, err := repo.Open(branch, path)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	fileInfo := &FileInfo{
 		Name:     filepath.Base(path),
 		Path:     path,
 		IsDir:    gitBlob.IsDirectory,
 		Language: getLanguageFromExtension(filepath.Ext(path)),
 	}
-	
+
 	// Get file size
 	if !gitBlob.IsDirectory {
 		fileInfo.Size = gitBlob.Size()
-		
+
 		// Read content
 		content, err := gitBlob.Content()
 		if err == nil {
@@ -675,7 +707,7 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 			}
 		}
 	}
-	
+
 	return fileInfo, nil
 }
 
@@ -1060,8 +1092,8 @@ func (c *ReposController) createIssue(w http.ResponseWriter, r *http.Request) {
 	}
 	go models.TriggerActionsByEvent("on_issue", repoID, eventData)
 
-	// Redirect to issues page
-	http.Redirect(w, r, "/repos/"+repoID+"/issues", http.StatusSeeOther)
+	// Refresh to show new issue
+	c.Refresh(w, r)
 }
 
 // closeIssue handles closing an issue
@@ -1345,17 +1377,17 @@ func (c *ReposController) createPR(w http.ResponseWriter, r *http.Request) {
 
 	// Trigger actions for PR creation event
 	eventData := map[string]string{
-		"PR_ID":           pr.ID,
-		"PR_TITLE":        pr.Title,
-		"PR_STATUS":       pr.Status,
-		"BASE_BRANCH":     pr.BaseBranch,
-		"COMPARE_BRANCH":  pr.CompareBranch,
-		"AUTHOR_ID":       user.ID,
+		"PR_ID":          pr.ID,
+		"PR_TITLE":       pr.Title,
+		"PR_STATUS":      pr.Status,
+		"BASE_BRANCH":    pr.BaseBranch,
+		"COMPARE_BRANCH": pr.CompareBranch,
+		"AUTHOR_ID":      user.ID,
 	}
 	go models.TriggerActionsByEvent("on_pr", repoID, eventData)
 
 	// Redirect to PRs page
-	http.Redirect(w, r, "/repos/"+repoID+"/prs", http.StatusSeeOther)
+	c.Redirect(w, r, "/repos/"+repoID+"/prs")
 }
 
 // mergePR handles merging a pull request
@@ -1428,12 +1460,12 @@ func (c *ReposController) mergePR(w http.ResponseWriter, r *http.Request) {
 
 	// Trigger actions for push event (merge is essentially a push to base branch)
 	eventData := map[string]string{
-		"BRANCH":          pr.BaseBranch,
-		"PR_ID":           pr.ID,
-		"PR_TITLE":        pr.Title,
-		"COMPARE_BRANCH":  pr.CompareBranch,
-		"AUTHOR_ID":       user.ID,
-		"EVENT_TYPE":      "merge",
+		"BRANCH":         pr.BaseBranch,
+		"PR_ID":          pr.ID,
+		"PR_TITLE":       pr.Title,
+		"COMPARE_BRANCH": pr.CompareBranch,
+		"AUTHOR_ID":      user.ID,
+		"EVENT_TYPE":     "merge",
 	}
 	go models.TriggerActionsByEvent("on_push", repoID, eventData)
 
@@ -1619,7 +1651,7 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 		commitMessage, user.ID, repoID, "file", filePath)
 
 	// Redirect back to file view
-	http.Redirect(w, r, "/repos/"+repoID+"/files/"+filePath+"?branch="+branch, http.StatusSeeOther)
+	c.Redirect(w, r, "/repos/"+repoID+"/files/"+filePath+"?branch="+branch)
 }
 
 // createFile handles creating new files via web editor
@@ -1678,7 +1710,7 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 		commitMessage, user.ID, repoID, "file", filePath)
 
 	// Redirect to file view
-	http.Redirect(w, r, "/repos/"+repoID+"/files/"+filePath+"?branch="+branch, http.StatusSeeOther)
+	c.Redirect(w, r, "/repos/"+repoID+"/files/"+filePath+"?branch="+branch)
 }
 
 // deleteFile handles deleting files via web interface
@@ -1733,5 +1765,5 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 		commitMessage, user.ID, repoID, "file", filePath)
 
 	// Redirect to repository files
-	http.Redirect(w, r, "/repos/"+repoID+"/files", http.StatusSeeOther)
+	c.Redirect(w, r, "/repos/"+repoID+"/files")
 }

@@ -19,10 +19,13 @@ import (
 
 type Workspace struct {
 	application.Model
-	Name   string
-	Port   int
-	Ready  bool
-	RepoID string
+	Name      string
+	UserID    string // Owner of the workspace
+	Port      int
+	Ready     bool
+	RepoID    string
+	LastUsed  time.Time
+	CreatedAt time.Time
 }
 
 // Status returns the current status of the workspace based on container state
@@ -40,21 +43,26 @@ func (w *Workspace) Status() string {
 func (*Workspace) Table() string { return "code_workspaces" }
 
 func (w *Workspace) Service() *containers.Service {
+	containerName := fmt.Sprintf("workspace-%s", w.ID)
 	return &containers.Service{
 		Host:    containers.Local(),
-		Name:    w.Name,
+		Name:    containerName,
 		Image:   "codercom/code-server:latest",
-		Command: "--auth none",
+		Command: "--auth none --bind-addr 0.0.0.0:" + strconv.Itoa(w.Port),
 
 		Mounts: map[string]string{
-			fmt.Sprintf("%s/workspaces/%s/.config:/home/coder/.config", database.DataDir(), w.Name): "/home/coder/.config",
-			fmt.Sprintf("%s/workspaces/%s/project:/home/coder/project", database.DataDir(), w.Name): "/home/coder/project",
+			fmt.Sprintf("%s/workspaces/%s/.config", database.DataDir(), w.ID): "/home/coder/.config",
+			fmt.Sprintf("%s/workspaces/%s/project", database.DataDir(), w.ID): "/home/coder/project",
+			fmt.Sprintf("%s/repos/%s", database.DataDir(), w.RepoID):          "/home/coder/repo",
 		},
 		Ports: map[int]int{
 			w.Port: w.Port,
 		},
 		Env: map[string]string{
-			"PORT": strconv.Itoa(w.Port),
+			"PORT":           strconv.Itoa(w.Port),
+			"WORKSPACE_ID":   w.ID,
+			"WORKSPACE_NAME": w.Name,
+			"USER_ID":        w.UserID,
 		},
 	}
 }
@@ -78,7 +86,7 @@ func (w *Workspace) Start(u *authentication.User, repo *GitRepo) error {
 	host := containers.Local()
 	host.SetStdout(os.Stdout)
 	host.SetStderr(os.Stderr)
-	if err := host.Exec("bash", "-c", fmt.Sprintf(prepareWorkspace, database.DataDir(), w.Name)); err != nil {
+	if err := host.Exec("bash", "-c", fmt.Sprintf(prepareWorkspace, database.DataDir(), w.ID)); err != nil {
 		return errors.Wrap(err, "failed to prepare workspace ")
 	}
 
@@ -101,6 +109,7 @@ func (w *Workspace) Start(u *authentication.User, repo *GitRepo) error {
 	}
 
 	w.Ready = true
+	w.LastUsed = time.Now()
 	return Workspaces.Update(w)
 }
 
@@ -142,9 +151,10 @@ func (w *Workspace) Delete() error {
 
 func (w *Workspace) Run(cmd string) (stdout bytes.Buffer, err error) {
 	s := w.Service()
+	containerName := fmt.Sprintf("workspace-%s", w.ID)
 
 	s.SetStdout(&stdout)
 	cmd = strings.ReplaceAll(cmd, "\n", "; ")
 	cmd = strings.ReplaceAll(cmd, "; ;", ";")
-	return stdout, s.Exec("docker", "exec", w.Name, "bash", "-c", cmd)
+	return stdout, s.Exec("docker", "exec", containerName, "bash", "-c", cmd)
 }

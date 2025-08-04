@@ -117,7 +117,7 @@ func (c *PublicController) submitIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect back to the issues page with success
-	http.Redirect(w, r, "/public/repos/"+repo.ID+"/issues?submitted=true", http.StatusSeeOther)
+	c.Redirect(w, r, "/public/repos/"+repo.ID+"/issues?submitted=true")
 }
 
 // RepoOwnerInfo returns basic information about the repository owner

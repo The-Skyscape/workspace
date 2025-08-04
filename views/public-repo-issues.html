@@ -125,7 +125,7 @@
 
 <!-- Submit Issue Modal -->
 <dialog id="submit_issue_modal" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
+  <div class="modal-box w-11/12">
     <h3 class="font-bold text-lg mb-4">Submit an Issue</h3>
     <form hx-post="{{host}}/public/repos/{{.ID}}/issues" hx-target="body" hx-swap="outerHTML">
       <div class="space-y-4">

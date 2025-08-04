@@ -231,28 +231,38 @@
 
 <!-- Create File Modal -->
 <dialog id="create_file_modal" class="modal">
-  <div class="modal-box w-11/12 max-w-2xl">
+  <div class="modal-box w-11/12">
     <h3 class="font-bold text-lg mb-4">Create New File</h3>
     <form hx-post="{{host}}/repos/{{.ID}}/files/create" hx-target="body" hx-swap="outerHTML">
       <input type="hidden" name="branch" value="{{repos.CurrentBranch}}">
       
-      <div class="space-y-6">
-        <!-- File Information -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">File Information</legend>
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">File Path <span class="text-error">*</span></span>
+          </label>
           <input type="text" name="path" placeholder="src/main.go" class="input input-bordered" required>
-          <p class="label">File Path <span class="text-error">*</span> - Include directory path and file extension</p>
-          
-          <input type="text" name="commit_message" placeholder="Add new file" class="input input-bordered" required>
-          <p class="label">Commit Message <span class="text-error">*</span></p>
-        </fieldset>
+          <label class="label">
+            <span class="label-text-alt">Include directory path and file extension</span>
+          </label>
+        </div>
 
-        <!-- File Content -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">File Content</legend>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Commit Message <span class="text-error">*</span></span>
+          </label>
+          <input type="text" name="commit_message" placeholder="Add new file" class="input input-bordered" required>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">File Content</span>
+          </label>
           <textarea name="content" class="textarea textarea-bordered h-40 font-mono text-sm" placeholder="// File content here..."></textarea>
-          <p class="label">Initial file content (optional)</p>
-        </fieldset>
+          <label class="label">
+            <span class="label-text-alt">Initial file content (optional)</span>
+          </label>
+        </div>
 
         <div class="modal-action">
           <button type="submit" class="btn btn-primary">Create File</button>
