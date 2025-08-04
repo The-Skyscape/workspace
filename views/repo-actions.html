@@ -138,7 +138,17 @@
         <div class="flex items-center space-x-2">
           <button class="btn btn-ghost btn-sm">Edit</button>
           {{if eq .Type "manual"}}
-          <button class="btn btn-primary btn-sm">Run</button>
+          <button class="btn btn-primary btn-sm"
+                  hx-post="{{host}}/repos/{{$.ID}}/actions/{{.ID}}/run"
+                  hx-target="body"
+                  hx-swap="outerHTML"
+                  {{if eq .Status "running"}}disabled{{end}}>
+            {{if eq .Status "running"}}
+            <span class="loading loading-spinner loading-xs mr-2"></span>Running
+            {{else}}
+            Run
+            {{end}}
+          </button>
           {{end}}
           <div class="dropdown dropdown-end">
             <button class="btn btn-ghost btn-sm" tabindex="0">
@@ -147,7 +157,7 @@
               </svg>
             </button>
             <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-              <li><a>View Logs</a></li>
+              <li><a onclick="action_logs_modal_{{.ID}}.showModal()">View Logs</a></li>
               <li><a>{{if eq .Status "active"}}Disable{{else}}Enable{{end}}</a></li>
               <li class="menu-title">Danger Zone</li>
               <li><a class="text-error">Delete Action</a></li>
@@ -157,6 +167,68 @@
       </div>
     </div>
   </div>
+  
+  <!-- Action Logs Modal -->
+  <dialog id="action_logs_modal_{{.ID}}" class="modal">
+    <div class="modal-box w-11/12 max-w-4xl">
+      <h3 class="font-bold text-lg mb-4">{{.Title}} - Execution Logs</h3>
+      
+      <div class="space-y-4">
+        <!-- Action Info -->
+        <div class="stats shadow">
+          <div class="stat">
+            <div class="stat-title">Status</div>
+            <div class="stat-value text-sm {{if eq .Status "completed"}}text-success{{else if eq .Status "failed"}}text-error{{else if eq .Status "running"}}text-warning{{else}}text-info{{end}}">
+              {{.Status}}
+            </div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">Type</div>
+            <div class="stat-value text-sm">{{.Type}}</div>
+          </div>
+          {{if .LastRun}}
+          <div class="stat">
+            <div class="stat-title">Last Run</div>
+            <div class="stat-value text-sm">{{.LastRun.Format "Jan 2, 3:04 PM"}}</div>
+          </div>
+          {{end}}
+        </div>
+        
+        <!-- Script -->
+        <div class="card bg-base-200 shadow">
+          <div class="card-body">
+            <h4 class="card-title text-base">Script</h4>
+            <pre class="bg-base-300 p-4 rounded text-sm overflow-x-auto"><code>{{.Script}}</code></pre>
+          </div>
+        </div>
+        
+        <!-- Output -->
+        {{if .Output}}
+        <div class="card bg-base-200 shadow">
+          <div class="card-body">
+            <h4 class="card-title text-base">Execution Output</h4>
+            <pre class="bg-base-300 p-4 rounded text-sm overflow-x-auto font-mono"><code>{{.Output}}</code></pre>
+          </div>
+        </div>
+        {{else}}
+        <div class="alert alert-info">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>No execution output available yet.</span>
+        </div>
+        {{end}}
+      </div>
+      
+      <div class="modal-action">
+        <button class="btn" onclick="action_logs_modal_{{.ID}}.close()">Close</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>close</button>
+    </form>
+  </dialog>
+  
   {{end}}
 </div>
 {{else}}
@@ -176,59 +248,49 @@
   <div class="modal-box w-11/12 max-w-3xl">
     <h3 class="font-bold text-lg mb-4">Create Automated Action</h3>
     <form hx-post="{{host}}/repos/{{.ID}}/actions/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Action Name <span class="text-error">*</span></span>
-            </label>
-            <input type="text" name="title" placeholder="Deploy to staging" class="input input-bordered" required>
+      <div class="space-y-6">
+        <!-- Basic Information -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">Basic Information</legend>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <input type="text" name="title" placeholder="Deploy to staging" class="input input-bordered" required>
+              <p class="label">Action Name <span class="text-error">*</span></p>
+            </div>
+            <div>
+              <select name="type" class="select select-bordered" required>
+                <option value="">Select trigger type</option>
+                <option value="on_push">On Push to Branch</option>
+                <option value="on_pr">On Pull Request</option>
+                <option value="on_issue">On Issue Created</option>
+                <option value="scheduled">Scheduled (Cron)</option>
+                <option value="manual">Manual Run Only</option>
+              </select>
+              <p class="label">Trigger Type <span class="text-error">*</span></p>
+            </div>
           </div>
-          
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Trigger Type <span class="text-error">*</span></span>
-            </label>
-            <select name="type" class="select select-bordered" required>
-              <option value="">Select trigger type</option>
-              <option value="on_push">On Push to Branch</option>
-              <option value="on_pr">On Pull Request</option>
-              <option value="on_issue">On Issue Created</option>
-              <option value="scheduled">Scheduled (Cron)</option>
-              <option value="manual">Manual Run Only</option>
-            </select>
+          <div>
+            <input type="text" name="description" placeholder="Brief description of what this action does" class="input input-bordered">
+            <p class="label">Description (optional)</p>
           </div>
-        </div>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Description</span>
-          </label>
-          <input type="text" name="description" placeholder="Brief description of what this action does" class="input input-bordered">
-        </div>
-
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Trigger Configuration</span>
-          </label>
+        <!-- Trigger Configuration -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">Trigger Configuration</legend>
           <textarea name="trigger" class="textarea textarea-bordered h-20" placeholder='{"branch": "main", "paths": ["src/**"]}'></textarea>
-          <label class="label">
-            <span class="label-text-alt">JSON configuration for trigger conditions (optional)</span>
-          </label>
-        </div>
+          <p class="label">JSON configuration for trigger conditions (optional)</p>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Script/Commands <span class="text-error">*</span></span>
-          </label>
+        <!-- Script Commands -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">Script Commands</legend>
           <textarea name="script" class="textarea textarea-bordered h-32" placeholder="#!/bin/bash
 echo 'Starting build...'
 npm test
 npm run build" required></textarea>
-          <label class="label">
-            <span class="label-text-alt">Bash script or commands to execute when triggered</span>
-          </label>
-        </div>
+          <p class="label">Bash script or commands to execute when triggered <span class="text-error">*</span></p>
+        </fieldset>
 
         <!-- Examples Dropdown -->
         <div class="collapse collapse-arrow bg-base-200">

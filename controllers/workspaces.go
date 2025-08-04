@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"workspace/models"
-	"workspace/internal/coding"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -31,7 +30,7 @@ func (c *WorkspacesController) Setup(app *application.App) {
 	http.Handle("POST /workspace/{id}/stop", app.ProtectFunc(c.stopWorkspace, auth.Required))
 	http.Handle("DELETE /workspace/{id}", app.ProtectFunc(c.deleteWorkspace, auth.Required))
 
-	http.Handle("/coder/", http.StripPrefix("/coder/", models.Coding.Workspace(auth)))
+	http.Handle("/coder/", http.StripPrefix("/coder/", models.WorkspaceHandler(auth)))
 }
 
 // Handle is called when each request is handled
@@ -41,7 +40,7 @@ func (c *WorkspacesController) Handle(req *http.Request) application.Controller 
 }
 
 // CurrentWorkspace returns the workspace from the URL path
-func (c *WorkspacesController) CurrentWorkspace() (*coding.Workspace, error) {
+func (c *WorkspacesController) CurrentWorkspace() (*models.Workspace, error) {
 	id := c.Request.PathValue("id")
 	if id == "" {
 		return nil, errors.New("workspace ID not found")
@@ -54,11 +53,11 @@ func (c *WorkspacesController) CurrentWorkspace() (*coding.Workspace, error) {
 		return nil, errors.New("unauthorized")
 	}
 
-	return models.Coding.GetWorkspace(user.ID)
+	return models.GetWorkspace(user.ID)
 }
 
 // getCurrentWorkspaceFromRequest returns the workspace from a specific request
-func (c *WorkspacesController) getCurrentWorkspaceFromRequest(r *http.Request) (*coding.Workspace, error) {
+func (c *WorkspacesController) getCurrentWorkspaceFromRequest(r *http.Request) (*models.Workspace, error) {
 	id := r.PathValue("id")
 	if id == "" {
 		return nil, errors.New("workspace ID not found")
@@ -71,11 +70,11 @@ func (c *WorkspacesController) getCurrentWorkspaceFromRequest(r *http.Request) (
 		return nil, errors.New("unauthorized")
 	}
 
-	return models.Coding.GetWorkspace(user.ID)
+	return models.GetWorkspace(user.ID)
 }
 
 // WorkspaceRepo returns the repository associated with the current workspace
-func (c *WorkspacesController) WorkspaceRepo() (*coding.GitRepo, error) {
+func (c *WorkspacesController) WorkspaceRepo() (*models.GitRepo, error) {
 	workspace, err := c.CurrentWorkspace()
 	if err != nil {
 		return nil, err
@@ -94,12 +93,12 @@ func (c *WorkspacesController) redirectToUserWorkspace(w http.ResponseWriter, r 
 	}
 
 	// Check if user has a workspace
-	workspace, err := models.Coding.GetWorkspace(user.ID)
+	workspace, err := models.GetWorkspace(user.ID)
 	if err != nil || workspace == nil {
 		// Create workspace if it doesn't exist
-		workspaces, _ := models.Coding.Workspaces()
+		workspaces, _ := models.GetWorkspaces()
 		port := 8000 + len(workspaces)
-		workspace, err = models.Coding.NewWorkspace(user.ID, port, nil)
+		workspace, err = models.NewWorkspace(user.ID, port, nil)
 		if err != nil {
 			c.Render(w, r, "error-message.html", err)
 			return
@@ -127,7 +126,7 @@ func (c *WorkspacesController) startWorkspace(w http.ResponseWriter, r *http.Req
 
 	// Start the workspace using the coding package
 	go func() {
-		if err := workspace.Start(user); err != nil {
+		if err := workspace.Start(user, nil); err != nil {
 			// TODO: Handle error better
 			return
 		}
@@ -138,28 +137,32 @@ func (c *WorkspacesController) startWorkspace(w http.ResponseWriter, r *http.Req
 
 // stopWorkspace handles stopping a workspace container
 func (c *WorkspacesController) stopWorkspace(w http.ResponseWriter, r *http.Request) {
-	_, err := c.getCurrentWorkspaceFromRequest(r)
+	workspace, err := c.getCurrentWorkspaceFromRequest(r)
 	if err != nil {
 		c.Render(w, r, "error-message.html", err)
 		return
 	}
 
-	// TODO: Implement workspace stop functionality
-	// workspace.Stop()
+	if err := workspace.Stop(); err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
 
 	c.Refresh(w, r)
 }
 
 // deleteWorkspace handles deleting a workspace
 func (c *WorkspacesController) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	_, err := c.getCurrentWorkspaceFromRequest(r)
+	workspace, err := c.getCurrentWorkspaceFromRequest(r)
 	if err != nil {
 		c.Render(w, r, "error-message.html", err)
 		return
 	}
 
-	// TODO: Implement workspace deletion
-	// Stop and delete the workspace
+	if err := workspace.Delete(); err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
 
 	// Redirect to dashboard
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)

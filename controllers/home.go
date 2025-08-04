@@ -3,7 +3,6 @@ package controllers
 import (
 	"net/http"
 	"workspace/models"
-	"workspace/internal/coding"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -45,7 +44,7 @@ func (c *HomeController) AppDescription() string {
 }
 
 // UserRepos returns repositories the current user has access to
-func (c *HomeController) UserRepos() ([]*coding.GitRepo, error) {
+func (c *HomeController) UserRepos() ([]*models.GitRepo, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	_, _, err := auth.Authenticate(c.Request)
 	if err != nil {
@@ -53,11 +52,11 @@ func (c *HomeController) UserRepos() ([]*coding.GitRepo, error) {
 	}
 
 	// Get all repositories for now - later we'll add permissions
-	return models.Coding.SearchRepos("")
+	return models.GitRepos.Search("")
 }
 
 // UserWorkspaces returns active workspaces for the current user
-func (c *HomeController) UserWorkspaces() ([]*coding.Workspace, error) {
+func (c *HomeController) UserWorkspaces() ([]*models.Workspace, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	_, _, err := auth.Authenticate(c.Request)
 	if err != nil {
@@ -65,13 +64,13 @@ func (c *HomeController) UserWorkspaces() ([]*coding.Workspace, error) {
 	}
 
 	// Get workspaces for the user
-	return models.Coding.Workspaces()
+	return models.GetWorkspaces()
 }
 
 // PublicRepos returns all public repositories for display on homepage
-func (c *HomeController) PublicRepos() ([]*coding.GitRepo, error) {
+func (c *HomeController) PublicRepos() ([]*models.GitRepo, error) {
 	// Get all public repositories (no authentication required)
-	return models.Coding.SearchRepos("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
+	return models.GitRepos.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
 }
 
 // DeveloperProfile returns developer information for the homepage

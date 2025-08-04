@@ -16,6 +16,34 @@
       <div class="card-body p-0">
         <!-- File Header -->
         <div class="flex items-center justify-between p-6 border-b border-base-300">
+          <!-- Branch Selector -->
+          <div class="dropdown dropdown-start">
+            <button class="btn btn-ghost btn-sm" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+              </svg>
+              {{repos.CurrentBranch}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              {{range repos.RepoBranches}}
+              <li>
+                <a href="{{host}}/repos/{{$.ID}}/files/{{$.Path}}?branch={{.Name}}" 
+                   class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                  </svg>
+                  {{.Name}}
+                  {{if .IsCurrent}}<span class="text-success">(current)</span>{{end}}
+                  {{if .IsDefault}}<span class="text-info">(default)</span>{{end}}
+                </a>
+              </li>
+              {{end}}
+            </ul>
+          </div>
+          
           <div class="flex items-center space-x-3">
             {{if .IsDir}}
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
@@ -38,12 +66,12 @@
           
           {{if not .IsDir}}
           <div class="flex items-center space-x-2">
-            <button class="btn btn-outline btn-sm">
+            <a href="{{host}}/repos/{{$.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
               Edit
-            </button>
+            </a>
             <button class="btn btn-outline btn-sm" _="on click writeText('{{.Content}}') to navigator.clipboard">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -105,12 +133,12 @@
       <div class="card-body">
         <h3 class="card-title text-lg">File Actions</h3>
         <div class="space-y-2">
-          <button class="btn btn-outline btn-sm w-full">
+          <a href="{{host}}/repos/{{$.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
             Edit File
-          </button>
+          </a>
           <button class="btn btn-outline btn-sm w-full" _="on click writeText('{{.Content}}') to navigator.clipboard">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />

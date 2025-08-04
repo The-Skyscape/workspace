@@ -176,30 +176,23 @@
   <div class="modal-box w-11/12 max-w-2xl">
     <h3 class="font-bold text-lg mb-4">Create New Issue</h3>
     <form hx-post="{{host}}/repos/{{.ID}}/issues/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Title <span class="text-error">*</span></span>
-          </label>
+      <div class="space-y-6">
+        <!-- Issue Information -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">Issue Information</legend>
           <input type="text" name="title" placeholder="Brief description of the issue" class="input input-bordered" required>
-        </div>
-
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Description</span>
-          </label>
+          <p class="label">Title <span class="text-error">*</span></p>
+          
           <textarea name="body" class="textarea textarea-bordered h-32" placeholder="Provide more details about the issue, steps to reproduce, expected behavior, etc."></textarea>
-        </div>
+          <p class="label">Description (optional)</p>
+        </fieldset>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Labels</span>
-          </label>
+        <!-- Issue Labels -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">Labels & Tags</legend>
           <input type="text" name="tags" placeholder="bug, enhancement, question" class="input input-bordered">
-          <label class="label">
-            <span class="label-text-alt">Comma-separated tags</span>
-          </label>
-        </div>
+          <p class="label">Labels (optional) - Comma-separated tags</p>
+        </fieldset>
 
         <div class="modal-action">
           <button type="submit" class="btn btn-primary">Create Issue</button>

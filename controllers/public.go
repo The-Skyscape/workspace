@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 	"workspace/models"
-	"workspace/internal/coding"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
@@ -37,18 +36,18 @@ func (c *PublicController) Handle(req *http.Request) application.Controller {
 }
 
 // CurrentRepo returns the public repository from the URL path
-func (c *PublicController) CurrentRepo() (*coding.GitRepo, error) {
+func (c *PublicController) CurrentRepo() (*models.GitRepo, error) {
 	return c.getPublicRepoFromRequest(c.Request)
 }
 
 // getPublicRepoFromRequest returns a public repository (no authentication required)
-func (c *PublicController) getPublicRepoFromRequest(r *http.Request) (*coding.GitRepo, error) {
+func (c *PublicController) getPublicRepoFromRequest(r *http.Request) (*models.GitRepo, error) {
 	id := r.PathValue("id")
 	if id == "" {
 		return nil, errors.New("repository ID not found")
 	}
 
-	repo, err := models.Coding.GetRepo(id)
+	repo, err := models.GitRepos.Get(id)
 	if err != nil {
 		return nil, errors.New("repository not found")
 	}

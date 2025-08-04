@@ -20,7 +20,44 @@
             </svg>
             Repository Files
           </h2>
-          <div class="badge badge-outline">main</div>
+          
+          <div class="flex items-center space-x-2">
+            <!-- Create File Button -->
+            <button class="btn btn-primary btn-sm" onclick="create_file_modal.showModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              New File
+            </button>
+            
+            <!-- Branch Selector -->
+            <div class="dropdown dropdown-end">
+            <button class="btn btn-ghost btn-sm" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+              </svg>
+              {{repos.CurrentBranch}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              {{range repos.RepoBranches}}
+              <li>
+                <a href="{{host}}/repos/{{$.ID}}/files?branch={{.Name}}" 
+                   class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                  </svg>
+                  {{.Name}}
+                  {{if .IsCurrent}}<span class="text-success">(current)</span>{{end}}
+                  {{if .IsDefault}}<span class="text-info">(default)</span>{{end}}
+                </a>
+              </li>
+              {{end}}
+            </ul>
+          </div>
+          </div>
         </div>
 
         <!-- File Table -->
@@ -44,7 +81,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
                     </svg>
-                    <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}" class="link link-hover font-medium">{{.Name}}/</a>
+                    <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover font-medium">{{.Name}}/</a>
                     {{else}}
                     <!-- File type icons -->
                     {{if eq .Language "javascript"}}
@@ -65,7 +102,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     {{end}}
-                    <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}" class="link link-hover">{{.Name}}</a>
+                    <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover">{{.Name}}</a>
                     {{end}}
                   </div>
                 </td>
@@ -191,6 +228,44 @@
 
   </div>
 </div>
+
+<!-- Create File Modal -->
+<dialog id="create_file_modal" class="modal">
+  <div class="modal-box w-11/12 max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">Create New File</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/files/create" hx-target="body" hx-swap="outerHTML">
+      <input type="hidden" name="branch" value="{{repos.CurrentBranch}}">
+      
+      <div class="space-y-6">
+        <!-- File Information -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">File Information</legend>
+          <input type="text" name="path" placeholder="src/main.go" class="input input-bordered" required>
+          <p class="label">File Path <span class="text-error">*</span> - Include directory path and file extension</p>
+          
+          <input type="text" name="commit_message" placeholder="Add new file" class="input input-bordered" required>
+          <p class="label">Commit Message <span class="text-error">*</span></p>
+        </fieldset>
+
+        <!-- File Content -->
+        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
+          <legend class="fieldset-legend">File Content</legend>
+          <textarea name="content" class="textarea textarea-bordered h-40 font-mono text-sm" placeholder="// File content here..."></textarea>
+          <p class="label">Initial file content (optional)</p>
+        </fieldset>
+
+        <div class="modal-action">
+          <button type="submit" class="btn btn-primary">Create File</button>
+          <button type="button" class="btn" onclick="create_file_modal.close()">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
 {{else}}
 <div class="text-center py-16">
   <h2 class="text-2xl font-bold mb-4 text-error">Repository Not Found</h2>

@@ -1,0 +1,213 @@
+{{template "layout/start"}}
+{{with repos.CurrentRepo}}
+{{template "repo-breadcrumbs.html" .}}
+
+{{template "repo-header.html" .}}
+
+{{template "repo-tabs.html" .}}
+
+<!-- Pull Request Diff View -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+  <!-- Main Diff Content -->
+  <div class="lg:col-span-3">
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Pull Request Changes
+          </h2>
+          <a href="{{host}}/repos/{{.ID}}/prs" class="btn btn-outline btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to PRs
+          </a>
+        </div>
+
+        <!-- Diff Stats -->
+        {{with repos.RepoPRDiff}}
+        {{if .}}
+        <div class="stats shadow mb-6">
+          <div class="stat">
+            <div class="stat-figure text-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div class="stat-title">Files Changed</div>
+            <div class="stat-value">{{len .}}</div>
+          </div>
+          
+          <div class="stat">
+            <div class="stat-figure text-success">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <div class="stat-title">Additions</div>
+            <div class="stat-value text-success">
+              {{range .}}{{.Additions}}{{end}}
+            </div>
+          </div>
+          
+          <div class="stat">
+            <div class="stat-figure text-error">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+              </svg>
+            </div>
+            <div class="stat-title">Deletions</div>
+            <div class="stat-value text-error">
+              {{range .}}{{.Deletions}}{{end}}
+            </div>
+          </div>
+        </div>
+
+        <!-- File Diffs -->
+        <div class="space-y-6">
+          {{range .}}
+          <div class="card bg-base-200/50 shadow">
+            <div class="card-body p-0">
+              <!-- File Header -->
+              <div class="flex items-center justify-between bg-base-300 px-4 py-3 rounded-t-lg">
+                <div class="flex items-center space-x-3">
+                  <div class="flex items-center space-x-2">
+                    {{if eq .Status "added"}}
+                    <div class="badge badge-success badge-sm">Added</div>
+                    {{else if eq .Status "deleted"}}
+                    <div class="badge badge-error badge-sm">Deleted</div>
+                    {{else if eq .Status "renamed"}}
+                    <div class="badge badge-warning badge-sm">Renamed</div>
+                    {{else}}
+                    <div class="badge badge-info badge-sm">Modified</div>
+                    {{end}}
+                  </div>
+                  <div class="font-mono text-sm">
+                    {{if .OldFilePath}}
+                    <span class="text-error line-through">{{.OldFilePath}}</span>
+                    <span class="mx-2">→</span>
+                    <span class="text-success">{{.FilePath}}</span>
+                    {{else}}
+                    {{.FilePath}}
+                    {{end}}
+                  </div>
+                </div>
+                <div class="flex items-center space-x-2 text-sm">
+                  {{if not .IsBinary}}
+                  <span class="text-success">+{{.Additions}}</span>
+                  <span class="text-error">-{{.Deletions}}</span>
+                  {{else}}
+                  <span class="text-warning">Binary file</span>
+                  {{end}}
+                </div>
+              </div>
+
+              <!-- Diff Content -->
+              {{if not .IsBinary}}
+              <div class="overflow-x-auto">
+                <table class="table table-zebra table-pin-rows w-full font-mono text-xs">
+                  <tbody>
+                    {{range .Changes}}
+                    {{range .Lines}}
+                    <tr class="{{if eq .Type "add"}}bg-success/10{{else if eq .Type "delete"}}bg-error/10{{end}}">
+                      <td class="w-12 text-center text-base-content/50 border-r">
+                        {{if ne .Type "add"}}{{.OldNum}}{{end}}
+                      </td>
+                      <td class="w-12 text-center text-base-content/50 border-r">
+                        {{if ne .Type "delete"}}{{.NewNum}}{{end}}
+                      </td>
+                      <td class="pl-4">
+                        <span class="{{if eq .Type "add"}}text-success{{else if eq .Type "delete"}}text-error{{end}}">{{.Content}}</span>
+                      </td>
+                    </tr>
+                    {{end}}
+                    {{end}}
+                  </tbody>
+                </table>
+              </div>
+              {{else}}
+              <div class="p-8 text-center text-base-content/70">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p>Binary file - cannot display diff</p>
+              </div>
+              {{end}}
+            </div>
+          </div>
+          {{end}}
+        </div>
+        {{else}}
+        <!-- No Changes -->
+        <div class="text-center py-16">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-6 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h2 class="text-2xl font-bold mb-4">No changes to display</h2>
+          <p class="text-base-content/70 mb-6">This pull request has no file changes</p>
+        </div>
+        {{end}}
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    <!-- Diff Summary -->
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Diff Summary</h3>
+        {{with repos.RepoPRDiff}}
+        <div class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Files changed</span>
+            <span>{{len .}}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Total additions</span>
+            <span class="text-success">+{{range .}}{{.Additions}}{{end}}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-base-content/70">Total deletions</span>
+            <span class="text-error">-{{range .}}{{.Deletions}}{{end}}</span>
+          </div>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Actions</h3>
+        <div class="space-y-2">
+          <a href="{{host}}/repos/{{.ID}}/prs" class="btn btn-outline btn-sm w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            View Pull Requests
+          </a>
+          <a href="{{host}}/repos/{{.ID}}" class="btn btn-outline btn-sm w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Browse Code
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{else}}
+<div class="text-center py-16">
+  <h2 class="text-2xl font-bold mb-4 text-error">Repository Not Found</h2>
+  <p class="text-base-content/70 mb-6">The repository you're looking for doesn't exist or you don't have access to it.</p>
+  <a href="{{host}}/repos" class="btn btn-primary">Back to Repositories</a>
+</div>
+{{end}}
+{{template "layout/end"}}

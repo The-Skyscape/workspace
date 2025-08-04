@@ -14,7 +14,7 @@
   </div>
 
   <div class="flex items-center space-x-2">
-    {{if eq .Status "running"}}
+    {{if eq (.Status) "running"}}
     <div class="badge badge-success badge-sm sm:badge-md">Running</div>
     <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm sm:btn-md">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -49,7 +49,7 @@
       <div class="card-body">
         <h2 class="card-title">Workspace Status</h2>
 
-        {{if eq .Status "running"}}
+        {{if eq (.Status) "running"}}
         <div class="alert alert-success">
           <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -83,7 +83,7 @@
                   hx-swap="outerHTML">Stop</button>
         </div>
 
-        {{else if eq .Status "starting"}}
+        {{else if eq (.Status) "starting"}}
         <div class="alert alert-info">
           <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -155,16 +155,25 @@
     <!-- Terminal -->
     <div class="card bg-base-100 shadow-lg">
       <div class="card-body">
-        <h2 class="card-title">Terminal</h2>
-        <div class="mockup-code">
-          <pre data-prefix="$"><code>git status</code></pre>
-          <pre data-prefix=">" class="text-warning"><code>On branch main</code></pre>
-          <pre data-prefix=">" class="text-warning"><code>Your branch is up to date with 'origin/main'.</code></pre>
-          <pre data-prefix=">" class="text-success"><code>nothing to commit, working tree clean</code></pre>
+        <h2 class="card-title">Terminal Access</h2>
+        <div class="alert alert-info">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <h3 class="font-bold">Terminal Available in VS Code</h3>
+            <div class="text-xs">Access the integrated terminal through VS Code's workspace environment</div>
+          </div>
         </div>
+        {{if eq (.Status) "running"}}
         <div class="card-actions justify-end">
-          <button class="btn btn-outline btn-sm">Open Terminal</button>
+          <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm">Open VS Code</a>
         </div>
+        {{else}}
+        <div class="card-actions justify-end">
+          <button class="btn btn-outline btn-sm" disabled>Start workspace first</button>
+        </div>
+        {{end}}
       </div>
     </div>
 
@@ -222,7 +231,7 @@
       <div class="card-body">
         <h3 class="card-title text-lg">Quick Actions</h3>
         <div class="space-y-2">
-          {{if eq .Status "running"}}
+          {{if eq (.Status) "running"}}
           <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

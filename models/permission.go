@@ -31,7 +31,7 @@ func HasPermission(userID, repoID, requiredRole string) bool {
 	}
 
 	// Repository owner always has full access
-	repo, err := Coding.GetRepo(repoID)
+	repo, err := GitRepos.Get(repoID)
 	if err == nil && repo.UserID == userID {
 		return true
 	}
