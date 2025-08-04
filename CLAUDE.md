@@ -1,371 +1,310 @@
-# CLAUDE.md
+# CLAUDE.md - Skyscape Workspace Development Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with the **Skyscape Workspace** application.
+This file provides optimized guidance for Claude Code when working with the **Skyscape Workspace** application.
 
-## Overview
+## Quick Start for Claude
 
-**Skyscape Workspace** is a production-ready, GitHub-like developer platform built with TheSkyscape DevTools. It provides comprehensive repository management, containerized development environments, and AI-powered development tools in a mobile-responsive interface.
+When working on this codebase:
+1. **Always build before committing**: `go build -o workspace`
+2. **Use c.Redirect not http.Redirect**: For HTMX compatibility
+3. **Follow MVC patterns**: Controllers handle requests, Models handle data, Views handle presentation
+4. **Test locally**: `export AUTH_SECRET="dev-secret" && go run .`
 
-## Application Architecture
+## Project Overview
 
-### MVC Pattern with TheSkyscape DevTools
-- **Models**: Database entities with `Table()` methods and global repositories in `models/database.go`
-- **Views**: HTML templates with HTMX integration and DaisyUI styling
-- **Controllers**: HTTP handlers with factory functions returning `(string, *Controller)`
+**Skyscape Workspace** is a GitHub-like platform with containerized development environments. Think of it as self-hosted GitHub + Codespaces.
 
-### Core Technologies
-- **Backend**: Go with TheSkyscape DevTools MVC framework
-- **Frontend**: HTMX + DaisyUI + TailwindCSS (mobile-first responsive design)
-- **Database**: SQLite3 with automatic migrations and typed repositories
-- **Authentication**: JWT with bcrypt password hashing
-- **Containerization**: Docker for VS Code development environments
+### Core Features
+- 🔐 **Git Repository Management** - Create, browse, search repos
+- 🚀 **Ephemeral Workspaces** - Docker-based VS Code environments
+- 📋 **Project Management** - Issues, PRs, and automation
+- 👥 **Access Control** - Role-based permissions (read/write/admin)
 
-## Project Structure
+## Architecture Patterns
 
-```
-workspace/
-├── controllers/
-│   ├── assistant.go      # AI assistant integration
-│   ├── home.go          # Homepage with public/private views
-│   ├── public.go        # Public repository access
-│   ├── repos.go         # Repository management (main controller)
-│   └── workspaces.go    # Container workspace management
-├── internal/
-│   └── coding/          # Git repository and workspace management
-│       ├── git-blob.go  # Git blob operations
-│       ├── git-repo.go  # Git repository model
-│       ├── repository.go # Repository manager
-│       ├── tokens.go    # Access token management
-│       ├── workspace.go # Workspace model
-│       └── resources/   # Shell scripts for workspace setup
-├── models/
-│   ├── action.go        # AI actions and automation
-│   ├── database.go      # Global DB setup and repositories
-│   ├── issue.go         # Issue tracking
-│   ├── permission.go    # Role-based access control
-│   ├── pullrequest.go   # Pull request management
-│   └── todo.go          # Task management
-├── views/
-│   ├── partials/        # Reusable template components
-│   ├── public/          # Static assets (CSS, JS, images)
-│   ├── home.html        # Public portfolio + authenticated dashboard
-│   ├── repos-list.html  # Repository listing page
-│   ├── repo-view.html   # Repository overview with README
-│   ├── repo-files.html  # File browser with syntax highlighting
-│   ├── repo-search.html # Code search with context
-│   ├── repo-issues.html # Issue management
-│   ├── repo-prs.html    # Pull request management
-│   └── workspace-launcher.html # VS Code workspace control
-├── main.go              # Application entry point
-├── go.mod               # Go module dependencies
-├── README.md            # Project documentation
-└── CLAUDE.md           # This file
-```
-
-## Key Features Implemented
-
-### ✅ Repository Management
-- **File Browsing**: Complete directory navigation with file type detection
-- **Code Search**: Regex-based search with context highlighting
-- **README Rendering**: Automatic markdown parsing and display
-- **Permission System**: Role-based access (read/write/admin)
-- **Git Integration**: Repository creation, cloning, commit history
-
-### ✅ Project Management
-- **Issues**: Full CRUD with status management (open/closed/reopen)
-- **Pull Requests**: Create, merge, close with branch selection
-- **Actions**: AI automation workflow management
-- **Activity Logging**: Comprehensive audit trail
-
-### ✅ Development Environment
-- **Containerized Workspaces**: Docker-based VS Code environments
-- **One-click Launch**: Instant development environment setup
-- **Port Management**: Automatic port allocation for workspaces
-
-### ✅ User Experience
-- **Mobile Responsive**: Mobile-first design with collapsible navigation
-- **Public Portfolio**: Developer showcase with public repositories
-- **Authentication**: Secure JWT-based sessions
-- **Clean UI**: GitHub-like interface with DaisyUI components
-
-## Development Patterns
-
-### Controller Factory Pattern
+### 1. Controller Pattern
+Every controller follows this structure:
 ```go
-// controllers/repos.go
-func Repos() (string, *ReposController) {
-    return "repos", &ReposController{}
+// Factory function returns prefix and instance
+func ControllerName() (string, *ControllerNameController) {
+    return "prefix", &ControllerNameController{}
 }
 
-func (c *ReposController) Setup(app *application.App) {
-    // Register routes and middleware
+// Setup registers routes
+func (c *ControllerNameController) Setup(app *application.App) {
     auth := app.Use("auth").(*authentication.Controller)
-    http.Handle("GET /repos/{id}", app.Serve("repo-view.html", auth.Required))
+    http.Handle("GET /route", app.Serve("template.html", auth.Required))
+    http.Handle("POST /action", app.ProtectFunc(c.handler, auth.Required))
 }
 
-func (c *ReposController) Handle(req *http.Request) application.Controller {
+// Handle prepares controller for request
+func (c *ControllerNameController) Handle(req *http.Request) application.Controller {
     c.Request = req
     return c
 }
 ```
 
-### Model Pattern
+### 2. Model Pattern
+Models must implement the Table() method:
 ```go
-// models/issue.go
-type Issue struct {
-    application.Model
-    Title      string
-    Body       string
-    Status     string // "open", "closed"
-    RepoID     string
-    AssigneeID string
-    Tags       string
+type ModelName struct {
+    application.Model  // Embeds ID, CreatedAt, UpdatedAt
+    Field1 string
+    Field2 int
 }
 
-func (*Issue) Table() string { return "issues" }
+func (*ModelName) Table() string { return "table_name" }
 ```
 
-### Template Integration
+### 3. View Pattern
+Templates access controller methods directly:
 ```html
-<!-- Views access controllers as {{controllerName.Method}} -->
-{{with repos.CurrentRepo}}
-    <h1>{{.Name}}</h1>
-    {{range repos.RepoIssues}}
-        <div>{{.Title}} - {{.Status}}</div>
-    {{end}}
+<!-- Access controller data -->
+{{with controllerPrefix.MethodName}}
+    <!-- Use the data -->
 {{end}}
 
 <!-- HTMX for dynamic updates -->
-<form hx-post="/repos/{{.ID}}/issues/create" hx-target="body" hx-swap="outerHTML">
-    <input name="title" required>
-    <button type="submit">Create Issue</button>
-</form>
+<form hx-post="{{host}}/path" hx-target="body" hx-swap="outerHTML">
 ```
 
-### Permission System
+## Key Files Reference
+
+### Controllers (`/controllers/`)
+| File | Purpose | Key Methods |
+|------|---------|-------------|
+| `repos.go` | Repository management | `CurrentRepo()`, `RepoFiles()`, `RepoIssues()` |
+| `workspaces.go` | Container management | `CurrentWorkspace()`, `UserWorkspaces()` |
+| `home.go` | Dashboard & landing | `UserRepos()`, `RecentActivity()` |
+| `public.go` | Unauthenticated access | `CurrentRepo()`, `PublicRepoIssues()` |
+
+### Models (`/models/`)
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `database.go` | Global DB setup | `setupDatabase()` - Initializes all repositories |
+| `workspace.go` | Workspace model | `Start()`, `Stop()`, `Service()` |
+| `coding.go` | Git operations | `NewRepo()`, `GetWorkspaceByID()` |
+| `permission.go` | Access control | `HasPermission()`, `CheckRepoAccess()` |
+
+### Views (`/views/`)
+| File | Purpose | Controller |
+|------|---------|------------|
+| `home.html` | Dashboard/Landing | `home` |
+| `repo-*.html` | Repository views | `repos` |
+| `workspace-*.html` | Workspace views | `workspaces` |
+| `workspaces-list.html` | Workspace management | `workspaces` |
+
+## Common Tasks
+
+### Adding a New Route
 ```go
-// Built on auth.Required with role hierarchy
-func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*coding.GitRepo, error) {
-    // Check repository access permissions
-    err = models.CheckRepoAccess(user, id, models.RoleRead)
-    if err != nil {
-        return nil, errors.New("access denied: " + err.Error())
-    }
-    return repo, nil
+// In controller's Setup() method
+http.Handle("GET /new-route/{id}", app.Serve("template.html", auth.Required))
+http.Handle("POST /new-route/{id}/action", app.ProtectFunc(c.handleAction, auth.Required))
+
+// Handler method
+func (c *Controller) handleAction(w http.ResponseWriter, r *http.Request) {
+    id := r.PathValue("id")
+    
+    // Always use c.Redirect for redirects (HTMX compatibility)
+    c.Redirect(w, r, "/success-page")
+    
+    // Or use c.Refresh for HTMX partial updates
+    c.Refresh(w, r)
 }
 ```
 
-### Internal Coding Package
+### Working with Models
 ```go
-// workspace/internal/coding provides Git repository management
-import "workspace/internal/coding"
+// Create
+model := &ModelType{Field: "value"}
+model, err := Models.Insert(model)
 
-// Repository operations are self-contained
-repo, err := models.Coding.GetRepo(repoID)
-workspace := models.Coding.CreateWorkspace(repoID)
+// Read
+model, err := Models.Get(id)
+
+// Update
+model.Field = "new value"
+err := Models.Update(model)
+
+// Delete
+err := Models.Delete(model)
+
+// Search
+results, err := Models.Search("WHERE field = ?", value)
 ```
 
-## Environment Variables
+### Template Helpers
+```go
+// Make data available to templates
+func (c *Controller) PublicData() string {
+    return "This is accessible as {{controller.PublicData}} in templates"
+}
 
-### Required
-- `AUTH_SECRET` - JWT signing secret (required for authentication)
+// Return complex data
+func (c *Controller) ComplexData() ([]Model, error) {
+    return Models.All()
+}
+```
 
-### Optional
-- `PORT` - Server port (default: 5000)
-- `THEME` - DaisyUI theme (default: corporate)
-- `CONGO_SSL_FULLCHAIN` - SSL certificate path
-- `CONGO_SSL_PRIVKEY` - SSL private key path
+## Workspace System
 
-## Development Commands
+### Architecture
+```
+User Request → /coder/{workspace-id}/ → WorkspaceHandler → Docker Container
+                                              ↓
+                                    Persistent Volumes:
+                                    - /home/coder/.config
+                                    - /home/coder/project  
+                                    - /workspace/repos/{repo-id}
+```
 
+### Key Operations
+```go
+// Create workspace
+workspace, err := models.NewWorkspace(userID, port, repo)
+
+// Start workspace
+err := workspace.Start(user, repo)
+
+// Access workspace
+/coder/{workspace.ID}/
+
+// Stop workspace  
+err := workspace.Stop()
+```
+
+## Error Handling
+
+### Standard Pattern
+```go
+func (c *Controller) handler(w http.ResponseWriter, r *http.Request) {
+    // Get authenticated user
+    auth := c.App.Use("auth").(*authentication.Controller)
+    user, _, err := auth.Authenticate(r)
+    if err != nil {
+        c.Render(w, r, "error-message.html", errors.New("unauthorized"))
+        return
+    }
+    
+    // Check permissions
+    err = models.CheckRepoAccess(user, repoID, models.RoleRead)
+    if err != nil {
+        c.Render(w, r, "error-message.html", err)
+        return
+    }
+    
+    // Success - use appropriate response
+    c.Refresh(w, r)  // For HTMX partial update
+    // OR
+    c.Redirect(w, r, "/success")  // For full page redirect
+}
+```
+
+## Security Checklist
+
+- ✅ **Authentication**: Use `auth.Required` middleware
+- ✅ **Authorization**: Check `models.CheckRepoAccess()` 
+- ✅ **Path Traversal**: Validate file paths with `isSubPath()`
+- ✅ **SQL Injection**: Use parameterized queries via repositories
+- ✅ **XSS**: Templates auto-escape, use `{{.Field}}` not `{{.Field | safe}}`
+
+## Testing Patterns
+
+### Local Development
 ```bash
-# Run application
-export AUTH_SECRET="your-secret-key"
+# Set required environment
+export AUTH_SECRET="dev-secret"
+
+# Run with auto-reload
 go run .
 
-# Build for production
+# Build and run
+go build -o workspace && ./workspace
+```
+
+### Common Test Scenarios
+1. **Repository Creation**: Sign in → Create Repo → Verify in list
+2. **Workspace Launch**: Open repo → Launch Workspace → Verify /coder/ proxy
+3. **Permissions**: Create private repo → Sign out → Verify 404
+4. **Issue Creation**: Open repo → Create issue → Verify in list
+
+## Debugging Tips
+
+### Check Request Context
+```go
+// In any controller method
+id := r.PathValue("id")  // Get path parameter
+value := r.FormValue("field")  // Get form value
+user, _, _ := auth.Authenticate(r)  // Get current user
+```
+
+### Template Debugging
+```html
+<!-- Show available data -->
+<pre>{{printf "%+v" .}}</pre>
+
+<!-- Check specific controller -->
+<pre>{{printf "%+v" repos}}</pre>
+```
+
+### Common Issues
+
+1. **"undefined: time"** - Add `import "time"` to the file
+2. **Template not found** - Check file exists in `/views/`
+3. **Route not working** - Ensure it's registered in Setup()
+4. **Permission denied** - Check HasPermission() logic
+
+## Performance Considerations
+
+1. **Database Queries**: Use `Search()` with limits for large datasets
+2. **File Operations**: Cache file stats when browsing
+3. **Docker Containers**: Reuse existing workspaces when possible
+4. **Templates**: Use partials for repeated components
+
+## Code Style Guide
+
+1. **Error Messages**: User-friendly, lowercase start
+2. **HTTP Status**: Use proper codes (200, 404, 403, 500)
+3. **Redirects**: Always use `c.Redirect()` not `http.Redirect()`
+4. **Logs**: Use `log.Printf()` for debugging, remove in production
+
+## Quick Command Reference
+
+```bash
+# Build
 go build -o workspace
 
 # Run tests
 go test ./...
 
+# Check for issues
+go vet ./...
+
+# Format code
+go fmt ./...
+
 # Update dependencies
 go mod tidy
 ```
 
-## Key Files and Their Purpose
-
-### Controllers
-- **`repos.go`** - Main repository controller with file browsing, search, issues, PRs
-- **`home.go`** - Homepage controller with public portfolio and dashboard
-- **`public.go`** - Public repository access for unauthenticated users
-- **`workspaces.go`** - Docker workspace lifecycle management
-- **`assistant.go`** - AI-powered development assistance
-
-### Internal Packages
-- **`internal/coding/`** - Self-contained Git repository and workspace management
-  - **`repository.go`** - Repository manager with database integration
-  - **`git-repo.go`** - Git repository model and operations
-  - **`workspace.go`** - Docker workspace model and lifecycle
-  - **`tokens.go`** - Access token management for Git operations
-
-### Models
-- **`database.go`** - Global database setup with typed repositories
-- **`permission.go`** - Role-based access control system
-- **`issue.go`** - Issue tracking with status management
-- **`pullrequest.go`** - Pull request workflow management
-
-### Views
-- **`repo-view.html`** - Repository overview with README rendering
-- **`repo-files.html`** - File browser with syntax highlighting
-- **`repo-search.html`** - Code search with context results
-- **`home.html`** - Public portfolio + authenticated dashboard
-
-## Security Considerations
-
-### Authentication & Authorization
-- JWT tokens with secure httpOnly cookies
-- Role-based permissions (read/write/admin)
-- Repository ownership with explicit permission grants
-
-### Input Validation
-- Path traversal protection for file access
-- SQL injection protection via typed repositories
-- XSS prevention through template escaping
-
-### File System Security
-- Repository files sandboxed within `repos/` directory
-- Binary file detection to prevent malicious uploads
-- Validated file paths for all file operations
-
-## Mobile Responsiveness
-
-### Navigation
-- Hamburger menu for mobile devices
-- Responsive logo and button sizing
-- Collapsible sidebar on small screens
-
-### Content Layout
-- Responsive grid layouts (1 column mobile, 3+ desktop)
-- Hidden table columns on small screens
-- Touch-optimized button sizes
-- Mobile-first CSS classes throughout
-
-### Forms and Modals
-- Full-screen modals on mobile devices
-- Stacked form layouts for narrow screens
-- Accessible form controls with proper labeling
-
-## Deployment
-
-### Using TheSkyscape launch-app
-```bash
-go build -o workspace
-export DIGITAL_OCEAN_API_KEY="your-token"
-./launch-app --name workspace --domain workspace.example.com --binary ./workspace
-```
-
-### Manual Deployment
-```bash
-# Build application
-go build -o workspace
-
-# Set environment variables
-export AUTH_SECRET="your-production-secret"
-export PORT=8080
-
-# Run application
-./workspace
-```
-
 ## Integration Points
 
-### Docker Runtime
-- All workspace operations require Docker daemon
-- Automatic container lifecycle management
-- Port allocation and cleanup
+### Docker Requirements
+- Docker daemon must be running
+- User must have docker permissions
+- Ports 8000-9000 reserved for workspaces
 
 ### File System
-- Repository files stored in `repos/` directory
-- Template views embedded at build time
-- Static assets served from `views/public/`
+- Repos stored in `./repos/`
+- Templates in `./views/`
+- Static assets in `./views/public/`
 
 ### Database
-- SQLite3 with automatic table creation
-- Type-safe repositories with Go generics
-- Migration-free schema updates
-
-## Error Handling
-
-### Template Rendering
-```go
-// Use consistent error templates
-c.Render(w, r, "error-message.html", errors.New("something went wrong"))
-
-// Use c.Refresh(w, r) for HTMX updates after successful operations
-```
-
-### Permission Failures
-```go
-// Check permissions before operations
-err := models.CheckRepoAccess(user, repoID, models.RoleWrite)
-if err != nil {
-    c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-    return
-}
-```
-
-## Common Development Tasks
-
-### Adding New Routes
-```go
-// In controller Setup method
-http.Handle("GET /new-route", app.Serve("template.html", auth.Required))
-http.Handle("POST /new-action", app.ProtectFunc(c.handler, auth.Required))
-```
-
-### Creating New Models
-```go
-// 1. Define model with Table() method
-type NewModel struct {
-    application.Model
-    Field string
-}
-func (*NewModel) Table() string { return "new_models" }
-
-// 2. Add repository to models/database.go
-var NewModels *database.Repository[NewModel]
-
-// 3. Initialize in setupDatabase()
-NewModels = database.Manage(DB, new(NewModel))
-```
-
-### Adding Template Helpers
-```go
-// Controllers methods are accessible as {{controllerName.Method}}
-func (c *Controller) PublicMethod() ([]Data, error) {
-    // This method can be called from templates
-    return data, nil
-}
-```
-
-## Production Readiness
-
-### Performance
-- Embedded views for zero-disk I/O
-- Efficient SQLite3 with connection pooling
-- Optimized Docker container management
-
-### Reliability
-- Comprehensive error handling
-- Graceful degradation for missing features
-- Robust permission system
-
-### Scalability
-- Stateless application design
-- Container-based workspace isolation
-- Database connection management
+- SQLite file: `./workspace.db`
+- Auto-creates tables on startup
+- No manual migrations needed
 
 ---
 
-This application represents a complete, production-ready GitHub alternative with modern web technologies and mobile-first design principles.
+**Remember**: When in doubt, follow existing patterns in the codebase. The controllers in `/controllers/repos.go` and `/controllers/workspaces.go` are good examples of the standard patterns used throughout the application.

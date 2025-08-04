@@ -1,3 +1,5 @@
+// Package models contains all database models and business logic for Skyscape Workspace.
+// Each model represents a database table and includes methods for CRUD operations.
 package models
 
 import (
@@ -17,15 +19,29 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Workspace represents a containerized development environment.
+// Each workspace runs VS Code (code-server) in a Docker container with persistent storage.
+//
+// Lifecycle:
+//   1. Created via NewWorkspace() - assigns port and generates unique name
+//   2. Started via Start() - launches Docker container with mounted volumes
+//   3. Accessed via /coder/{ID}/ - proxies to code-server on workspace.Port
+//   4. Stopped via Stop() - stops container but preserves volumes
+//   5. Deleted via Delete() - removes container and cleans up resources
+//
+// Persistence: Three volumes are mounted to preserve state between restarts:
+//   - /home/coder/.config - VS Code settings and extensions
+//   - /home/coder/project - User's project files
+//   - /workspace/repos/{repo-id} - Git repository (if RepoID is set)
 type Workspace struct {
 	application.Model
-	Name      string
-	UserID    string // Owner of the workspace
-	Port      int
-	Ready     bool
-	RepoID    string
-	LastUsed  time.Time
-	CreatedAt time.Time
+	Name      string    // Human-readable name (e.g., "workspace-1234567890")
+	UserID    string    // Owner of the workspace
+	Port      int       // Local port for VS Code server (8000-9000 range)
+	Ready     bool      // Whether the container is fully started
+	RepoID    string    // Optional: Associated repository ID
+	LastUsed  time.Time // Track when workspace was last accessed
+	CreatedAt time.Time // When the workspace was created
 }
 
 // Status returns the current status of the workspace based on container state

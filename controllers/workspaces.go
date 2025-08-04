@@ -10,7 +10,8 @@ import (
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 )
 
-// Workspaces is a factory function with the prefix and instance
+// Workspaces is a factory function that returns the URL prefix and controller instance.
+// The prefix "workspaces" means this controller handles all routes starting with /workspaces
 func Workspaces() (string, *WorkspacesController) {
 	return "workspaces", &WorkspacesController{}
 }
@@ -20,7 +21,16 @@ type WorkspacesController struct {
 	application.BaseController
 }
 
-// Setup is called when the application is started
+// Setup registers all routes for workspace management.
+// Routes:
+//   GET  /workspaces         - List all user workspaces (renders workspaces-list.html)
+//   GET  /workspace          - Redirect to user's active workspace or workspace list
+//   GET  /workspace/{id}     - Show workspace launcher page
+//   POST /workspace/{id}/start - Start a stopped workspace container
+//   POST /workspace/{id}/stop  - Stop a running workspace container
+//   DELETE /workspace/{id}   - Delete a workspace and its container
+//   POST /workspaces/create  - Create a new workspace (blank or from repo)
+//   /coder/{id}/*           - Proxy to VS Code server in workspace container
 func (c *WorkspacesController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
@@ -43,7 +53,9 @@ func (c *WorkspacesController) Handle(req *http.Request) application.Controller 
 	return c
 }
 
-// CurrentWorkspace returns the workspace from the URL path
+// CurrentWorkspace returns the workspace from the URL path parameter {id}.
+// This method is accessible from templates as {{workspaces.CurrentWorkspace}}
+// It also verifies the current user owns the workspace.
 func (c *WorkspacesController) CurrentWorkspace() (*models.Workspace, error) {
 	id := c.Request.PathValue("id")
 	if id == "" {
@@ -70,7 +82,9 @@ func (c *WorkspacesController) CurrentWorkspace() (*models.Workspace, error) {
 	return workspace, nil
 }
 
-// UserWorkspaces returns all workspaces for the current user
+// UserWorkspaces returns all workspaces owned by the authenticated user.
+// This method is accessible from templates as {{workspaces.UserWorkspaces}}
+// Used in workspaces-list.html to show all user's workspaces.
 func (c *WorkspacesController) UserWorkspaces() ([]*models.Workspace, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
