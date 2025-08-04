@@ -35,17 +35,26 @@ import (
 //   - /workspace/repos/{repo-id} - Git repository (if RepoID is set)
 type Workspace struct {
 	application.Model
-	Name      string    // Human-readable name (e.g., "workspace-1234567890")
-	UserID    string    // Owner of the workspace
-	Port      int       // Local port for VS Code server (8000-9000 range)
-	Ready     bool      // Whether the container is fully started
-	RepoID    string    // Optional: Associated repository ID
-	LastUsed  time.Time // Track when workspace was last accessed
-	CreatedAt time.Time // When the workspace was created
+	Name         string    // Human-readable name (e.g., "workspace-1234567890")
+	UserID       string    // Owner of the workspace
+	Port         int       // Local port for VS Code server (8000-9000 range)
+	Ready        bool      // Whether the container is fully started
+	RepoID       string    // Optional: Associated repository ID
+	LastUsed     time.Time // Track when workspace was last accessed
+	CreatedAt    time.Time // When the workspace was created
+	ErrorMessage string    // Store any error that occurred during startup
+	Status       string    // Explicit status: "starting", "running", "stopped", "error"
 }
 
-// Status returns the current status of the workspace based on container state
-func (w *Workspace) Status() string {
+// GetStatus returns the current status of the workspace
+// Priority: stored Status field > container state > default "stopped"
+func (w *Workspace) GetStatus() string {
+	// If we have an explicit status, use it
+	if w.Status != "" {
+		return w.Status
+	}
+	
+	// Fall back to checking container state
 	s := w.Service()
 	if s.IsRunning() {
 		if w.Ready {
@@ -93,38 +102,61 @@ var setupWorkspace string
 var cloneRepository string
 
 func (w *Workspace) Start(u *authentication.User, repo *GitRepo) error {
+	// Set status to starting
+	w.Status = "starting"
+	w.ErrorMessage = ""
+	if err := Workspaces.Update(w); err != nil {
+		log.Printf("Failed to update workspace status: %v", err)
+	}
+
 	s := w.Service()
 	if s.IsRunning() {
 		log.Printf("Workspace %s already running", w.Name)
-		return nil
+		w.Status = "running"
+		w.Ready = true
+		return Workspaces.Update(w)
 	}
 
 	host := containers.Local()
 	host.SetStdout(os.Stdout)
 	host.SetStderr(os.Stderr)
+	
+	// Prepare workspace directory
 	if err := host.Exec("bash", "-c", fmt.Sprintf(prepareWorkspace, database.DataDir(), w.ID)); err != nil {
+		w.Status = "error"
+		w.ErrorMessage = "Failed to prepare workspace directory"
+		Workspaces.Update(w)
 		return errors.Wrap(err, "failed to prepare workspace ")
 	}
 
+	// Launch container
 	if err := host.Launch(s); err != nil {
+		w.Status = "error"
+		w.ErrorMessage = "Failed to start container: " + err.Error()
+		Workspaces.Update(w)
 		return errors.Wrap(err, "failed to start workspace ")
 	}
 
+	// Setup workspace environment
 	if err := host.Exec("bash", "-c", setupWorkspace); err != nil {
+		w.Status = "error"
+		w.ErrorMessage = "Failed to setup workspace environment"
+		Workspaces.Update(w)
 		return errors.Wrap(err, "failed to setup workspace: ")
 	}
 
+	// Clone repository if provided
 	if repo != nil {
 		if token, err := NewAccessToken(time.Now().Add(100_000 * time.Hour)); err == nil {
 			w.Run(fmt.Sprintf(cloneRepository, token.ID, token.Secret, w.RepoID, u.Name, u.Email))
 		} else {
 			log.Println("Failed to create access token:", err)
 		}
-	} else {
-		log.Println("Failed to load repo:", repo, nil)
 	}
 
+	// Mark as ready and running
 	w.Ready = true
+	w.Status = "running"
 	w.LastUsed = time.Now()
 	return Workspaces.Update(w)
 }
@@ -134,7 +166,9 @@ func (w *Workspace) Stop() error {
 	s := w.Service()
 	if !s.IsRunning() {
 		log.Printf("Workspace %s is not running", w.Name)
-		return nil
+		w.Status = "stopped"
+		w.Ready = false
+		return Workspaces.Update(w)
 	}
 
 	if err := s.Stop(); err != nil {
@@ -142,6 +176,7 @@ func (w *Workspace) Stop() error {
 	}
 
 	w.Ready = false
+	w.Status = "stopped"
 	return Workspaces.Update(w)
 }
 

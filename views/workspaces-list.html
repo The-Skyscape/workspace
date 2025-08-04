@@ -57,24 +57,35 @@
         </div>
 
         <div class="mt-4">
-          {{if eq .Status "running"}}
+          {{if eq .GetStatus "running"}}
           <div class="badge badge-success badge-lg">
             <span class="loading loading-ring loading-xs mr-2"></span>
             Running
           </div>
-          {{else if eq .Status "starting"}}
+          {{else if eq .GetStatus "starting"}}
           <div class="badge badge-warning badge-lg">
             <span class="loading loading-spinner loading-xs mr-2"></span>
             Starting
           </div>
+          {{else if eq .GetStatus "error"}}
+          <div class="badge badge-error badge-lg">Error</div>
           {{else}}
           <div class="badge badge-ghost badge-lg">Stopped</div>
           {{end}}
         </div>
+        
+        {{if .ErrorMessage}}
+        <div class="alert alert-error mt-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{.ErrorMessage}}</span>
+        </div>
+        {{end}}
 
         <div class="card-actions justify-between mt-4">
           <div class="join">
-            {{if eq .Status "running"}}
+            {{if eq .GetStatus "running"}}
             <a href="{{host}}/coder/{{.ID}}/" class="btn btn-primary btn-sm join-item">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

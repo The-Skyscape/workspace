@@ -275,7 +275,9 @@ func (c *ReposController) launchWorkspace(w http.ResponseWriter, r *http.Request
 	userWorkspaces, err := models.GetUserWorkspaces(user.ID)
 	if err == nil {
 		for _, ws := range userWorkspaces {
-			if ws.RepoID == repoID && ws.Status() == "running" {
+			// Check for any workspace that's not stopped or in error state
+			status := ws.GetStatus()
+			if ws.RepoID == repoID && (status == "running" || status == "starting") {
 				// Redirect to existing workspace for this repo
 				c.Redirect(w, r, "/coder/"+ws.ID+"/")
 				return

@@ -178,7 +178,7 @@ func WorkspaceHandler(auth *authentication.Controller) http.Handler {
 		}
 
 		// Start workspace if not ready
-		if !ws.Ready || ws.Status() != "running" {
+		if !ws.Ready || ws.GetStatus() != "running" {
 			go func() {
 				if err := ws.Start(u, nil); err != nil {
 					log.Println("Failed to start workspace:", err)
