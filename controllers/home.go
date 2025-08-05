@@ -55,17 +55,6 @@ func (c *HomeController) UserRepos() ([]*models.GitRepo, error) {
 	return models.GitRepos.Search("")
 }
 
-// UserWorkspaces returns active workspaces for the current user
-func (c *HomeController) UserWorkspaces() ([]*models.Workspace, error) {
-	auth := c.Use("auth").(*authentication.Controller)
-	_, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, nil
-	}
-
-	// Get workspaces for the user
-	return models.GetWorkspaces()
-}
 
 // PublicRepos returns all public repositories for display on homepage
 func (c *HomeController) PublicRepos() ([]*models.GitRepo, error) {

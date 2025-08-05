@@ -15,7 +15,6 @@ var (
 
 	// Git-related collections
 	GitRepos     = database.Manage(DB, new(GitRepo))
-	Workspaces   = database.Manage(DB, new(Workspace))
 	AccessTokens = database.Manage(DB, new(AccessToken))
 
 	// Application-specific collections

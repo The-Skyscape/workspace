@@ -46,7 +46,6 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("GET /repos/{id}/search", app.Serve("repo-search.html", auth.Required))
 
 	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepo, auth.Required))
-	http.Handle("POST /repos/{id}/launch-workspace", app.ProtectFunc(c.launchWorkspace, auth.Required))
 	http.Handle("POST /repos/{id}/actions/create", app.ProtectFunc(c.createAction, auth.Required))
 	http.Handle("POST /repos/{id}/actions/{actionID}/run", app.ProtectFunc(c.runAction, auth.Required))
 	http.Handle("POST /repos/{id}/issues/create", app.ProtectFunc(c.createIssue, auth.Required))
@@ -243,80 +242,6 @@ func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
 	c.Redirect(w, r, "/repos/"+repo.ID)
 }
 
-// launchWorkspace handles workspace creation for a repository
-func (c *ReposController) launchWorkspace(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("unauthorized"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access permissions (write required for workspace launch)
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions to launch workspace"))
-		return
-	}
-
-	repo, err := models.GitRepos.Get(repoID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Check if user already has a workspace for this repository
-	userWorkspaces, err := models.GetUserWorkspaces(user.ID)
-	if err == nil {
-		for _, ws := range userWorkspaces {
-			// Check for any workspace that's not stopped or in error state
-			status := ws.GetStatus()
-			if ws.RepoID == repoID && (status == "running" || status == "starting") {
-				// Redirect to existing workspace for this repo
-				c.Redirect(w, r, "/coder/"+ws.ID+"/")
-				return
-			}
-		}
-	}
-
-	// Get available port - start at 8000 and increment
-	workspaces, _ := models.GetWorkspaces()
-	port := 8000
-	usedPorts := make(map[int]bool)
-	for _, ws := range workspaces {
-		usedPorts[ws.Port] = true
-	}
-	for usedPorts[port] {
-		port++
-	}
-
-	// Create new workspace
-	workspace, err := models.NewWorkspace(user.ID, port, repo)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Start the workspace asynchronously
-	go func() {
-		if err := workspace.Start(user, repo); err != nil {
-			log.Printf("Failed to start workspace %s: %v", workspace.ID, err)
-		}
-	}()
-
-	// Log the workspace launch activity
-	models.LogActivity("workspace_launched", "Launched workspace for "+repo.Name,
-		"Development workspace created", user.ID, repo.ID, "workspace", workspace.ID)
-
-	// Redirect to workspace with loading page
-	c.Redirect(w, r, "/coder/"+workspace.ID+"/")
-}
 
 // createAction handles automated action creation
 func (c *ReposController) createAction(w http.ResponseWriter, r *http.Request) {

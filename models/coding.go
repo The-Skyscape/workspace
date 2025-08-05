@@ -1,15 +1,11 @@
 package models
 
 import (
-	"cmp"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/database"
@@ -50,49 +46,6 @@ func NewRepo(repoID, name string) (repo *GitRepo, err error) {
 // - GitRepos.Search(query, args...)
 // - GitRepos.Update(repo)
 
-// Workspace operations
-
-func NewWorkspace(userID string, port int, repo *GitRepo) (*Workspace, error) {
-	now := time.Now()
-	workspace := &Workspace{
-		Name:      fmt.Sprintf("workspace-%d", now.Unix()),
-		UserID:    userID,
-		Port:      port,
-		Ready:     false,
-		CreatedAt: now,
-		LastUsed:  now,
-	}
-	if repo != nil {
-		workspace.RepoID = repo.ID
-		workspace.Name = fmt.Sprintf("%s-%d", repo.Name, now.Unix())
-	}
-
-	return Workspaces.Insert(workspace)
-}
-
-// GetWorkspace returns the most recently used workspace for a user
-func GetWorkspace(userID string) (*Workspace, error) {
-	w, err := Workspaces.Search(`WHERE UserID = ? ORDER BY LastUsed DESC LIMIT 1`, userID)
-	if err != nil || len(w) == 0 {
-		return nil, cmp.Or(err, errors.New("workspace not found"))
-	}
-
-	return w[0], nil
-}
-
-// GetWorkspaceByID returns a specific workspace by ID
-func GetWorkspaceByID(id string) (*Workspace, error) {
-	return Workspaces.Get(id)
-}
-
-// GetUserWorkspaces returns all workspaces for a user
-func GetUserWorkspaces(userID string) ([]*Workspace, error) {
-	return Workspaces.Search("WHERE UserID = ? ORDER BY CreatedAt DESC", userID)
-}
-
-func GetWorkspaces() ([]*Workspace, error) {
-	return Workspaces.Search(``)
-}
 
 // Git server HTTP handler
 
@@ -130,77 +83,5 @@ func GitServer(auth *authentication.Controller) http.Handler {
 	})
 }
 
-// Workspace HTTP handler
-
-func WorkspaceHandler(auth *authentication.Controller) http.Handler {
-	return auth.ProtectFunc(func(w http.ResponseWriter, r *http.Request) {
-		u, _, err := auth.Authenticate(r)
-		if err != nil {
-			auth.Render(w, r, "error-message", err)
-			return
-		}
-
-		// Extract workspace ID from path or query params
-		path := r.URL.Path
-		wsID := ""
-		
-		// Check if workspace ID is in the path (e.g., /coder/workspace-id/...)
-		parts := strings.Split(strings.TrimPrefix(path, "/coder/"), "/")
-		if len(parts) > 0 && strings.HasPrefix(parts[0], "workspace-") {
-			wsID = parts[0]
-			// Update path for proxy
-			r.URL.Path = "/" + strings.Join(parts[1:], "/")
-		} else if id := r.URL.Query().Get("workspace"); id != "" {
-			wsID = id
-		}
-
-		var ws *Workspace
-		if wsID != "" {
-			// Get specific workspace by ID
-			ws, err = GetWorkspaceByID(wsID)
-			if err != nil || ws == nil || ws.UserID != u.ID {
-				auth.Render(w, r, "error-message", errors.New("workspace not found or access denied"))
-				return
-			}
-		} else {
-			// No workspace ID provided - redirect to workspace list
-			http.Redirect(w, r, "/workspaces", http.StatusFound)
-			return
-		}
-
-		// Start workspace if not ready
-		if !ws.Ready || ws.GetStatus() != "running" {
-			go func() {
-				if err := ws.Start(u, nil); err != nil {
-					log.Println("Failed to start workspace:", err)
-					return
-				}
-			}()
-			
-			// Show loading page
-			auth.Render(w, r, "loading.html", map[string]any{
-				"WorkspaceID": ws.ID,
-				"Message": "Starting workspace...",
-			})
-			return
-		}
-
-		// Update last used timestamp
-		ws.LastUsed = time.Now()
-		Workspaces.Update(ws)
-
-		// Proxy to code-server
-		s := ws.Service()
-		s.Proxy(ws.Port).ServeHTTP(w, r)
-	}, false)
-}
-
-// Helper to get repo for a workspace
-func (w *Workspace) Repo() (*GitRepo, error) {
-	if w.RepoID == "" {
-		return nil, nil
-	}
-	return GitRepos.Get(w.RepoID)
-}
 
 // Access token helpers

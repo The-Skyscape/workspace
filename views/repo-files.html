@@ -133,14 +133,7 @@
           </svg>
           <h2 class="text-2xl font-bold mb-4">Empty Repository</h2>
           <p class="text-base-content/70 mb-6">This repository has no files yet</p>
-          <div class="space-x-2">
-            <button class="btn btn-primary"
-                    hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
-                    hx-target="body"
-                    hx-swap="outerHTML">
-              Launch Workspace to Add Files
-            </button>
-          </div>
+          <p class="text-sm text-base-content/60">Clone this repository locally to add files, or contact an admin for development access.</p>
         </div>
         {{end}}
         {{end}}
@@ -187,16 +180,7 @@
       <div class="card-body">
         <h3 class="card-title text-lg">Repository</h3>
         <div class="space-y-2">
-          <button class="btn btn-primary btn-sm w-full"
-                  hx-post="{{host}}/repos/{{.ID}}/launch-workspace"
-                  hx-target="body"
-                  hx-swap="outerHTML">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            Open in Workspace
-          </button>
-          <a href="{{host}}/repos/{{.ID}}/commits" class="btn btn-outline btn-sm w-full">
+<a href="{{host}}/repos/{{.ID}}/commits" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>

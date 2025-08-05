@@ -39,17 +39,6 @@
     <div class="stat-desc">Active projects</div>
   </div>
 
-  <a href="{{host}}/workspaces" class="stat bg-base-100 shadow rounded-box hover:shadow-lg transition-shadow" hx-boost="true">
-    <div class="stat-figure text-secondary">
-      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-      </svg>
-    </div>
-    <div class="stat-title">Workspaces</div>
-    <div class="stat-value">{{len (home.UserWorkspaces)}}</div>
-    <div class="stat-desc">Running environments</div>
-  </a>
-
   <div class="stat bg-base-100 shadow rounded-box">
     <div class="stat-figure text-accent">
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,7 +100,6 @@
                 </button>
                 <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48" hx-boost="true">
                   <li><a href="{{host}}/repos/{{.ID}}">View Repository</a></li>
-                  <li><a hx-post="{{host}}/repos/{{.ID}}/launch-workspace">Launch Workspace</a></li>
                 </ul>
               </div>
             </div>
@@ -187,30 +175,6 @@
           {{else}}
           <div class="text-center py-4 text-base-content/50">
             <p class="text-sm">No recent activity</p>
-          </div>
-          {{end}}
-        </div>
-      </div>
-    </div>
-
-    <!-- Running Workspaces -->
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h3 class="card-title text-lg">Active Workspaces</h3>
-        <div class="space-y-2">
-          {{range home.UserWorkspaces}}
-          {{if .Ready}}
-          <div class="flex items-center justify-between p-3 bg-success/10 rounded-lg">
-            <div>
-              <div class="font-medium">{{.Name}}</div>
-              <div class="text-sm text-success">Ready on port {{.Port}}</div>
-            </div>
-            <a href="{{host}}/workspace/{{.ID}}" class="btn btn-success btn-xs" hx-boost="true">Connect</a>
-          </div>
-          {{end}}
-          {{else}}
-          <div class="text-center py-6 text-base-content/50">
-            <p>No active workspaces</p>
           </div>
           {{end}}
         </div>
