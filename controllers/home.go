@@ -75,13 +75,12 @@ func (c *HomeController) PublicRepos() ([]*models.GitRepo, error) {
 
 // DeveloperProfile returns developer information for the homepage
 func (c *HomeController) DeveloperProfile() map[string]interface{} {
-	// For now, return static developer information
-	// TODO: Make this configurable through a settings system
+	// Developer profile configuration
 	return map[string]interface{}{
 		"name":        "Developer",
 		"title":       "Full Stack Developer & AI Enthusiast",
 		"bio":         "Building innovative solutions with AI-powered tools and modern web technologies",
-		"avatar":      "/public/developer-avatar.jpg", // TODO: Add default avatar
+		"avatar":      "/public/developer-avatar.jpg",
 		"location":    "Remote",
 		"company":     "Independent",
 		"website":     "https://skyscape.dev",

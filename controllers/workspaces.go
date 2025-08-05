@@ -171,8 +171,10 @@ func (c *WorkspacesController) startWorkspace(w http.ResponseWriter, r *http.Req
 	// Start the workspace using the coding package
 	go func() {
 		if err := workspace.Start(user, nil); err != nil {
-			// TODO: Handle error better
-			return
+			log.Printf("Failed to start workspace %s: %v", workspace.ID, err)
+			workspace.Status = "error"
+			workspace.ErrorMessage = err.Error()
+			models.Workspaces.Update(workspace)
 		}
 	}()
 

@@ -232,7 +232,7 @@ func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
 	// This is complementary to the UserID ownership check
 	if err = models.GrantPermission(user.ID, repo.ID, models.RoleAdmin); err != nil {
 		// Log warning but don't fail - UserID ownership is primary mechanism
-		// TODO: Add proper logging
+		log.Printf("Warning: failed to grant admin permission for repo %s to user %s: %v", repo.ID, user.ID, err)
 	}
 
 	// Log the repository creation activity

@@ -303,14 +303,15 @@
       </div>
 
       <p>Please type <strong>{{.Name}}</strong> to confirm:</p>
-      <input type="text" id="confirm_delete" placeholder="Repository name" class="input input-bordered w-full">
+      <input type="text" id="confirm_delete" placeholder="Repository name" class="input input-bordered w-full"
+             oninput="document.getElementById('delete_btn').disabled = (this.value !== '{{.Name}}')">
 
       <div class="modal-action">
-        <button type="button" class="btn btn-error"
-                onclick="if(document.getElementById('confirm_delete').value === '{{.Name}}') { /* TODO: Implement delete */ alert('Delete functionality not yet implemented'); delete_repo_modal.close(); } else { alert('Repository name does not match'); }"
-                disabled>
-          Delete Repository
-        </button>
+        <form hx-post="{{host}}/repos/{{.ID}}/delete" hx-confirm="Are you absolutely sure?" style="display: inline;">
+          <button type="submit" class="btn btn-error" id="delete_btn" disabled>
+            Delete Repository
+          </button>
+        </form>
         <button type="button" class="btn" onclick="delete_repo_modal.close()">Cancel</button>
       </div>
     </div>

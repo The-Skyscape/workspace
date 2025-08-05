@@ -1,0 +1,38 @@
+# Binaries
+skyscape
+workspace
+*.exe
+
+# Build artifacts
+/build/
+/dist/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test
+*.out
+
+# Dependency directories
+vendor/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+
+# Environment files
+.env
+.env.local
