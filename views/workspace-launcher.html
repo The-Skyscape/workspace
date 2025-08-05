@@ -16,7 +16,7 @@
   <div class="flex items-center space-x-2">
     {{if eq (.Status) "running"}}
     <div class="badge badge-success badge-sm sm:badge-md">Running</div>
-    <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm sm:btn-md">
+    <a href="{{host}}/coder/{{.ID}}/" target="_blank" class="btn btn-primary btn-sm sm:btn-md">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
       </svg>
@@ -56,7 +56,7 @@
           </svg>
           <div>
             <h3 class="font-bold">Workspace is running!</h3>
-            <div class="text-xs">Available at <code>http://localhost:{{.Port}}</code></div>
+            <div class="text-xs">Available at <code>{{host}}/coder/{{.ID}}/</code></div>
           </div>
         </div>
 
@@ -76,7 +76,7 @@
         </div>
 
         <div class="card-actions justify-end">
-          <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary">Open Workspace</a>
+          <a href="{{host}}/coder/{{.ID}}/" target="_blank" class="btn btn-primary">Open Workspace</a>
           <button class="btn btn-warning"
                   hx-post="{{host}}/workspace/{{.ID}}/stop"
                   hx-target="#workspace-status"
@@ -167,7 +167,7 @@
         </div>
         {{if eq (.Status) "running"}}
         <div class="card-actions justify-end">
-          <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm">Open VS Code</a>
+          <a href="{{host}}/coder/{{.ID}}/" target="_blank" class="btn btn-primary btn-sm">Open VS Code</a>
         </div>
         {{else}}
         <div class="card-actions justify-end">
@@ -232,7 +232,7 @@
         <h3 class="card-title text-lg">Quick Actions</h3>
         <div class="space-y-2">
           {{if eq (.Status) "running"}}
-          <a href="http://localhost:{{.Port}}" target="_blank" class="btn btn-primary btn-sm w-full">
+          <a href="{{host}}/coder/{{.ID}}/" target="_blank" class="btn btn-primary btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>

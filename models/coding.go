@@ -163,18 +163,9 @@ func WorkspaceHandler(auth *authentication.Controller) http.Handler {
 				return
 			}
 		} else {
-			// Get most recent workspace for user
-			ws, err = GetWorkspace(u.ID)
-			if ws == nil || err != nil {
-				// Create new workspace if none exists
-				others, _ := GetWorkspaces()
-				port := 8000 + len(others)
-				ws, err = NewWorkspace(u.ID, port, nil)
-				if err != nil {
-					auth.Render(w, r, "error-message", err)
-					return
-				}
-			}
+			// No workspace ID provided - redirect to workspace list
+			http.Redirect(w, r, "/workspaces", http.StatusFound)
+			return
 		}
 
 		// Start workspace if not ready

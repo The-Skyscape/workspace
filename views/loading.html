@@ -64,8 +64,12 @@ function refreshPage() {
     document.getElementById('status-text').textContent = 'Almost ready...';
   }
   
-  // Refresh the page
+  // Refresh the page with workspace ID
+  {{if .WorkspaceID}}
+  window.location.href = '{{host}}/coder/{{.WorkspaceID}}/';
+  {{else}}
   window.location.reload();
+  {{end}}
 }
 
 // Start the refresh timer
