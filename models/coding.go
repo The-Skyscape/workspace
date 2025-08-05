@@ -87,7 +87,7 @@ func GetWorkspaceByID(id string) (*Workspace, error) {
 
 // GetUserWorkspaces returns all workspaces for a user
 func GetUserWorkspaces(userID string) ([]*Workspace, error) {
-	return Workspaces.Search("WHERE UserID = ? ORDER BY LastUsed DESC", userID)
+	return Workspaces.Search("WHERE UserID = ? ORDER BY CreatedAt DESC", userID)
 }
 
 func GetWorkspaces() ([]*Workspace, error) {

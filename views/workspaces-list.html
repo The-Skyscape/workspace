@@ -48,12 +48,21 @@
             Created {{.CreatedAt.Format "Jan 2, 2006"}}
           </div>
           
+          {{if not .LastUsed.IsZero}}
           <div class="flex items-center text-base-content/70">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Last used {{.LastUsed.Format "Jan 2, 2006 3:04 PM"}}
           </div>
+          {{else}}
+          <div class="flex items-center text-base-content/70">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Never used
+          </div>
+          {{end}}
         </div>
 
         <div class="mt-4">
