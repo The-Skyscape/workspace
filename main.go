@@ -19,7 +19,7 @@ var views embed.FS
 func main() {
 	// Start global services
 	startServices()
-	
+
 	// Start application
 	application.Serve(views,
 		application.WithController("auth", models.Auth.Controller()),
@@ -35,7 +35,7 @@ func main() {
 // startServices initializes global services
 func startServices() {
 	log.Println("Initializing global services...")
-	
+
 	// Start coder service if ENABLE_CODER is set
 	if os.Getenv("ENABLE_CODER") == "true" {
 		log.Println("Starting global coder service...")
