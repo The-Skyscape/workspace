@@ -1,44 +1,137 @@
 {{template "layout/start"}}
-<div class="hero min-h-screen bg-base-200">
-  <div class="hero-content flex-col lg:flex-row-reverse">
-    <div class="text-center lg:text-left">
-      <h1 class="text-5xl font-bold">Welcome Back!</h1>
-      <p class="py-6">Sign in to access your Skyscape Workspace with Git repositories, containerized development environments, and AI-powered coding assistance.</p>
+<div class="max-w-6xl mx-auto">
+  <div class="flex flex-col lg:flex-row items-center justify-center gap-12 py-8 lg:py-16">
+    <!-- Left side - Welcome back message -->
+    <div class="flex-1 text-center lg:text-left">
+      <div class="mb-8">
+        <h1 class="text-4xl lg:text-5xl font-bold mb-4">
+          Continue Building Your
+          <span class="text-primary">Great Idea</span>
+        </h1>
+        <p class="text-lg text-base-content/80 max-w-md">
+          Welcome back to Skyscape. Pick up where you left off and keep shipping amazing projects.
+        </p>
+      </div>
+
+      <!-- Feature cards matching signup page -->
+      <div class="grid gap-4">
+        <div class="card bg-base-200/50 border border-base-300">
+          <div class="card-body p-4 flex-row items-center gap-4">
+            <div class="text-primary">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">Your Projects</div>
+              <div class="text-sm text-base-content/70">Access all your repositories and code</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-base-200/50 border border-base-300">
+          <div class="card-body p-4 flex-row items-center gap-4">
+            <div class="text-secondary">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">Instant Resume</div>
+              <div class="text-sm text-base-content/70">Jump back into your development environment</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-base-200/50 border border-base-300">
+          <div class="card-body p-4 flex-row items-center gap-4">
+            <div class="text-accent">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">Track Progress</div>
+              <div class="text-sm text-base-content/70">See your recent activity and contributions</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="card flex-shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
-      <div class="card-body">
-        <h2 class="card-title justify-center mb-4">Sign In</h2>
-        
-        <div class="error text-center text-error mb-4"></div>
-        
-        <form hx-post="{{host}}/_auth/signin" hx-target="previous .error" class="space-y-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Email or Handle</span>
-            </label>
-            <input type="text" name="handle" placeholder="Enter your email or handle" class="input input-bordered" required>
-          </div>
+
+    <!-- Right side - Form -->
+    <div class="flex-1 w-full max-w-md">
+      <div class="card bg-base-100 shadow-xl border border-base-300">
+        <div class="card-body">
+          <h2 class="text-2xl font-bold text-center mb-6">Welcome Back</h2>
           
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Password</span>
-            </label>
-            <input type="password" name="password" placeholder="Enter your password" class="input input-bordered" required>
-            <label class="label">
-              <a href="#" class="label-text-alt link link-hover">Forgot password?</a>
-            </label>
-          </div>
+          <div class="error text-center text-error mb-4"></div>
           
-          <div class="form-control mt-6">
-            <button class="btn btn-primary">Sign In</button>
+          <form hx-post="{{host}}/_auth/signin" hx-target="previous .error" class="flex flex-col gap-2">
+            <!-- Email/Username Input -->
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Email or Username</span>
+              </div>
+              <label class="input input-bordered w-full flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+                  <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.735 14c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139h9.47Z" />
+                </svg>
+                <input type="text" name="handle" class="grow validator" 
+                       placeholder="john@example.com or johndoe" 
+                       pattern="[a-zA-Z0-9@._-]+"
+                       title="Enter your email address or username"
+                       required 
+                       autofocus />
+              </label>
+              <div class="label py-0">
+                <span class="label-text-alt text-xs text-error validator-hint">Please enter your email or username</span>
+              </div>
+            </label>
+            
+            <!-- Password Input -->
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Password</span>
+                <a href="#" class="label-text-alt link link-hover text-xs">Forgot password?</a>
+              </div>
+              <label class="input input-bordered w-full flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+                  <path fill-rule="evenodd" d="M14 6a4 4 0 0 1-4.899 3.899l-1.955 1.955a.5.5 0 0 1-.353.146H5v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-2.293a.5.5 0 0 1 .146-.353l3.955-3.955A4 4 0 1 1 14 6Zm-4-2a.75.75 0 0 0 0 1.5.5.5 0 0 1 .5.5.75.75 0 0 0 1.5 0 2 2 0 0 0-2-2Z" clip-rule="evenodd" />
+                </svg>
+                <input type="password" name="password" class="grow validator" 
+                       placeholder="••••••••" 
+                       minlength="8"
+                       title="Enter your password"
+                       required />
+              </label>
+              <div class="label py-0">
+                <span class="label-text-alt text-xs text-error validator-hint">Password is required</span>
+              </div>
+            </label>
+            
+            <!-- Remember Me Checkbox -->
+            <label class="label cursor-pointer">
+              <span class="label-text text-sm">Remember me</span> 
+              <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+            </label>
+            
+            <div class="form-control mt-4">
+              <button class="btn btn-primary btn-block">
+                Sign In
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                  <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </form>
+          
+          <div class="divider">OR</div>
+          
+          <div class="text-center">
+            <p class="text-sm text-base-content/70">New to Skyscape?</p>
+            <a href="{{host}}/signup" class="link link-primary font-medium">Create an account</a>
           </div>
-        </form>
-        
-        <div class="divider">OR</div>
-        
-        <div class="text-center">
-          <p class="text-sm">Don't have an account?</p>
-          <a href="{{host}}/signup" class="btn btn-outline btn-sm mt-2">Create Account</a>
         </div>
       </div>
     </div>

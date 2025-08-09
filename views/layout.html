@@ -2,13 +2,9 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="{{theme}}" class="h-full">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skyscape Workspace</title>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
-    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+    {{template "app-deps" .}}
+    <link href="{{host}}/public/custom.css" rel="stylesheet" type="text/css" />
 </head>
 <body class="h-full flex flex-col">
     <!-- Responsive Navbar -->
@@ -71,7 +67,16 @@
                     </ul>
                 </div>
             {{else}}
-                <a href="{{host}}/signin" class="btn btn-primary btn-sm lg:btn-md">Sign In</a>
+                <div class="flex gap-2">
+                    {{if eq path "/signin"}}
+                        <a href="{{host}}/signup" class="btn btn-outline btn-sm lg:btn-md">Sign Up</a>
+                    {{else if eq path "/signup"}}
+                        <a href="{{host}}/signin" class="btn btn-primary btn-sm lg:btn-md">Sign In</a>
+                    {{else}}
+                        <a href="{{host}}/signup" class="btn btn-outline btn-sm lg:btn-md">Sign Up</a>
+                        <a href="{{host}}/signin" class="btn btn-primary btn-sm lg:btn-md">Sign In</a>
+                    {{end}}
+                </div>
             {{end}}
         </div>
     </div>

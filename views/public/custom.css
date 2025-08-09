@@ -1,0 +1,23 @@
+/* Custom CSS for Skyscape Workspace */
+
+/* Validator hint visibility */
+.validator-hint {
+  display: none;
+}
+
+.validator:invalid ~ .label .validator-hint.text-error {
+  display: inline;
+}
+
+.validator:valid ~ .label .validator-hint.text-success {
+  display: inline;
+}
+
+/* Optional: Add visual feedback for invalid inputs */
+.validator:invalid {
+  border-color: hsl(var(--er));
+}
+
+.validator:valid {
+  border-color: hsl(var(--su));
+}

@@ -43,6 +43,12 @@ func (c *HomeController) AppDescription() string {
 	return "AI-powered developer environment with Git repositories and containerized workspaces"
 }
 
+// IsFirstUser returns true if no users exist yet (first user will be admin)
+func (c *HomeController) IsFirstUser() bool {
+	users, _ := models.Auth.Users.Search("LIMIT 1")
+	return len(users) == 0
+}
+
 // UserRepos returns repositories the current user has access to
 func (c *HomeController) UserRepos() ([]*models.GitRepo, error) {
 	auth := c.Use("auth").(*authentication.Controller)

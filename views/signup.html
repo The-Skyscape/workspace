@@ -1,58 +1,191 @@
 {{template "layout/start"}}
-<div class="hero min-h-screen bg-base-200">
-  <div class="hero-content flex-col lg:flex-row-reverse">
-    <div class="text-center lg:text-left">
-      <h1 class="text-5xl font-bold">Join Skyscape!</h1>
-      <p class="py-6">Create your account to start building with Git repositories, containerized workspaces, and AI-powered development tools.</p>
+<div class="max-w-6xl mx-auto">
+  <div class="flex flex-col lg:flex-row items-center justify-center gap-12 py-8 lg:py-16">
+    <!-- Left side - Marketing copy -->
+    <div class="flex-1 text-center lg:text-left">
+      <div class="mb-8">
+        <h1 class="text-4xl lg:text-5xl font-bold mb-4">
+          Build Your Next
+          <span class="text-primary">Great Idea</span>
+        </h1>
+        <p class="text-lg text-base-content/80 max-w-md">
+          Join Skyscape and turn your vision into reality with our all-in-one development platform.
+        </p>
+      </div>
+
+      <!-- Feature cards -->
+      <div class="grid gap-4">
+        <div class="card bg-base-200/50 border border-base-300">
+          <div class="card-body p-4 flex-row items-center gap-4">
+            <div class="text-primary">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">Private Git Repositories</div>
+              <div class="text-sm text-base-content/70">Unlimited repos with SSH & HTTPS access</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-base-200/50 border border-base-300">
+          <div class="card-body p-4 flex-row items-center gap-4">
+            <div class="text-secondary">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">Cloud VS Code</div>
+              <div class="text-sm text-base-content/70">Browser-based development, no setup required</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-base-200/50 border border-base-300">
+          <div class="card-body p-4 flex-row items-center gap-4">
+            <div class="text-accent">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold">Instant Workspaces</div>
+              <div class="text-sm text-base-content/70">Spin up isolated environments in seconds</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="card flex-shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
-      <div class="card-body">
-        <h2 class="card-title justify-center mb-4">Create Account</h2>
-        
-        <div class="error text-center text-error mb-4"></div>
-        
-        <form hx-post="{{host}}/_auth/signup" hx-target="previous .error" class="space-y-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Full Name</span>
-            </label>
-            <input type="text" name="name" placeholder="Enter your full name" class="input input-bordered" required>
+
+    <!-- Right side - Form -->
+    <div class="flex-1 w-full max-w-md">
+      <div class="card bg-base-100 shadow-xl border border-base-300">
+        <div class="card-body">
+          <h2 class="text-2xl font-bold text-center mb-2">Create Account</h2>
+
+          {{if home.IsFirstUser}}
+          <div class="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <div class="text-sm font-semibold">You'll be the administrator</div>
+              <div class="text-xs">As the first user, you'll have admin privileges for this workspace.</div>
+            </div>
           </div>
-          
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Email</span>
+          {{end}}
+
+          <div class="error text-center text-error mb-4"></div>
+
+          <form hx-post="{{host}}/_auth/signup" hx-target="previous .error" class="flex flex-col gap-2">
+            <!-- Full Name Input -->
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Full Name</span>
+                <span class="label-text-alt text-xs">Required</span>
+              </div>
+              <label class="input input-bordered w-full flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+                  <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.735 14c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139h9.47Z" />
+                </svg>
+                <input type="text" name="name" class="grow validator"
+                       placeholder="John Doe"
+                       pattern="[A-Za-z\s]{2,50}"
+                       title="Please enter a valid name (2-50 characters, letters and spaces only)"
+                       required />
+              </label>
+              <div class="label py-0">
+                <span class="label-text-alt text-xs text-error validator-hint">Please enter your full name (letters and spaces only)</span>
+              </div>
             </label>
-            <input type="email" name="email" placeholder="Enter your email" class="input input-bordered" required>
-          </div>
-          
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Handle</span>
+
+            <!-- Email Input -->
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Email Address</span>
+                <span class="label-text-alt text-xs">We'll never share your email</span>
+              </div>
+              <label class="input input-bordered w-full flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+                  <path d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z" />
+                  <path d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z" />
+                </svg>
+                <input type="email" name="email" class="grow validator"
+                       placeholder="john@example.com"
+                       pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                       title="Please enter a valid email address"
+                       required />
+              </label>
+              <div class="label py-0">
+                <span class="label-text-alt text-xs text-error validator-hint">Please enter a valid email address</span>
+              </div>
             </label>
-            <input type="text" name="handle" placeholder="Choose a unique handle" class="input input-bordered" required>
-            <label class="label">
-              <span class="label-text-alt">This will be your username</span>
+
+            <!-- Username Input -->
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Username</span>
+                <span class="label-text-alt text-xs">3-20 characters</span>
+              </div>
+              <label class="input input-bordered w-full flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+                  <path d="M8 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 2ZM4 8a4 4 0 1 1 8 0 4 4 0 0 1-8 0ZM2.565 12.695a.75.75 0 1 0-1.06 1.06l1.06 1.06a.75.75 0 0 0 1.06-1.06l-1.06-1.06ZM14.435 13.755a.75.75 0 1 0-1.06-1.06l-1.06 1.06a.75.75 0 1 0 1.06 1.06l1.06-1.06Z" />
+                </svg>
+                <input type="text" name="handle" class="grow validator"
+                       placeholder="johndoe"
+                       pattern="[a-zA-Z0-9_-]{3,20}"
+                       minlength="3"
+                       maxlength="20"
+                       title="Username must be 3-20 characters, alphanumeric with underscores and hyphens"
+                       required />
+              </label>
+              <div class="label">
+                <span class="label-text-alt text-xs text-success validator-hint">Username available</span>
+                <span class="label-text-alt text-xs text-error validator-hint">Username must be 3-20 characters (letters, numbers, _, -)</span>
+              </div>
             </label>
-          </div>
-          
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Password</span>
+
+            <!-- Password Input -->
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Password</span>
+                <span class="label-text-alt text-xs">Min 8 characters</span>
+              </div>
+              <label class="input input-bordered w-full flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+                  <path fill-rule="evenodd" d="M14 6a4 4 0 0 1-4.899 3.899l-1.955 1.955a.5.5 0 0 1-.353.146H5v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-2.293a.5.5 0 0 1 .146-.353l3.955-3.955A4 4 0 1 1 14 6Zm-4-2a.75.75 0 0 0 0 1.5.5.5 0 0 1 .5.5.75.75 0 0 0 1.5 0 2 2 0 0 0-2-2Z" clip-rule="evenodd" />
+                </svg>
+                <input type="password" name="password" class="grow validator"
+                       placeholder="••••••••"
+                       pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                       minlength="8"
+                       title="Password must contain at least 8 characters, including uppercase, lowercase, and a number"
+                       required />
+              </label>
+              <div class="label py-0">
+                <span class="label-text-alt text-xs text-error validator-hint">Password must be 8+ chars with uppercase, lowercase, and number</span>
+                <span class="label-text-alt text-xs text-base-content/50">Use a strong password</span>
+              </div>
             </label>
-            <input type="password" name="password" placeholder="Create a strong password" class="input input-bordered" required>
+
+            <div class="form-control mt-4">
+              <button class="btn btn-primary btn-block">
+                Create Account
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                  <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="divider">OR</div>
+
+          <div class="text-center">
+            <p class="text-sm text-base-content/70">Already have an account?</p>
+            <a href="{{host}}/signin" class="link link-primary font-medium">Sign in instead</a>
           </div>
-          
-          <div class="form-control mt-6">
-            <button class="btn btn-primary">Create Account</button>
-          </div>
-        </form>
-        
-        <div class="divider">OR</div>
-        
-        <div class="text-center">
-          <p class="text-sm">Already have an account?</p>
-          <a href="{{host}}/signin" class="btn btn-outline btn-sm mt-2">Sign In</a>
         </div>
       </div>
     </div>
