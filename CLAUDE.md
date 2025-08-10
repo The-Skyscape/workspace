@@ -5,10 +5,11 @@ This file provides optimized guidance for Claude Code when working with the **Sk
 ## Quick Start for Claude
 
 When working on this codebase:
-1. **Always build before committing**: `go build -o workspace`
+1. **Always use Makefile for builds**: `make clean && make` (NOT `go build` directly)
 2. **Use c.Redirect not http.Redirect**: For HTMX compatibility
 3. **Follow MVC patterns**: Controllers handle requests, Models handle data, Views handle presentation
 4. **Test locally**: `export AUTH_SECRET="dev-secret" && go run .`
+5. **Deploy pattern**: `cd /home/coder/skyscape && ./devtools/build/launch-app deploy --name workspace-test-env --binary workspace/build/workspace`
 
 ## Project Overview
 
@@ -201,6 +202,33 @@ func (c *Controller) handler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
+## UI Development Patterns
+
+### DaisyUI v5 Forms
+```html
+<!-- Use this pattern for forms (NOT validator component) -->
+<form class="flex flex-col gap-2">
+  <label class="form-control w-full">
+    <div class="label">
+      <span class="label-text text-sm font-medium">Field Name</span>
+      <span class="label-text-alt text-xs">Helper text</span>
+    </div>
+    <input type="text" class="input input-bordered w-full" />
+  </label>
+</form>
+```
+
+### Spacing Preferences
+- **ALWAYS use**: `flex flex-col gap-2` for form spacing
+- **NEVER use**: `space-y-n` classes
+- **Form spacing**: Use `gap-2` between form fields
+- **Section spacing**: Use `gap-4` or `gap-6` between sections
+
+### Template Helpers
+- **Active nav states**: Use `{{if path_eq "route"}}class="active"{{end}}`
+- **No HTMX on external links**: Regular `<a>` tags without `hx-boost="true"`
+- **Open in new tab**: Add `target="_blank"` for IDE/external links
+
 ## Security Checklist
 
 - ✅ **Authentication**: Use `auth.Required` middleware
@@ -229,6 +257,43 @@ go build -o workspace && ./workspace
 3. **Permissions**: Create private repo → Sign out → Verify 404
 4. **Issue Creation**: Open repo → Create issue → Verify in list
 
+## Docker Service Management
+
+### Service Initialization Pattern
+```go
+// In controller Setup() to auto-start services
+func (c *Controller) Setup(app *application.App) {
+    // ... routes ...
+    
+    // Initialize service on startup
+    if err := services.ServiceName.Init(); err != nil {
+        log.Printf("Warning: Failed to initialize service: %v", err)
+    }
+}
+```
+
+### Preventing Duplicate Containers
+```go
+// In service Init() method
+func (s *Service) Init() error {
+    if s.IsRunning() {
+        log.Println("Service already running")
+        s.running = true
+        return nil
+    }
+    // Start service...
+}
+```
+
+### Container Restart Policy
+```go
+// Add to Service struct for persistent containers
+service := &containers.Service{
+    RestartPolicy: "always",  // Survives crashes and reboots
+    // ... other config
+}
+```
+
 ## Debugging Tips
 
 ### Check Request Context
@@ -248,12 +313,16 @@ user, _, _ := auth.Authenticate(r)  // Get current user
 <pre>{{printf "%+v" repos}}</pre>
 ```
 
-### Common Issues
+### Common Issues & Solutions
 
 1. **"undefined: time"** - Add `import "time"` to the file
 2. **Template not found** - Check file exists in `/views/`
 3. **Route not working** - Ensure it's registered in Setup()
 4. **Permission denied** - Check HasPermission() logic
+5. **SSH connection refused** - Wait a few seconds after deployment for SSH to restart
+6. **Duplicate containers** - Check IsRunning() before creating new containers
+7. **Build failures** - Always use `make clean && make` instead of direct `go build`
+8. **Validator not working** - DaisyUI v5 doesn't have validator component, use HTML5 validation
 
 ## Performance Considerations
 
@@ -269,11 +338,29 @@ user, _, _ := auth.Authenticate(r)  // Get current user
 3. **Redirects**: Always use `c.Redirect()` not `http.Redirect()`
 4. **Logs**: Use `log.Printf()` for debugging, remove in production
 
+## Deployment Checklist
+
+Before deploying changes:
+1. ✅ Build with Makefile: `make clean && make`
+2. ✅ Test locally if possible
+3. ✅ Commit changes with descriptive message
+4. ✅ Deploy to test environment first: `workspace-test-env`
+5. ✅ Verify no duplicate containers after deployment
+6. ✅ Check logs: `ssh root@IP "docker logs sky-app -n 50"`
+
+### Standard Deployment Command
+```bash
+cd /home/coder/skyscape
+./devtools/build/launch-app deploy \
+  --name workspace-test-env \
+  --binary workspace/build/workspace
+```
+
 ## Quick Command Reference
 
 ```bash
-# Build
-go build -o workspace
+# Build (ALWAYS use Makefile)
+make clean && make
 
 # Run tests
 go test ./...
@@ -286,6 +373,15 @@ go fmt ./...
 
 # Update dependencies
 go mod tidy
+
+# Check container status on server
+ssh root@64.23.187.176 "docker ps -a"
+
+# View application logs
+ssh root@64.23.187.176 "docker logs sky-app -n 50"
+
+# Restart application
+ssh root@64.23.187.176 "docker restart sky-app"
 ```
 
 ## Integration Points

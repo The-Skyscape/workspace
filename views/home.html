@@ -8,7 +8,7 @@
     <h1 class="text-2xl sm:text-3xl font-bold">Dashboard</h1>
     <p class="text-base-content/70">Welcome back, {{auth.CurrentUser.Name}}!</p>
   </div>
-  <div>
+  <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
     <button class="btn btn-primary btn-sm sm:btn-md" onclick="create_repo_modal.showModal()">
       <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -16,6 +16,13 @@
       <span class="hidden sm:inline">Create Repository</span>
       <span class="sm:hidden">New Repo</span>
     </button>
+    <a href="{{host}}/coder/" target="_blank" class="btn btn-outline btn-sm sm:btn-md">
+      <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+      </svg>
+      <span class="hidden sm:inline">Open IDE</span>
+      <span class="sm:hidden">IDE</span>
+    </a>
   </div>
 </div>
 
