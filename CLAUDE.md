@@ -375,13 +375,13 @@ go fmt ./...
 go mod tidy
 
 # Check container status on server
-ssh root@64.23.187.176 "docker ps -a"
+ssh root@SERVER_IP "docker ps -a"
 
 # View application logs
-ssh root@64.23.187.176 "docker logs sky-app -n 50"
+ssh root@SERVER_IP "docker logs sky-app -n 50"
 
 # Restart application
-ssh root@64.23.187.176 "docker restart sky-app"
+ssh root@SERVER_IP "docker restart sky-app"
 ```
 
 ## Integration Points
