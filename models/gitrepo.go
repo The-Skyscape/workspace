@@ -668,3 +668,15 @@ func (repo *GitRepo) DeleteFile(branch, path, commitMessage, userID string) erro
 func shellescape(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
 }
+
+// GetRepoByName retrieves a repository by its name
+func GetRepoByName(name string) (*GitRepo, error) {
+	repos, err := GitRepos.Search("WHERE Name = ?", name)
+	if err != nil {
+		return nil, err
+	}
+	if len(repos) == 0 {
+		return nil, errors.New("repository not found")
+	}
+	return repos[0], nil
+}

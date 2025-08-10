@@ -1,35 +1,48 @@
 package models
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/google/uuid"
 )
 
+// AccessToken for repository access
 type AccessToken struct {
 	application.Model
-	Secret  string
-	Expires time.Time
+	RepoID    string
+	UserID    string
+	Token     string
+	ExpiresAt time.Time
 }
 
-func (*AccessToken) Table() string { return "code_access_tokens" }
+func (*AccessToken) Table() string { return "access_tokens" }
 
-func NewAccessToken(expires time.Time) (*AccessToken, error) {
-	return AccessTokens.Insert(&AccessToken{
-		Model:   DB.NewModel(uuid.NewString()),
-		Secret:  uuid.NewString(),
-		Expires: expires,
-	})
+// GenerateToken creates a secure random token
+func GenerateToken() string {
+	bytes := make([]byte, 32)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }
 
-func GetAccessToken(id, secret string) (*AccessToken, error) {
-	token, err := AccessTokens.Get(id)
-	if err != nil {
+// CreateAccessToken creates a new access token
+func CreateAccessToken(repoID, userID string, duration time.Duration) (*AccessToken, error) {
+	token := &AccessToken{
+		Model:     DB.NewModel(""), // Generate a new ID
+		RepoID:    repoID,
+		UserID:    userID,
+		Token:     GenerateToken(),
+		ExpiresAt: time.Now().Add(duration),
+	}
+	return AccessTokens.Insert(token)
+}
+
+// GetValidToken retrieves and validates a token
+func GetValidToken(token string) (*AccessToken, error) {
+	tokens, err := AccessTokens.Search("WHERE Token = ? AND ExpiresAt > ?", token, time.Now())
+	if err != nil || len(tokens) == 0 {
 		return nil, err
 	}
-	if token.Secret != secret || token.Expires.Before(time.Now()) {
-		return nil, nil
-	}
-	return token, nil
+	return tokens[0], nil
 }

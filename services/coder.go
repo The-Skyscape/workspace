@@ -59,6 +59,7 @@ func (c *CoderService) Start() error {
 		Name:  "skyscape-coder",
 		Image: "codercom/code-server:latest",
 		Command: fmt.Sprintf("--auth none --bind-addr 0.0.0.0:%d", c.port),
+		Network: "host", // Use host network for easier access to services
 		RestartPolicy: "always", // Restart on failure or reboot
 		Mounts: map[string]string{
 			configDir:  "/home/coder/.config",
@@ -66,9 +67,7 @@ func (c *CoderService) Start() error {
 			// Mount the entire workspace directory for full access
 			database.DataDir(): "/workspace",
 		},
-		Ports: map[int]int{
-			c.port: c.port,
-		},
+		// No port mapping needed with host network
 		Env: map[string]string{
 			"PORT":         strconv.Itoa(c.port),
 			"SERVICE_TYPE": "coder",

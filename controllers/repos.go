@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -63,6 +65,7 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("POST /repos/{id}/files/save", app.ProtectFunc(c.saveFile, auth.Required))
 	http.Handle("POST /repos/{id}/files/create", app.ProtectFunc(c.createFile, auth.Required))
 	http.Handle("DELETE /repos/{id}/files/{path...}", app.ProtectFunc(c.deleteFile, auth.Required))
+	http.Handle("POST /repos/{id}/open-ide", app.ProtectFunc(c.openInIDE, auth.Required))
 
 	http.Handle("/repo/", http.StripPrefix("/repo/", models.GitServer(auth)))
 }
@@ -1693,4 +1696,73 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to repository files
 	c.Redirect(w, r, "/repos/"+repoID+"/files")
+}
+
+// openInIDE handles opening a repository in the IDE by cloning it
+func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
+	auth := c.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		return
+	}
+
+	repoID := r.PathValue("id")
+	repo, err := models.GitRepos.Get(repoID)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("repository not found"))
+		return
+	}
+
+	// Check permissions
+	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("access denied"))
+		return
+	}
+
+	// Create a temporary access token (valid for 5 minutes)
+	token, err := models.CreateAccessToken(repoID, user.ID, 5*time.Minute)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("failed to create access token"))
+		return
+	}
+	
+	log.Printf("Created access token - ID: %s, Token: %s, RepoID: %s, ExpiresAt: %v", 
+		token.ID, token.Token, token.RepoID, token.ExpiresAt.Format(time.RFC3339))
+
+	// Build the clone URL with token as basic auth
+	// Both containers use host network, so localhost works
+	// Use token ID as username and token as password for basic auth
+	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s", token.ID, token.Token, repo.Name)
+
+	// Execute git clone in the coder container
+	cloneCmd := fmt.Sprintf(`
+		cd /home/coder/project && 
+		rm -rf %s && 
+		git clone %s %s && 
+		echo "Repository cloned successfully"
+	`, repo.Name, cloneURL, repo.Name)
+
+	// Execute in the coder container
+	output, err := exec.Command("docker", "exec", "skyscape-coder", "bash", "-c", cloneCmd).CombinedOutput()
+	if err != nil {
+		c.Render(w, r, "error-message.html", fmt.Errorf("failed to clone repository: %s", string(output)))
+		return
+	}
+
+	// Return success message with link to open IDE
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, `
+		<div class="alert alert-success">
+			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+			</svg>
+			<div>
+				<div class="font-bold">Repository ready in IDE!</div>
+				<div class="text-sm">The repository has been cloned to /home/coder/project/%s</div>
+			</div>
+			<a href="/coder/" target="_blank" class="btn btn-sm btn-primary">Open IDE</a>
+		</div>
+	`, repo.Name)
 }

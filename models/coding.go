@@ -61,16 +61,22 @@ func GitServer(auth *authentication.Controller) http.Handler {
 			return false, nil
 		}
 
-		if _, err := GetAccessToken(creds.Username, creds.Password); err == nil {
+		// Check if it's token-based auth (using token ID as username, token value as password)
+		token, err := AccessTokens.Get(creds.Username)
+		if err == nil && token != nil && token.Token == creds.Password {
+			// Token matches, allow access
+			log.Printf("Token auth successful - ID: %s", creds.Username)
 			return true, nil
 		}
 
+		// Fall back to username/password authentication
 		if user, err := auth.GetUser(creds.Username); err != nil {
 			return false, errors.New("invalid username or password")
 		} else if ok := user.VerifyPassword(creds.Password); !ok {
 			return false, errors.New("invalid username or password")
 		}
 
+		log.Printf("User auth successful for %s", creds.Username)
 		return true, nil
 	}
 
