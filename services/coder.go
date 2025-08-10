@@ -59,6 +59,7 @@ func (c *CoderService) Start() error {
 		Name:  "skyscape-coder",
 		Image: "codercom/code-server:latest",
 		Command: fmt.Sprintf("--auth none --bind-addr 0.0.0.0:%d", c.port),
+		RestartPolicy: "always", // Restart on failure or reboot
 		Mounts: map[string]string{
 			configDir:  "/home/coder/.config",
 			projectDir: "/home/coder/project",
@@ -151,4 +152,23 @@ func (c *CoderService) GetProxyPath() string {
 // StripProxyPath strips the proxy path from a request path
 func (c *CoderService) StripProxyPath(path string) string {
 	return strings.TrimPrefix(path, c.GetProxyPath())
+}
+
+// Init initializes the coder service if not already running
+// This is called during application startup
+func (c *CoderService) Init() error {
+	// Check if service already exists and is running
+	if c.IsRunning() {
+		log.Println("Coder service already running")
+		c.running = true
+		return nil
+	}
+
+	// Start the service
+	log.Println("Initializing coder service...")
+	if err := c.Start(); err != nil {
+		return errors.Wrap(err, "failed to initialize coder service")
+	}
+
+	return nil
 }

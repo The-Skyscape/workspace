@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"workspace/models"
 	"workspace/services"
@@ -36,6 +37,13 @@ func (c *ServicesController) Setup(app *application.App) {
 	
 	// Register coder proxy handler
 	http.Handle("/coder/", http.StripPrefix("/coder/", models.CoderHandler(auth)))
+
+	// Initialize the coder service on startup
+	if err := services.Coder.Init(); err != nil {
+		// Log the error but don't fail startup
+		// The service can be started manually from the UI
+		log.Printf("Warning: Failed to initialize coder service: %v", err)
+	}
 }
 
 // Handle is called when each request is handled
