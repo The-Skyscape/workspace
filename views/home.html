@@ -8,7 +8,7 @@
     <h1 class="text-2xl sm:text-3xl font-bold">Dashboard</h1>
     <p class="text-base-content/70">Welcome back, {{auth.CurrentUser.Name}}!</p>
   </div>
-  <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+  <div>
     <button class="btn btn-primary btn-sm sm:btn-md" onclick="create_repo_modal.showModal()">
       <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -16,13 +16,6 @@
       <span class="hidden sm:inline">Create Repository</span>
       <span class="sm:hidden">New Repo</span>
     </button>
-    <a href="{{host}}/repos" class="btn btn-outline btn-sm sm:btn-md" hx-boost="true">
-      <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-      </svg>
-      <span class="hidden sm:inline">View All Repos</span>
-      <span class="sm:hidden">All Repos</span>
-    </a>
   </div>
 </div>
 
@@ -152,30 +145,42 @@
 <!-- Create Repository Modal -->
 <dialog id="create_repo_modal" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">Create New Repository</h3>
-    <form hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Repository Name</span>
-          </label>
-          <input type="text" name="name" placeholder="my-awesome-project" class="input input-bordered" required>
+    <h3 class="text-2xl font-bold mb-6">Create New Repository</h3>
+    <form hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+      <!-- Repository Name Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Repository Name</span>
+          <span class="label-text-alt text-xs">Required</span>
         </div>
+        <input type="text" name="name" class="input input-bordered w-full"
+               placeholder="my-awesome-project"
+               pattern="[a-zA-Z0-9][a-zA-Z0-9-_]{0,38}[a-zA-Z0-9]"
+               title="Repository name must be 2-40 characters, start and end with alphanumeric, and can contain hyphens and underscores"
+               required />
+      </label>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Visibility</span>
-          </label>
-          <select name="visibility" class="select select-bordered">
-            <option value="private">Private</option>
-            <option value="public">Public</option>
-          </select>
+      <!-- Visibility Select -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Visibility</span>
+          <span class="label-text-alt text-xs">Who can see this repository</span>
         </div>
+        <select name="visibility" class="select select-bordered w-full">
+          <option value="private" selected>Private - Only you can access</option>
+          <option value="public">Public - Anyone can view</option>
+        </select>
+      </label>
 
-        <div class="modal-action">
-          <button type="submit" class="btn btn-primary">Create Repository</button>
-          <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
-        </div>
+      <!-- Modal Actions -->
+      <div class="modal-action mt-4">
+        <button type="submit" class="btn btn-primary">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Create Repository
+        </button>
+        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
       </div>
     </form>
   </div>
