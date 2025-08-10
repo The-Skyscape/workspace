@@ -1724,6 +1724,7 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	// Create a temporary access token (valid for 5 minutes)
 	token, err := models.CreateAccessToken(repoID, user.ID, 5*time.Minute)
 	if err != nil {
+		log.Printf("Failed to create access token: %v", err)
 		c.Render(w, r, "error-message.html", errors.New("failed to create access token"))
 		return
 	}

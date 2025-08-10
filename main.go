@@ -36,14 +36,10 @@ func main() {
 func startServices() {
 	log.Println("Initializing global services...")
 
-	// Start coder service if ENABLE_CODER is set
-	if os.Getenv("ENABLE_CODER") == "true" {
-		log.Println("Starting global coder service...")
-		if err := services.Coder.Start(); err != nil {
-			log.Printf("Warning: Failed to start coder service: %v", err)
-			// Don't fail the application if coder fails to start
-		}
-	} else {
-		log.Println("Coder service disabled (set ENABLE_CODER=true to enable)")
+	// Initialize coder service (will check if already running)
+	log.Println("Initializing coder service...")
+	if err := services.Coder.Init(); err != nil {
+		log.Printf("Warning: Failed to initialize coder service: %v", err)
+		// Don't fail the application if coder fails to start
 	}
 }
