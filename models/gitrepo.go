@@ -57,7 +57,20 @@ func (repo *GitRepo) Open(branch, path string) (*GitBlob, error) {
 }
 
 func (repo *GitRepo) Blobs(branch, path string) (blobs []*GitBlob, err error) {
-	stdout, stderr, err := repo.Run("ls-tree", branch, filepath.Join(".", path)+"/")
+	// For root directory, don't add trailing slash
+	targetPath := path
+	if path == "" || path == "." {
+		targetPath = ""
+	} else {
+		targetPath = filepath.Join(".", path) + "/"
+	}
+	
+	args := []string{"ls-tree", branch}
+	if targetPath != "" {
+		args = append(args, targetPath)
+	}
+	
+	stdout, stderr, err := repo.Run(args...)
 	if err != nil {
 		return nil, errors.Wrap(err, stderr.String())
 	}
@@ -185,7 +198,7 @@ func (repo *GitRepo) GetBranches() ([]*GitBranch, error) {
 	if repo.IsEmpty("HEAD") {
 		// Return just the default branch for empty repos
 		return []*GitBranch{{
-			Name:      "main",
+			Name:      "master",
 			IsDefault: true,
 			IsCurrent: true,
 			LastCommit: "",
@@ -334,6 +347,66 @@ func (repo *GitRepo) MergeBranch(sourceBranch, targetBranch string) error {
 	}
 
 	return nil
+}
+
+// GetDefaultBranch returns the default branch of the repository
+func (repo *GitRepo) GetDefaultBranch() string {
+	// First, get list of all branches to see what actually exists
+	stdout, _, err := repo.Run("branch", "-r")
+	if err == nil {
+		branches := strings.TrimSpace(stdout.String())
+		if branches != "" {
+			// Check for origin/master or origin/main
+			if strings.Contains(branches, "origin/master") {
+				return "master"
+			}
+			if strings.Contains(branches, "origin/main") {
+				return "main"
+			}
+		}
+	}
+	
+	// Try local branches
+	stdout, _, err = repo.Run("branch")
+	if err == nil {
+		branches := strings.TrimSpace(stdout.String())
+		if branches != "" {
+			// Parse first branch from list (current branch marked with *)
+			lines := strings.Split(branches, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "*") {
+					return strings.TrimSpace(strings.TrimPrefix(line, "*"))
+				}
+			}
+			// If no current branch, return first branch
+			if len(lines) > 0 {
+				return strings.TrimSpace(strings.TrimPrefix(lines[0], "*"))
+			}
+		}
+	}
+
+	// Try to get the current branch from HEAD
+	stdout, _, err = repo.Run("symbolic-ref", "--short", "HEAD")
+	if err == nil {
+		branch := strings.TrimSpace(stdout.String())
+		if branch != "" {
+			return branch
+		}
+	}
+
+	// Check if master exists
+	if _, _, err := repo.Run("rev-parse", "--verify", "master"); err == nil {
+		return "master"
+	}
+	
+	// Check if main exists
+	if _, _, err := repo.Run("rev-parse", "--verify", "main"); err == nil {
+		return "main"
+	}
+
+	// For empty repos, return empty string to indicate no valid branch
+	return ""
 }
 
 // CanMergeBranch checks if a source branch can be merged into a target branch without conflicts

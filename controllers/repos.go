@@ -530,11 +530,17 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 		path = "."
 	}
 	branch := c.CurrentBranch()
+	
+	// If no branch exists, return empty list
+	if branch == "" {
+		return []*FileInfo{}, nil
+	}
 
 	// Use git to browse files on the selected branch
 	gitBlob, err := repo.Open(branch, path)
 	if err != nil {
-		return nil, err
+		// If we can't open the path, the repository might be empty or path doesn't exist
+		return []*FileInfo{}, nil
 	}
 
 	if !gitBlob.IsDirectory {
@@ -715,7 +721,14 @@ func (c *ReposController) RepoCommitDiff() ([]*models.GitDiff, error) {
 func (c *ReposController) CurrentBranch() string {
 	branch := c.Request.URL.Query().Get("branch")
 	if branch == "" {
-		return "main" // Default branch
+		// Get the default branch from the current repository
+		if repo, err := c.CurrentRepo(); err == nil {
+			defaultBranch := repo.GetDefaultBranch()
+			if defaultBranch != "" {
+				return defaultBranch
+			}
+		}
+		return "" // Empty for repositories with no branches
 	}
 	return branch
 }
@@ -832,6 +845,23 @@ func getContextLines(lines []string, lineNum, contextSize int) []string {
 	return lines[start:end]
 }
 
+// HasFiles checks if the repository has any files
+func (c *ReposController) HasFiles() bool {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return false
+	}
+
+	branch := c.CurrentBranch()
+	// If no branch exists, no files
+	if branch == "" {
+		return false
+	}
+	// Try to list files in the root
+	_, err = repo.Open(branch, ".")
+	return err == nil
+}
+
 // RepoReadme detects and returns README content for the repository
 func (c *ReposController) RepoReadme() (*FileInfo, error) {
 	repo, err := c.CurrentRepo()
@@ -839,8 +869,13 @@ func (c *ReposController) RepoReadme() (*FileInfo, error) {
 		return nil, err
 	}
 
-	// Look for README files in repository root
-	repoPath := filepath.Join("repos", repo.ID)
+	// Look for README files in repository root using git
+	branch := c.CurrentBranch()
+	// If no branch exists, no README
+	if branch == "" {
+		return nil, nil
+	}
+	
 	readmeFiles := []string{
 		"README.md",
 		"readme.md",
@@ -852,15 +887,16 @@ func (c *ReposController) RepoReadme() (*FileInfo, error) {
 	}
 
 	for _, filename := range readmeFiles {
-		fullPath := filepath.Join(repoPath, filename)
-		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
-			content, err := os.ReadFile(fullPath)
+		// Try to open the file via git
+		gitBlob, err := repo.Open(branch, filename)
+		if err == nil && !gitBlob.IsDirectory {
+			content, err := gitBlob.Content()
 			if err != nil {
 				continue
 			}
 
 			// Check if binary
-			if isBinary(content) {
+			if isBinary([]byte(content)) {
 				continue
 			}
 
@@ -868,9 +904,8 @@ func (c *ReposController) RepoReadme() (*FileInfo, error) {
 				Name:     filename,
 				Path:     filename,
 				IsDir:    false,
-				Size:     info.Size(),
-				ModTime:  info.ModTime(),
-				Content:  string(content),
+				Size:     gitBlob.Size(),
+				Content:  content,
 				Language: getLanguageFromExtension(filepath.Ext(filename)),
 				IsBinary: false,
 			}
