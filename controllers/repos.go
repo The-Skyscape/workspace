@@ -1770,15 +1770,18 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	// Build the clone URL with token as basic auth
 	// Both containers use host network, so localhost works
 	// Use token ID as username and token as password for basic auth
-	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s", token.ID, token.Token, repo.Name)
+	// Use repo.ID for the URL (not repo.Name which can have spaces)
+	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s.git", token.ID, token.Token, repo.ID)
 
 	// Execute git clone in the coder container
+	// Use proper shell escaping for repository names that might contain spaces
+	escapedName := strings.ReplaceAll(repo.Name, "'", "'\\''")
 	cloneCmd := fmt.Sprintf(`
 		cd /home/coder/project && 
-		rm -rf %s && 
-		git clone %s %s && 
+		rm -rf '%s' && 
+		git clone '%s' '%s' && 
 		echo "Repository cloned successfully"
-	`, repo.Name, cloneURL, repo.Name)
+	`, escapedName, cloneURL, escapedName)
 
 	// Execute in the coder container
 	output, err := exec.Command("docker", "exec", "skyscape-coder", "bash", "-c", cloneCmd).CombinedOutput()
