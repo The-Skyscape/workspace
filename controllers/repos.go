@@ -77,18 +77,18 @@ func (c *ReposController) Handle(req *http.Request) application.Controller {
 }
 
 // CurrentRepo returns the repository from the URL path
-func (c *ReposController) CurrentRepo() (*models.GitRepo, error) {
+func (c *ReposController) CurrentRepo() (*models.Repository, error) {
 	return c.getCurrentRepoFromRequest(c.Request)
 }
 
 // getCurrentRepoFromRequest returns the repository from a specific request with permission checking
-func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.GitRepo, error) {
+func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Repository, error) {
 	id := r.PathValue("id")
 	if id == "" {
 		return nil, errors.New("repository ID not found")
 	}
 
-	repo, err := models.GitRepos.Get(id)
+	repo, err := models.Repositories.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Gi
 	if repo.UserID == "" {
 		// Assign ownership to the current user for legacy repositories
 		repo.UserID = user.ID
-		models.GitRepos.Update(repo)
+		models.Repositories.Update(repo)
 	}
 
 	// Always grant the repository owner admin permissions if they don't have any
@@ -116,6 +116,12 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Gi
 	err = models.CheckRepoAccess(user, id, models.RoleRead)
 	if err != nil {
 		return nil, errors.New("access denied: " + err.Error())
+	}
+
+	// Update repository state if it's empty or initialized
+	// This ensures the state is current after git operations
+	if repo.State == models.StateEmpty || repo.State == models.StateInitialized {
+		repo.UpdateState()
 	}
 
 	return repo, nil
@@ -209,42 +215,22 @@ func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
 		visibility = "private"
 	}
 
-	// Generate URL-friendly repository ID
-	repoID := generateRepoID(name, user.ID)
-
-	// Create the repository
-	repo, err := models.NewRepo(repoID, name)
+	// Create the repository using the new API
+	repo, err := models.CreateRepository(name, description, visibility, user.ID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
 		return
 	}
 
-	// Set repository metadata and ownership
-	repo.UserID = user.ID
-	repo.Description = description
-	repo.Visibility = visibility
-
-	// Save the updated repository
-	if err = models.GitRepos.Update(repo); err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to update repository: "+err.Error()))
-		return
-	}
-
 	// Grant admin permissions to creator for explicit permission tracking
-	// This is complementary to the UserID ownership check
 	if err = models.GrantPermission(user.ID, repo.ID, models.RoleAdmin); err != nil {
 		// Log warning but don't fail - UserID ownership is primary mechanism
 		log.Printf("Warning: failed to grant admin permission for repo %s to user %s: %v", repo.ID, user.ID, err)
 	}
 
-	// Log the repository creation activity
-	models.LogActivity("repo_created", "Created repository "+repo.Name,
-		"New "+repo.Visibility+" repository created", user.ID, repo.ID, "repository", repo.ID)
-
 	// Redirect to the new repository
 	c.Redirect(w, r, "/repos/"+repo.ID)
 }
-
 
 // createAction handles automated action creation
 func (c *ReposController) createAction(w http.ResponseWriter, r *http.Request) {
@@ -377,7 +363,7 @@ func (c *ReposController) runAction(w http.ResponseWriter, r *http.Request) {
 }
 
 // AllRepos returns all repositories the current user has access to
-func (c *ReposController) AllRepos() ([]*models.GitRepo, error) {
+func (c *ReposController) AllRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
@@ -530,63 +516,50 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 		path = "."
 	}
 	branch := c.CurrentBranch()
-	
+
 	// If no branch exists, return empty list
 	if branch == "" {
 		return []*FileInfo{}, nil
 	}
 
-	// Use git to browse files on the selected branch
-	gitBlob, err := repo.Open(branch, path)
-	if err != nil {
-		// If we can't open the path, the repository might be empty or path doesn't exist
-		return []*FileInfo{}, nil
-	}
-
-	if !gitBlob.IsDirectory {
-		// If it's a file, return single file info
-		fileInfo := &FileInfo{
-			Name:     filepath.Base(path),
-			Path:     path,
-			IsDir:    false,
-			Language: getLanguageFromExtension(filepath.Ext(path)),
+	// Check if it's a file or directory
+	if path != "." && path != "" && repo.FileExists(branch, path) {
+		// It's a file, get its content
+		file, err := repo.GetFile(branch, path)
+		if err != nil {
+			return []*FileInfo{}, nil
 		}
 
-		// Get file size and check if binary
-		fileInfo.Size = gitBlob.Size()
+		fileInfo := &FileInfo{
+			Name:     file.Name,
+			Path:     file.Path,
+			IsDir:    false,
+			Size:     file.Size,
+			IsBinary: file.IsBinary,
+			Language: file.Language,
+		}
 
-		// Read content if not binary
-		content, err := gitBlob.Content()
-		if err == nil {
-			fileInfo.IsBinary = isBinary([]byte(content))
-			if !fileInfo.IsBinary {
-				fileInfo.Content = content
-			}
+		if !file.IsBinary {
+			fileInfo.Content = file.Content
 		}
 
 		return []*FileInfo{fileInfo}, nil
 	}
 
-	// List directory contents using git
-	blobs, err := gitBlob.Files()
+	// List directory contents
+	nodes, err := repo.GetFileTree(branch, path)
 	if err != nil {
 		return nil, err
 	}
 
 	var files []*FileInfo
-	for _, blob := range blobs {
-		// Get file size for files
-		var size int64
-		if !blob.IsDirectory {
-			size = blob.Size()
-		}
-
+	for _, node := range nodes {
 		fileInfo := &FileInfo{
-			Name:     blob.Path,
-			Path:     filepath.Join(path, blob.Path),
-			IsDir:    blob.IsDirectory,
-			Size:     size,
-			Language: getLanguageFromExtension(filepath.Ext(blob.Path)),
+			Name:     node.Name,
+			Path:     node.Path,
+			IsDir:    node.Type == "dir",
+			Size:     node.Size,
+			Language: getLanguageFromExtension(filepath.Ext(node.Name)),
 		}
 		files = append(files, fileInfo)
 	}
@@ -617,38 +590,45 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 
 	branch := c.CurrentBranch()
 
-	// Use git to access the file on the selected branch
-	gitBlob, err := repo.Open(branch, path)
+	// Check if file exists
+	if !repo.FileExists(branch, path) {
+		// Might be a directory
+		nodes, err := repo.GetFileTree(branch, path)
+		if err != nil || len(nodes) == 0 {
+			return nil, errors.New("file not found")
+		}
+		// It's a directory
+		return &FileInfo{
+			Name:  filepath.Base(path),
+			Path:  path,
+			IsDir: true,
+		}, nil
+	}
+
+	// Get file content
+	file, err := repo.GetFile(branch, path)
 	if err != nil {
 		return nil, err
 	}
 
 	fileInfo := &FileInfo{
-		Name:     filepath.Base(path),
-		Path:     path,
-		IsDir:    gitBlob.IsDirectory,
-		Language: getLanguageFromExtension(filepath.Ext(path)),
+		Name:     file.Name,
+		Path:     file.Path,
+		IsDir:    false,
+		Size:     file.Size,
+		IsBinary: file.IsBinary,
+		Language: file.Language,
 	}
 
-	// Get file size
-	if !gitBlob.IsDirectory {
-		fileInfo.Size = gitBlob.Size()
-
-		// Read content
-		content, err := gitBlob.Content()
-		if err == nil {
-			fileInfo.IsBinary = isBinary([]byte(content))
-			if !fileInfo.IsBinary {
-				fileInfo.Content = content
-			}
-		}
+	if !file.IsBinary {
+		fileInfo.Content = file.Content
 	}
 
 	return fileInfo, nil
 }
 
 // RepoCommits returns recent commits for the repository
-func (c *ReposController) RepoCommits() ([]*models.GitCommit, error) {
+func (c *ReposController) RepoCommits() ([]*models.Commit, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
@@ -671,7 +651,7 @@ func (c *ReposController) RepoCommits() ([]*models.GitCommit, error) {
 }
 
 // RepoBranches returns branches for the current repository
-func (c *ReposController) RepoBranches() ([]*models.GitBranch, error) {
+func (c *ReposController) RepoBranches() ([]*models.Branch, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
@@ -681,19 +661,17 @@ func (c *ReposController) RepoBranches() ([]*models.GitBranch, error) {
 }
 
 // RepoPRDiff returns the diff for a pull request
-func (c *ReposController) RepoPRDiff() ([]*models.GitDiff, error) {
-	prID := c.Request.PathValue("prID")
+func (c *ReposController) RepoPRDiff() (*models.PRDiff, error) {
+	prID := c.Request.PathValue("pr")
 	if prID == "" {
-		return nil, errors.New("PR ID not found")
+		return nil, errors.New("pull request ID required")
 	}
 
-	// Get PR details
 	pr, err := models.PullRequests.Get(prID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get repository
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
@@ -703,10 +681,10 @@ func (c *ReposController) RepoPRDiff() ([]*models.GitDiff, error) {
 }
 
 // RepoCommitDiff returns the diff for a specific commit
-func (c *ReposController) RepoCommitDiff() ([]*models.GitDiff, error) {
-	commitHash := c.Request.PathValue("hash")
-	if commitHash == "" {
-		return nil, errors.New("commit hash not found")
+func (c *ReposController) RepoCommitDiff() (*models.Diff, error) {
+	commit := c.Request.PathValue("commit")
+	if commit == "" {
+		return nil, errors.New("commit hash required")
 	}
 
 	repo, err := c.CurrentRepo()
@@ -714,7 +692,72 @@ func (c *ReposController) RepoCommitDiff() ([]*models.GitDiff, error) {
 		return nil, err
 	}
 
-	return repo.GetCommitDiff(commitHash)
+	return repo.GetCommitDiff(commit)
+}
+
+// RepoCommitDiffContent returns the full diff content for a specific commit
+func (c *ReposController) RepoCommitDiffContent() (string, error) {
+	commit := c.Request.PathValue("commit")
+	if commit == "" {
+		return "", errors.New("commit hash required")
+	}
+
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return "", err
+	}
+
+	return repo.GetCommitDiffContent(commit)
+}
+
+// RepoPRDiffContent returns the full diff content for a pull request
+func (c *ReposController) RepoPRDiffContent() (string, error) {
+	prID := c.Request.PathValue("pr")
+	if prID == "" {
+		return "", errors.New("pull request ID required")
+	}
+
+	pr, err := models.PullRequests.Get(prID)
+	if err != nil {
+		return "", err
+	}
+
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return "", err
+	}
+
+	return repo.GetPRDiffContent(pr.BaseBranch, pr.CompareBranch)
+}
+
+// RepoLanguageStats returns language statistics for the repository
+func (c *ReposController) RepoLanguageStats() (map[string]int, error) {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return nil, err
+	}
+
+	return repo.GetLanguageStats()
+}
+
+// RepoContributors returns the list of contributors for the repository
+func (c *ReposController) RepoContributors() ([]*models.Contributor, error) {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return nil, err
+	}
+
+	return repo.GetContributors()
+}
+
+// RepoFileCount returns the total number of files in the repository
+func (c *ReposController) RepoFileCount() (int, error) {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return 0, err
+	}
+
+	return repo.GetFileCount()
 }
 
 // CurrentBranch returns the currently selected branch for browsing
@@ -858,8 +901,8 @@ func (c *ReposController) HasFiles() bool {
 		return false
 	}
 	// Try to list files in the root
-	_, err = repo.Open(branch, ".")
-	return err == nil
+	nodes, err := repo.GetFileTree(branch, ".")
+	return err == nil && len(nodes) > 0
 }
 
 // RepoReadme detects and returns README content for the repository
@@ -875,46 +918,24 @@ func (c *ReposController) RepoReadme() (*FileInfo, error) {
 	if branch == "" {
 		return nil, nil
 	}
-	
-	readmeFiles := []string{
-		"README.md",
-		"readme.md",
-		"README.MD",
-		"README.txt",
-		"README.rst",
-		"README",
-		"readme",
+
+	// Use the new GetREADME method
+	file, err := repo.GetREADME(branch)
+	if err != nil || file == nil {
+		return nil, nil
 	}
 
-	for _, filename := range readmeFiles {
-		// Try to open the file via git
-		gitBlob, err := repo.Open(branch, filename)
-		if err == nil && !gitBlob.IsDirectory {
-			content, err := gitBlob.Content()
-			if err != nil {
-				continue
-			}
-
-			// Check if binary
-			if isBinary([]byte(content)) {
-				continue
-			}
-
-			fileInfo := &FileInfo{
-				Name:     filename,
-				Path:     filename,
-				IsDir:    false,
-				Size:     gitBlob.Size(),
-				Content:  content,
-				Language: getLanguageFromExtension(filepath.Ext(filename)),
-				IsBinary: false,
-			}
-
-			return fileInfo, nil
-		}
+	fileInfo := &FileInfo{
+		Name:     file.Name,
+		Path:     file.Path,
+		IsDir:    false,
+		Size:     file.Size,
+		Content:  file.Content,
+		Language: file.Language,
+		IsBinary: file.IsBinary,
 	}
 
-	return nil, nil // No README found
+	return fileInfo, nil // No README found
 }
 
 // RenderMarkdown converts markdown content to HTML (accessible from templates)
@@ -1392,7 +1413,7 @@ func (c *ReposController) mergePR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if merge is possible
+	// Check if branches can be merged
 	canMerge, err := repo.CanMergeBranch(pr.CompareBranch, pr.BaseBranch)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("failed to check merge compatibility: "+err.Error()))
@@ -1405,7 +1426,8 @@ func (c *ReposController) mergePR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Perform the actual git merge
-	err = repo.MergeBranch(pr.CompareBranch, pr.BaseBranch)
+	mergeMessage := fmt.Sprintf("Merge pull request #%s: %s", prID, pr.Title)
+	err = repo.MergeBranch(pr.CompareBranch, pr.BaseBranch, mergeMessage, user.Name, user.Email)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("failed to merge branches: "+err.Error()))
 		return
@@ -1521,45 +1543,6 @@ func (c *ReposController) createPRComment(w http.ResponseWriter, r *http.Request
 	c.Refresh(w, r)
 }
 
-// generateRepoID creates a URL-friendly, unique repository ID
-// Format: {sanitized-name}-{user-suffix}
-func generateRepoID(name, userID string) string {
-	// Sanitize the repository name for URL use
-	repoID := sanitizeForURL(name)
-
-	// Ensure we have a valid base name
-	if repoID == "" {
-		repoID = "repository"
-	}
-
-	// Create a unique suffix from userID (first 8 chars)
-	userSuffix := userID
-	if len(userSuffix) > 8 {
-		userSuffix = userSuffix[:8]
-	}
-
-	return repoID + "-" + userSuffix
-}
-
-// sanitizeForURL converts a string to a URL-friendly format
-func sanitizeForURL(input string) string {
-	// Convert to lowercase and trim whitespace
-	result := strings.ToLower(strings.TrimSpace(input))
-
-	// Replace any non-alphanumeric characters with hyphens
-	reg := regexp.MustCompile(`[^a-z0-9]+`)
-	result = reg.ReplaceAllString(result, "-")
-
-	// Remove leading/trailing hyphens and limit length
-	result = strings.Trim(result, "-")
-	if len(result) > 50 {
-		result = result[:50]
-		result = strings.TrimRight(result, "-")
-	}
-
-	return result
-}
-
 // saveFile handles saving file content via web editor
 func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 	auth := c.Use("auth").(*authentication.Controller)
@@ -1604,8 +1587,8 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 		branch = "main"
 	}
 
-	// Write file and commit changes
-	err = repo.WriteFile(branch, filePath, content, commitMessage, user.ID)
+	// Update the file
+	err = repo.WriteFile(branch, filePath, content, commitMessage, user.Name, user.Email)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("failed to save file: "+err.Error()))
 		return
@@ -1663,8 +1646,8 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 		branch = "main"
 	}
 
-	// Create file and commit changes
-	err = repo.WriteFile(branch, filePath, content, commitMessage, user.ID)
+	// Create the file
+	err = repo.WriteFile(branch, filePath, content, commitMessage, user.Name, user.Email)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("failed to create file: "+err.Error()))
 		return
@@ -1718,8 +1701,8 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 		branch = "main"
 	}
 
-	// Delete file and commit changes
-	err = repo.DeleteFile(branch, filePath, commitMessage, user.ID)
+	// Delete the file
+	err = repo.DeleteFile(branch, filePath, commitMessage, user.Name, user.Email)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("failed to delete file: "+err.Error()))
 		return
@@ -1743,7 +1726,7 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	}
 
 	repoID := r.PathValue("id")
-	repo, err := models.GitRepos.Get(repoID)
+	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("repository not found"))
 		return
@@ -1763,15 +1746,15 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 		c.Render(w, r, "error-message.html", errors.New("failed to create access token"))
 		return
 	}
-	
-	log.Printf("Created access token - ID: %s, Token: %s, RepoID: %s, ExpiresAt: %v", 
+
+	log.Printf("Created access token - ID: %s, Token: %s, RepoID: %s, ExpiresAt: %v",
 		token.ID, token.Token, token.RepoID, token.ExpiresAt.Format(time.RFC3339))
 
 	// Build the clone URL with token as basic auth
 	// Both containers use host network, so localhost works
 	// Use token ID as username and token as password for basic auth
 	// Use repo.ID for the URL (not repo.Name which can have spaces)
-	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s.git", token.ID, token.Token, repo.ID)
+	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s", token.ID, token.Token, repo.ID)
 
 	// Execute git clone in the coder container
 	// Use proper shell escaping for repository names that might contain spaces

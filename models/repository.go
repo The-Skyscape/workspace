@@ -25,7 +25,6 @@ type Repository struct {
 	State         string    // "empty", "initialized", "active"
 	DefaultBranch string    // Default branch name
 	Size          int64     // Repository size in bytes
-	LastActivityAt time.Time // Last commit or update time
 }
 
 // Table returns the database table name
@@ -123,19 +122,21 @@ func CreateRepository(name, description, visibility, userID string) (*Repository
 	}
 	
 	// Check for conflicts
-	existing, _ := Repositories.Get(id)
-	if existing != nil {
-		// Try adding a suffix if there's a conflict
+	existingRepo, err := Repositories.Get(id)
+	if err == nil && existingRepo != nil {
+		// Repository exists, try adding a suffix
 		for i := 2; i <= 10; i++ {
 			newID := fmt.Sprintf("%s-%d", id, i)
-			existing, _ = Repositories.Get(newID)
-			if existing == nil {
+			_, err = Repositories.Get(newID)
+			if err != nil {
+				// This ID is available
 				id = newID
 				break
 			}
 		}
-		// If still conflicting after 10 attempts, fail
-		if existing != nil {
+		// Check one more time after loop
+		_, err = Repositories.Get(id)
+		if err == nil {
 			return nil, errors.New("repository ID already exists")
 		}
 	}
@@ -155,11 +156,10 @@ func CreateRepository(name, description, visibility, userID string) (*Repository
 		State:         StateEmpty,
 		DefaultBranch: "master",
 		Size:          0,
-		LastActivityAt: time.Now(),
 	}
 	
 	// Insert into database
-	repo, err := Repositories.Insert(repo)
+	repo, err = Repositories.Insert(repo)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create repository record")
 	}
@@ -236,7 +236,7 @@ func GetRepositoryByName(name, userID string) (*Repository, error) {
 
 // ListUserRepositories returns all repositories for a user
 func ListUserRepositories(userID string) ([]*Repository, error) {
-	return Repositories.Search("WHERE UserID = ? ORDER BY LastActivityAt DESC", userID)
+	return Repositories.Search("WHERE UserID = ? ORDER BY UpdatedAt DESC", userID)
 }
 
 // DeleteRepository removes a repository and its git directory
@@ -325,6 +325,215 @@ func (r *Repository) GetSize() (int64, error) {
 
 // UpdateLastActivity updates the last activity timestamp
 func (r *Repository) UpdateLastActivity() error {
-	r.LastActivityAt = time.Now()
+	// UpdatedAt is automatically updated by the database layer
 	return Repositories.Update(r)
+}
+
+// Contributor represents a repository contributor
+type Contributor struct {
+	Name    string
+	Email   string
+	Commits int
+	Avatar  string
+}
+
+// GetLanguageStats returns language statistics for the repository
+func (r *Repository) GetLanguageStats() (map[string]int, error) {
+	stats := make(map[string]int)
+	
+	// Get list of all files in the repository
+	stdout, _, err := r.Git("ls-tree", "-r", "--name-only", "HEAD")
+	if err != nil {
+		// Repository might be empty
+		return stats, nil
+	}
+	
+	files := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(files) == 0 || (len(files) == 1 && files[0] == "") {
+		return stats, nil
+	}
+	
+	// Language mapping by file extension
+	langMap := map[string]string{
+		".go":     "Go",
+		".js":     "JavaScript",
+		".jsx":    "JavaScript",
+		".ts":     "TypeScript",
+		".tsx":    "TypeScript",
+		".py":     "Python",
+		".rb":     "Ruby",
+		".java":   "Java",
+		".c":      "C",
+		".h":      "C",
+		".cpp":    "C++",
+		".cc":     "C++",
+		".hpp":    "C++",
+		".cs":     "C#",
+		".php":    "PHP",
+		".swift":  "Swift",
+		".kt":     "Kotlin",
+		".rs":     "Rust",
+		".html":   "HTML",
+		".htm":    "HTML",
+		".css":    "CSS",
+		".scss":   "SCSS",
+		".sass":   "Sass",
+		".less":   "Less",
+		".sql":    "SQL",
+		".sh":     "Shell",
+		".bash":   "Shell",
+		".yml":    "YAML",
+		".yaml":   "YAML",
+		".json":   "JSON",
+		".xml":    "XML",
+		".md":     "Markdown",
+		".vue":    "Vue",
+		".dart":   "Dart",
+		".r":      "R",
+		".lua":    "Lua",
+		".pl":     "Perl",
+		".ex":     "Elixir",
+		".exs":    "Elixir",
+		".scala":  "Scala",
+		".clj":    "Clojure",
+		".elm":    "Elm",
+		".hs":     "Haskell",
+	}
+	
+	// Count lines for each language
+	for _, file := range files {
+		ext := filepath.Ext(file)
+		if ext == "" {
+			continue
+		}
+		
+		lang, ok := langMap[strings.ToLower(ext)]
+		if !ok {
+			continue
+		}
+		
+		// Get file content to count lines
+		stdout, _, err := r.Git("show", "HEAD:"+file)
+		if err != nil {
+			continue
+		}
+		
+		lines := strings.Count(stdout.String(), "\n")
+		if lines > 0 {
+			stats[lang] += lines
+		}
+	}
+	
+	return stats, nil
+}
+
+// GetContributors returns a list of repository contributors
+func (r *Repository) GetContributors() ([]*Contributor, error) {
+	contributorMap := make(map[string]*Contributor)
+	
+	// Use git shortlog to get contributor statistics
+	stdout, _, err := r.Git("shortlog", "-sne", "HEAD")
+	if err != nil {
+		// Repository might be empty or have no commits
+		return []*Contributor{}, nil
+	}
+	
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		
+		// Parse format: "   123  Name <email@example.com>"
+		parts := strings.SplitN(strings.TrimSpace(line), "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		
+		// Parse commit count
+		commits := 0
+		fmt.Sscanf(parts[0], "%d", &commits)
+		
+		// Parse name and email
+		nameEmail := parts[1]
+		var name, email string
+		
+		if idx := strings.Index(nameEmail, " <"); idx != -1 {
+			name = nameEmail[:idx]
+			if endIdx := strings.Index(nameEmail[idx:], ">"); endIdx != -1 {
+				email = nameEmail[idx+2 : idx+endIdx]
+			}
+		} else {
+			name = nameEmail
+		}
+		
+		if name == "" {
+			continue
+		}
+		
+		// Create or update contributor
+		key := strings.ToLower(email)
+		if key == "" {
+			key = strings.ToLower(name)
+		}
+		
+		if existing, ok := contributorMap[key]; ok {
+			existing.Commits += commits
+		} else {
+			contributorMap[key] = &Contributor{
+				Name:    name,
+				Email:   email,
+				Commits: commits,
+				Avatar:  "", // Could generate gravatar URL from email
+			}
+		}
+	}
+	
+	// Convert map to slice
+	contributors := make([]*Contributor, 0, len(contributorMap))
+	for _, contributor := range contributorMap {
+		contributors = append(contributors, contributor)
+	}
+	
+	// Sort by commit count (descending)
+	for i := 0; i < len(contributors); i++ {
+		for j := i + 1; j < len(contributors); j++ {
+			if contributors[j].Commits > contributors[i].Commits {
+				contributors[i], contributors[j] = contributors[j], contributors[i]
+			}
+		}
+	}
+	
+	return contributors, nil
+}
+
+// GetRecentActivities returns recent activities for this repository
+func (r *Repository) GetRecentActivities(limit int) ([]*Activity, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	
+	// Get activities related to this repository
+	return Activities.Search("WHERE RepoID = ? ORDER BY CreatedAt DESC LIMIT ?", r.ID, limit)
+}
+
+// GetFileCount returns the total number of files in the repository
+func (r *Repository) GetFileCount() (int, error) {
+	stdout, _, err := r.Git("ls-tree", "-r", "--name-only", "HEAD")
+	if err != nil {
+		// Repository might be empty
+		return 0, nil
+	}
+	
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return 0, nil
+	}
+	
+	return len(lines), nil
+}
+
+// GetDefaultREADME returns the README file for the default branch
+func (r *Repository) GetDefaultREADME() (*File, error) {
+	return r.GetREADME(r.GetDefaultBranch())
 }

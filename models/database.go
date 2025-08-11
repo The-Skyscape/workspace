@@ -14,8 +14,7 @@ var (
 	Auth = authentication.Manage(DB)
 
 	// Git-related collections
-	GitRepos     = database.Manage(DB, new(GitRepo))
-	Repositories = database.Manage(DB, new(Repository)) // New clean API
+	Repositories = database.Manage(DB, new(Repository))
 	AccessTokens = database.Manage(DB, new(AccessToken))
 
 	// Application-specific collections

@@ -36,18 +36,18 @@ func (c *PublicController) Handle(req *http.Request) application.Controller {
 }
 
 // CurrentRepo returns the public repository from the URL path
-func (c *PublicController) CurrentRepo() (*models.GitRepo, error) {
+func (c *PublicController) CurrentRepo() (*models.Repository, error) {
 	return c.getPublicRepoFromRequest(c.Request)
 }
 
 // getPublicRepoFromRequest returns a public repository (no authentication required)
-func (c *PublicController) getPublicRepoFromRequest(r *http.Request) (*models.GitRepo, error) {
+func (c *PublicController) getPublicRepoFromRequest(r *http.Request) (*models.Repository, error) {
 	id := r.PathValue("id")
 	if id == "" {
 		return nil, errors.New("repository ID not found")
 	}
 
-	repo, err := models.GitRepos.Get(id)
+	repo, err := models.Repositories.Get(id)
 	if err != nil {
 		return nil, errors.New("repository not found")
 	}
@@ -55,6 +55,12 @@ func (c *PublicController) getPublicRepoFromRequest(r *http.Request) (*models.Gi
 	// Only allow access to public repositories
 	if repo.Visibility != "public" {
 		return nil, errors.New("repository not found")
+	}
+
+	// Update repository state if it's empty or initialized
+	// This ensures the state is current after git operations
+	if repo.State == models.StateEmpty || repo.State == models.StateInitialized {
+		repo.UpdateState()
 	}
 
 	return repo, nil

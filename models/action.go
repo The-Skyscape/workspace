@@ -43,7 +43,7 @@ func (a *Action) Execute() error {
 	}
 	
 	// Get repository
-	repo, err := GitRepos.Get(a.RepoID)
+	repo, err := Repositories.Get(a.RepoID)
 	if err != nil {
 		a.markFailed("repository not found: " + err.Error())
 		return err
@@ -215,7 +215,7 @@ func (a *Action) ExecuteWithEventContext(eventData map[string]string) error {
 	}
 	
 	// Get repository
-	repo, err := GitRepos.Get(a.RepoID)
+	repo, err := Repositories.Get(a.RepoID)
 	if err != nil {
 		a.markFailed("repository not found: " + err.Error())
 		return err

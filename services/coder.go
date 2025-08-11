@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -126,12 +127,60 @@ func (c *CoderService) getService() *containers.Service {
 	}
 }
 
+// HTTPRequest makes an HTTP request to the service
+func (c *CoderService) HTTPRequest(method, path string, timeout time.Duration) (*http.Response, error) {
+	if !c.IsRunning() {
+		return nil, errors.New("service is not running")
+	}
+	
+	url := fmt.Sprintf("http://localhost:%d%s", c.port, path)
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create request")
+	}
+	
+	client := &http.Client{Timeout: timeout}
+	return client.Do(req)
+}
+
+// HealthCheck performs a health check on the service
+func (c *CoderService) HealthCheck() error {
+	resp, err := c.HTTPRequest("GET", "/healthz", 2*time.Second)
+	if err != nil {
+		// Try root path as fallback
+		resp, err = c.HTTPRequest("GET", "/", 2*time.Second)
+		if err != nil {
+			return err
+		}
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode >= 200 && resp.StatusCode < 500 {
+		// Any non-5xx response means the service is alive
+		return nil
+	}
+	
+	return fmt.Errorf("unhealthy response: %d", resp.StatusCode)
+}
+
 // WaitForReady waits for the coder service to be ready
 func (c *CoderService) WaitForReady(timeout time.Duration) error {
 	start := time.Now()
 	for {
 		if c.IsRunning() {
-			// TODO: Add health check to verify service is actually responding
+			// Check if the service is actually responding
+			if err := c.HealthCheck(); err == nil {
+				return nil
+			}
+			
+			// If we're within the first 10 seconds, keep trying
+			if time.Since(start) < 10*time.Second {
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			
+			// After 10 seconds, if container is running, assume it's ready
+			// (code-server might not respond immediately)
 			return nil
 		}
 		

@@ -160,11 +160,17 @@ func (r *Repository) GetCommitDiff(hash string) (*Diff, error) {
 				additions := strings.Count(changes, "+")
 				deletions := strings.Count(changes, "-")
 
+				// Determine status based on the diff
+				status := "modified"
+				if strings.Contains(changes, "Bin") {
+					status = "binary"
+				}
+
 				diffFile := DiffFile{
 					Path:      path,
 					Additions: additions,
 					Deletions: deletions,
-					Status:    "modified",
+					Status:    status,
 				}
 
 				diff.Files = append(diff.Files, diffFile)
@@ -174,7 +180,61 @@ func (r *Repository) GetCommitDiff(hash string) (*Diff, error) {
 		}
 	}
 
+	// Get more detailed status for each file
+	nameStatusOut, _, _ := r.Git("diff", "--name-status", hash+"^", hash)
+	if nameStatusOut.String() == "" {
+		// Try for first commit
+		nameStatusOut, _, _ = r.Git("diff", "--name-status", "--root", hash)
+	}
+	
+	statusLines := strings.Split(nameStatusOut.String(), "\n")
+	statusMap := make(map[string]string)
+	for _, line := range statusLines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			status := ""
+			switch parts[0] {
+			case "A":
+				status = "added"
+			case "M":
+				status = "modified"
+			case "D":
+				status = "deleted"
+			case "R":
+				status = "renamed"
+			case "C":
+				status = "copied"
+			}
+			statusMap[parts[1]] = status
+		}
+	}
+	
+	// Update file statuses
+	for i := range diff.Files {
+		if status, ok := statusMap[diff.Files[i].Path]; ok {
+			diff.Files[i].Status = status
+		}
+	}
+
 	return diff, nil
+}
+
+// GetCommitDiffContent retrieves the full patch content for a commit
+func (r *Repository) GetCommitDiffContent(hash string) (string, error) {
+	// Get full diff with patch
+	stdout, _, err := r.Git("diff", hash+"^", hash)
+	if err != nil {
+		// Might be the first commit
+		stdout, _, err = r.Git("diff", "--root", hash)
+		if err != nil {
+			return "", err
+		}
+	}
+	
+	return stdout.String(), nil
 }
 
 // GetCommitCount returns the number of commits in a branch

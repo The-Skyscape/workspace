@@ -32,55 +32,68 @@
 
   <!-- Repositories -->
   <div class="lg:col-span-2">
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body">
-        <h2 class="card-title">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-          </svg>
-          My Repositories
-        </h2>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold flex items-center">
+        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+        </svg>
+        My Repositories
+      </h2>
+      <a href="{{host}}/repos" class="link link-primary text-sm" hx-boost="true">View all →</a>
+    </div>
 
-        <div class="space-y-3">
-          {{range home.UserRepos}}
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-base-300 rounded-lg hover:bg-base-50 space-y-3 sm:space-y-0">
-            <div class="flex items-center space-x-3">
-              <div class="avatar avatar-placeholder">
-                <div class="bg-neutral-focus text-neutral-content rounded-full w-10">
-                  <span class="text-xs">{{printf "%.2s" .Name}}</span>
+    <div class="grid grid-cols-1 gap-4">
+      {{range home.UserRepos}}
+      <a href="{{host}}/repos/{{.ID}}" class="card bg-base-100 shadow hover:shadow-lg transition-shadow duration-200 cursor-pointer" hx-boost="true">
+        <div class="card-body p-6">
+          <div class="flex items-start justify-between">
+            <div class="flex items-start space-x-4 flex-1">
+              <div class="avatar placeholder">
+                <div class="bg-primary text-primary-content w-12 rounded">
+                  <span>{{printf "%.2s" .Name}}</span>
                 </div>
               </div>
-              <div class="min-w-0 flex-1">
-                <div class="font-semibold truncate">{{.Name}}</div>
-                <div class="text-sm text-base-content/70">{{.Visibility}} repository</div>
+              <div class="flex-1 min-w-0">
+                <h3 class="card-title text-lg">{{.Name}}</h3>
+                <p class="text-sm text-base-content/70 mt-1">
+                  {{if .Description}}{{.Description}}{{else}}No description provided{{end}}
+                </p>
+                <div class="flex items-center gap-4 mt-3 text-xs text-base-content/60">
+                  <span class="flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {{.UpdatedAt.Format "Jan 2"}}
+                  </span>
+                  <span class="badge badge-sm badge-outline">{{.Visibility}}</span>
+                </div>
               </div>
             </div>
-            <div class="flex items-center justify-between sm:justify-end space-x-2">
-              <div class="badge badge-outline badge-sm">{{.Visibility}}</div>
-              <div class="dropdown dropdown-end">
-                <button class="btn btn-ghost btn-sm" tabindex="0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
-                  </svg>
-                </button>
-                <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48" hx-boost="true">
-                  <li><a href="{{host}}/repos/{{.ID}}">View Repository</a></li>
-                </ul>
-              </div>
-            </div>
+            <svg class="w-5 h-5 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
           </div>
-          {{else}}
-          <div class="text-center py-12 text-base-content/50">
+        </div>
+      </a>
+      {{else}}
+      <div class="card bg-base-200 border-2 border-dashed border-base-300">
+        <div class="card-body">
+          <div class="text-center py-12">
             <svg class="w-16 h-16 mx-auto mb-4 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
             </svg>
-            <p class="text-lg font-medium">No repositories yet</p>
-            <p>Create your first repository to get started</p>
-            <button class="btn btn-primary mt-4" onclick="create_repo_modal.showModal()">Create Repository</button>
+            <p class="text-lg font-medium mb-2">No repositories yet</p>
+            <p class="text-base-content/70 mb-4">Create your first repository to get started</p>
+            <button class="btn btn-primary" onclick="create_repo_modal.showModal()">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Create Repository
+            </button>
           </div>
-          {{end}}
         </div>
       </div>
+      {{end}}
     </div>
   </div>
 

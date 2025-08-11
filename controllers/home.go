@@ -50,22 +50,22 @@ func (c *HomeController) IsFirstUser() bool {
 }
 
 // UserRepos returns repositories the current user has access to
-func (c *HomeController) UserRepos() ([]*models.GitRepo, error) {
+func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*authentication.Controller)
-	_, _, err := auth.Authenticate(c.Request)
+	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return nil, nil
 	}
 
-	// Get all repositories for now - later we'll add permissions
-	return models.GitRepos.Search("")
+	// Get all repositories for the user
+	return models.ListUserRepositories(user.ID)
 }
 
 
 // PublicRepos returns all public repositories for display on homepage
-func (c *HomeController) PublicRepos() ([]*models.GitRepo, error) {
+func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 	// Get all public repositories (no authentication required)
-	return models.GitRepos.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
+	return models.Repositories.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
 }
 
 // DeveloperProfile returns developer information for the homepage

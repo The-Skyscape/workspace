@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -12,39 +11,14 @@ import (
 	"github.com/sosedoff/gitkit"
 )
 
-// Repository operations
+// Repository operations - kept for backward compatibility
+// New code should use CreateRepository from repository.go instead
 
-func NewRepo(repoID, name string) (repo *GitRepo, err error) {
-	// Create model with custom ID if provided, otherwise generate one
-	var model database.Model
-	if repoID == "" {
-		model = DB.NewModel("")
-	} else {
-		model = DB.NewModel(repoID)
-	}
-	
-	repo, err = GitRepos.Insert(&GitRepo{
-		Model:      model,
-		Name:       name,
-		Visibility: "private",
-		UserID:     "", // Will be set by the caller
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if err = os.Mkdir(repo.Path(), 0755); err != nil {
-		return nil, err
-	}
-
-	_, _, err = repo.Run("init", "--bare")
-	return repo, err
+func NewRepo(repoID, name string) (repo *Repository, err error) {
+	// This function is deprecated - use CreateRepository instead
+	// Creating repository with empty description, private visibility, and no user
+	return CreateRepository(name, "", "private", "")
 }
-
-// Repository operations are available directly via GitRepos collection:
-// - GitRepos.Get(id)
-// - GitRepos.Search(query, args...)
-// - GitRepos.Update(repo)
 
 
 // Git server HTTP handler

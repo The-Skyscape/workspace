@@ -31,7 +31,7 @@ func HasPermission(userID, repoID, requiredRole string) bool {
 	}
 
 	// Repository owner always has full access
-	repo, err := GitRepos.Get(repoID)
+	repo, err := Repositories.Get(repoID)
 	if err == nil && repo.UserID == userID {
 		return true
 	}
@@ -189,13 +189,13 @@ func RequireRepoAccess(auth *authentication.Controller, requiredRole string) fun
 
 // GetUserAccessibleRepos returns all repositories a user has access to
 // This includes owned repositories, repositories with explicit permissions, and public repositories
-func GetUserAccessibleRepos(userID string) ([]*GitRepo, error) {
+func GetUserAccessibleRepos(userID string) ([]*Repository, error) {
 	if userID == "" {
 		return nil, errors.New("userID is required")
 	}
 
 	// Get all repositories the user owns
-	ownedRepos, err := GitRepos.Search("WHERE UserID = ?", userID)
+	ownedRepos, err := Repositories.Search("WHERE UserID = ?", userID)
 	if err != nil {
 		return nil, errors.New("failed to get owned repositories: " + err.Error())
 	}
@@ -213,22 +213,22 @@ func GetUserAccessibleRepos(userID string) ([]*GitRepo, error) {
 	}
 
 	// Get repositories with explicit permissions
-	var permissionRepos []*GitRepo
+	var permissionRepos []*Repository
 	for repoID := range permissionRepoIDs {
-		repo, err := GitRepos.Get(repoID)
+		repo, err := Repositories.Get(repoID)
 		if err == nil {
 			permissionRepos = append(permissionRepos, repo)
 		}
 	}
 
 	// Get public repositories (excluding already owned/permitted ones)
-	publicRepos, err := GitRepos.Search("WHERE Visibility = ?", "public")
+	publicRepos, err := Repositories.Search("WHERE Visibility = ?", "public")
 	if err != nil {
 		return nil, errors.New("failed to get public repositories: " + err.Error())
 	}
 
 	// Deduplicate repositories
-	repoMap := make(map[string]*GitRepo)
+	repoMap := make(map[string]*Repository)
 	
 	// Add owned repositories
 	for _, repo := range ownedRepos {
@@ -248,7 +248,7 @@ func GetUserAccessibleRepos(userID string) ([]*GitRepo, error) {
 	}
 
 	// Convert map to slice
-	var allRepos []*GitRepo
+	var allRepos []*Repository
 	for _, repo := range repoMap {
 		allRepos = append(allRepos, repo)
 	}

@@ -1,6 +1,8 @@
 package models
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -208,6 +210,160 @@ func (r *Repository) GetREADME(branch string) (*File, error) {
 	return nil, nil
 }
 
+// WriteFile creates or updates a file in the bare repository
+func (r *Repository) WriteFile(branch, path, content, message, authorName, authorEmail string) error {
+	if branch == "" {
+		branch = r.GetDefaultBranch()
+	}
+	
+	// Set default author if not provided
+	if authorName == "" {
+		authorName = "Skyscape User"
+	}
+	if authorEmail == "" {
+		authorEmail = "user@skyscape.local"
+	}
+	
+	// Get the current commit hash for the branch
+	stdout, _, err := r.Git("rev-parse", branch)
+	if err != nil {
+		// Branch doesn't exist, create initial commit
+		return r.createInitialCommit(branch, path, content, message, authorName, authorEmail)
+	}
+	currentCommit := strings.TrimSpace(stdout.String())
+	
+	// Write content to object database
+	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
+	cmd.Dir = r.Path()
+	cmd.Stdin = strings.NewReader(content)
+	hashOut, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "failed to write object")
+	}
+	blobHash := strings.TrimSpace(string(hashOut))
+	
+	// Get the current tree
+	treeOut, _, err := r.Git("cat-file", "-p", currentCommit)
+	if err != nil {
+		return errors.Wrap(err, "failed to read commit")
+	}
+	
+	// Extract tree hash from commit
+	lines := strings.Split(treeOut.String(), "\n")
+	var treeHash string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "tree ") {
+			treeHash = strings.TrimPrefix(line, "tree ")
+			break
+		}
+	}
+	
+	// Read tree into index
+	_, _, err = r.Git("read-tree", treeHash)
+	if err != nil {
+		return errors.Wrap(err, "failed to read tree")
+	}
+	
+	// Update index with new file
+	_, _, err = r.Git("update-index", "--add", "--cacheinfo", "100644", blobHash, path)
+	if err != nil {
+		return errors.Wrap(err, "failed to update index")
+	}
+	
+	// Write tree from index
+	treeOut2, _, err := r.Git("write-tree")
+	if err != nil {
+		return errors.Wrap(err, "failed to write tree")
+	}
+	newTreeHash := strings.TrimSpace(treeOut2.String())
+	
+	// Create commit
+	commitCmd := exec.Command("git", "commit-tree", newTreeHash, "-p", currentCommit, "-m", message)
+	commitCmd.Dir = r.Path()
+	commitCmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME="+authorName,
+		"GIT_AUTHOR_EMAIL="+authorEmail,
+		"GIT_COMMITTER_NAME="+authorName,
+		"GIT_COMMITTER_EMAIL="+authorEmail,
+	)
+	commitOut, err := commitCmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "failed to create commit")
+	}
+	newCommit := strings.TrimSpace(string(commitOut))
+	
+	// Update branch reference
+	_, _, err = r.Git("update-ref", "refs/heads/"+branch, newCommit)
+	if err != nil {
+		return errors.Wrap(err, "failed to update branch")
+	}
+	
+	// Update repository activity
+	r.UpdateLastActivity()
+	
+	return nil
+}
+
+// createInitialCommit creates the first commit in an empty repository
+func (r *Repository) createInitialCommit(branch, path, content, message, authorName, authorEmail string) error {
+	// Write content to object database
+	cmd := exec.Command("git", "hash-object", "-w", "--stdin")
+	cmd.Dir = r.Path()
+	cmd.Stdin = strings.NewReader(content)
+	hashOut, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "failed to write initial object")
+	}
+	blobHash := strings.TrimSpace(string(hashOut))
+	
+	// Create index from scratch
+	_, _, err = r.Git("update-index", "--add", "--cacheinfo", "100644", blobHash, path)
+	if err != nil {
+		return errors.Wrap(err, "failed to create initial index")
+	}
+	
+	// Write tree
+	treeOut, _, err := r.Git("write-tree")
+	if err != nil {
+		return errors.Wrap(err, "failed to write initial tree")
+	}
+	treeHash := strings.TrimSpace(treeOut.String())
+	
+	// Create commit without parent
+	commitCmd := exec.Command("git", "commit-tree", treeHash, "-m", message)
+	commitCmd.Dir = r.Path()
+	commitCmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME="+authorName,
+		"GIT_AUTHOR_EMAIL="+authorEmail,
+		"GIT_COMMITTER_NAME="+authorName,
+		"GIT_COMMITTER_EMAIL="+authorEmail,
+	)
+	commitOut, err := commitCmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "failed to create initial commit")
+	}
+	newCommit := strings.TrimSpace(string(commitOut))
+	
+	// Create and update branch
+	_, _, err = r.Git("update-ref", "refs/heads/"+branch, newCommit)
+	if err != nil {
+		return errors.Wrap(err, "failed to create branch")
+	}
+	
+	// Set as default branch if this is the first branch
+	if r.DefaultBranch == "" {
+		r.DefaultBranch = branch
+		Repositories.Update(r)
+	}
+	
+	// Update repository state
+	r.State = StateActive
+	r.UpdateLastActivity()
+	Repositories.Update(r)
+	
+	return nil
+}
+
 // CreateFile creates a new file in the repository
 func (r *Repository) CreateFile(branch, path, content, message, authorName, authorEmail string) error {
 	if branch == "" {
@@ -219,9 +375,7 @@ func (r *Repository) CreateFile(branch, path, content, message, authorName, auth
 		return errors.New("file already exists")
 	}
 	
-	// This would require a working tree, so we need to use git hash-object and update-index
-	// For now, return not implemented
-	return errors.New("file creation not implemented in bare repository")
+	return r.WriteFile(branch, path, content, message, authorName, authorEmail)
 }
 
 // UpdateFile updates an existing file
@@ -235,8 +389,7 @@ func (r *Repository) UpdateFile(branch, path, content, message, authorName, auth
 		return errors.New("file not found")
 	}
 	
-	// This would require a working tree
-	return errors.New("file update not implemented in bare repository")
+	return r.WriteFile(branch, path, content, message, authorName, authorEmail)
 }
 
 // DeleteFile removes a file from the repository
@@ -250,8 +403,81 @@ func (r *Repository) DeleteFile(branch, path, message, authorName, authorEmail s
 		return errors.New("file not found")
 	}
 	
-	// This would require a working tree
-	return errors.New("file deletion not implemented in bare repository")
+	// Set default author if not provided
+	if authorName == "" {
+		authorName = "Skyscape User"
+	}
+	if authorEmail == "" {
+		authorEmail = "user@skyscape.local"
+	}
+	
+	// Get the current commit hash for the branch
+	stdout, _, err := r.Git("rev-parse", branch)
+	if err != nil {
+		return errors.Wrap(err, "branch not found")
+	}
+	currentCommit := strings.TrimSpace(stdout.String())
+	
+	// Get the current tree
+	treeOut, _, err := r.Git("cat-file", "-p", currentCommit)
+	if err != nil {
+		return errors.Wrap(err, "failed to read commit")
+	}
+	
+	// Extract tree hash from commit
+	lines := strings.Split(treeOut.String(), "\n")
+	var treeHash string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "tree ") {
+			treeHash = strings.TrimPrefix(line, "tree ")
+			break
+		}
+	}
+	
+	// Read tree into index
+	_, _, err = r.Git("read-tree", treeHash)
+	if err != nil {
+		return errors.Wrap(err, "failed to read tree")
+	}
+	
+	// Remove file from index
+	_, _, err = r.Git("update-index", "--remove", path)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove from index")
+	}
+	
+	// Write tree from index
+	treeOut2, _, err := r.Git("write-tree")
+	if err != nil {
+		return errors.Wrap(err, "failed to write tree")
+	}
+	newTreeHash := strings.TrimSpace(treeOut2.String())
+	
+	// Create commit
+	commitCmd := exec.Command("git", "commit-tree", newTreeHash, "-p", currentCommit, "-m", message)
+	commitCmd.Dir = r.Path()
+	commitCmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME="+authorName,
+		"GIT_AUTHOR_EMAIL="+authorEmail,
+		"GIT_COMMITTER_NAME="+authorName,
+		"GIT_COMMITTER_EMAIL="+authorEmail,
+	)
+	commitOut, err := commitCmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "failed to create commit")
+	}
+	newCommit := strings.TrimSpace(string(commitOut))
+	
+	// Update branch reference
+	_, _, err = r.Git("update-ref", "refs/heads/"+branch, newCommit)
+	if err != nil {
+		return errors.Wrap(err, "failed to update branch")
+	}
+	
+	// Update repository activity
+	r.UpdateLastActivity()
+	
+	return nil
 }
 
 // getLanguageFromExtension returns the programming language based on file extension
