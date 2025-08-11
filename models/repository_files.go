@@ -404,8 +404,7 @@ func (r *Repository) createInitialCommit(branch, path, content, message, authorN
 		Repositories.Update(r)
 	}
 	
-	// Update repository state
-	r.State = StateActive
+	// Update repository
 	r.UpdateLastActivity()
 	Repositories.Update(r)
 	

@@ -1,0 +1,57 @@
+{{with $repo := repos.CurrentRepo}}
+<dialog id="create_file_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="text-2xl font-bold mb-6">Create New File</h3>
+    <form hx-post="{{host}}/repos/{{$repo.ID}}/files/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+      <input type="hidden" name="branch" value="{{repos.CurrentBranch}}">
+      
+      <!-- File Path Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">File Path</span>
+          <span class="label-text-alt text-xs">Required</span>
+        </div>
+        <input type="text" name="path" class="input input-bordered w-full"
+               placeholder="src/main.go"
+               title="Include directory path and file extension"
+               required />
+      </label>
+
+      <!-- Commit Message Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Commit Message</span>
+          <span class="label-text-alt text-xs">Required</span>
+        </div>
+        <input type="text" name="commit_message" class="input input-bordered w-full"
+               placeholder="Add new file"
+               required />
+      </label>
+
+      <!-- File Content Textarea -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">File Content</span>
+          <span class="label-text-alt text-xs">Optional - Initial content</span>
+        </div>
+        <textarea name="content" class="textarea textarea-bordered h-40 font-mono text-sm w-full" 
+                  placeholder="// File content here..."></textarea>
+      </label>
+
+      <!-- Modal Actions -->
+      <div class="modal-action mt-4">
+        <button type="submit" class="btn btn-primary">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Create File
+        </button>
+        <button type="button" class="btn" onclick="create_file_modal.close()">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+{{end}}

@@ -21,11 +21,39 @@
     </div>
     {{end}}
 
-    <!-- README Section -->
+    {{if repos.RepoIsEmpty}}
+    <!-- Empty Repository - Show Getting Started -->
+    <div class="card bg-base-100 shadow-lg border border-base-300">
+      <div class="card-body">
+        <h2 class="card-title">Getting Started</h2>
+        
+        <div class="mockup-code mb-4">
+          <pre data-prefix="$"><code>git clone {{host}}/repo/{{.ID}}.git</code></pre>
+          <pre data-prefix=">" class="text-warning"><code>Cloning into '{{.Name}}'...</code></pre>
+          <pre data-prefix=">" class="text-success"><code>done.</code></pre>
+        </div>
+
+        <p class="text-base-content/70">This repository is empty. Clone it locally and push your first commit to get started.</p>
+        
+        <div class="divider">OR</div>
+        
+        <p class="text-sm text-base-content/60">Push an existing repository from the command line:</p>
+        <div class="mockup-code">
+          <pre data-prefix="$"><code>git remote add origin {{host}}/repo/{{.ID}}.git</code></pre>
+          <pre data-prefix="$"><code>git branch -M master</code></pre>
+          <pre data-prefix="$"><code>git push -u origin master</code></pre>
+        </div>
+      </div>
+    </div>
+    
+    {{else}}
+    <!-- Repository has content -->
+    
+    <!-- README Section (if exists) -->
     {{with repos.RepoReadme}}
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between">
           <h2 class="card-title">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -34,9 +62,10 @@
           </h2>
           <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}" class="btn btn-ghost btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
-            Edit
+            Open
           </a>
         </div>
 
@@ -50,74 +79,126 @@
         </div>
       </div>
     </div>
-    {{else}}
-    <!-- No README - Show getting started -->
-    <div class="card bg-base-100 shadow-lg border border-base-300">
-      <div class="card-body">
-        <h2 class="card-title">Getting Started</h2>
-        
-        <div class="mockup-code mb-4">
-          <pre data-prefix="$"><code>git clone {{host}}/repo/{{.ID}}.git</code></pre>
-          <pre data-prefix=">" class="text-warning"><code>Cloning into '{{.Name}}'...</code></pre>
-          <pre data-prefix=">" class="text-success"><code>done.</code></pre>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a href="{{host}}/repos/{{.ID}}/files" class="btn btn-outline">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
-            </svg>
-            Browse Files
-          </a>
-        </div>
-      </div>
-    </div>
     {{end}}
 
-    <!-- Recent Activity -->
+    <!-- File Explorer -->
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
-        <h3 class="card-title">Recent Activity</h3>
-        <div class="space-y-3">
-          <div class="flex items-center space-x-3 p-3 bg-base-200 rounded-lg">
-            <div class="avatar avatar-placeholder">
-              <div class="bg-primary text-primary-content rounded w-8 h-8">
-                <span class="text-xs">R</span>
-              </div>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
+            </svg>
+            Files
+          </h3>
+          <div class="flex items-center space-x-2">
+            <!-- Branch Selector -->
+            <div class="dropdown dropdown-end">
+              <button class="btn btn-outline btn-sm min-w-32" tabindex="0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                </svg>
+                <span class="flex-1 text-left">{{repos.CurrentBranch}}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                {{range repos.RepoBranches}}
+                <li>
+                  <a href="{{host}}/repos/{{$repo.ID}}?branch={{.Name}}" 
+                     class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                    {{.Name}}
+                    {{if .IsCurrent}}<span class="text-success">(current)</span>{{end}}
+                  </a>
+                </li>
+                {{end}}
+              </ul>
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="font-medium text-sm">Repository created</div>
-              <div class="text-xs text-base-content/70">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</div>
-            </div>
+            <button class="btn btn-primary btn-sm" onclick="create_file_modal.showModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              New File
+            </button>
           </div>
         </div>
+        
+        <!-- File Table -->
+        {{with repos.RepoFiles}}
+        {{if .}}
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <tbody hx-boost="true">
+              {{range .}}
+              <tr class="hover">
+                <td>
+                  <div class="flex items-center space-x-2">
+                    {{if .IsDir}}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+                    </svg>
+                    <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover text-sm font-medium">{{.Name}}/</a>
+                    {{else}}
+                    <!-- File icons -->
+                    {{if eq .Language "javascript"}}
+                    <div class="w-4 h-4 bg-yellow-400 rounded text-xs flex items-center justify-center text-black font-bold">JS</div>
+                    {{else if eq .Language "typescript"}}
+                    <div class="w-4 h-4 bg-blue-600 rounded text-xs flex items-center justify-center text-white font-bold">TS</div>
+                    {{else if eq .Language "python"}}
+                    <div class="w-4 h-4 bg-green-600 rounded text-xs flex items-center justify-center text-white font-bold">PY</div>
+                    {{else if eq .Language "go"}}
+                    <div class="w-4 h-4 bg-cyan-500 rounded text-xs flex items-center justify-center text-white font-bold">GO</div>
+                    {{else if eq .Language "markdown"}}
+                    <div class="w-4 h-4 bg-slate-600 rounded text-xs flex items-center justify-center text-white font-bold">MD</div>
+                    {{else}}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {{end}}
+                    <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover text-sm">{{.Name}}</a>
+                    {{end}}
+                  </div>
+                </td>
+                <td class="text-right text-xs text-base-content/60">
+                  {{if not .IsDir}}
+                    {{if lt .Size 1024}}{{.Size}} B{{else}}{{.Size}} bytes{{end}}
+                  {{end}}
+                </td>
+                <td class="text-right text-xs text-base-content/60">
+                  {{.ModTime.Format "Jan 2"}}
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+        {{else}}
+        <div class="text-center py-8">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
+          </svg>
+          <p class="text-sm text-base-content/70">No files yet</p>
+          <a href="{{host}}/repos/{{.ID}}/files" class="btn btn-outline btn-sm mt-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create First File
+          </a>
+        </div>
+        {{end}}
+        {{end}}
       </div>
     </div>
+    
+    {{end}} <!-- End of repository not empty check -->
   </div>
 
   <!-- Sidebar -->
   <div class="space-y-6">
-
-    <!-- Quick Actions -->
-    <div class="card bg-base-100 shadow-lg border border-base-300">
-      <div class="card-body">
-        <h3 class="card-title text-lg">Quick Actions</h3>
-        <div class="space-y-2">
-<a href="{{host}}/repos/{{.ID}}/issues" class="btn btn-outline btn-sm w-full justify-start">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            Create Issue
-          </a>
-          <a href="{{host}}/repos/{{.ID}}/actions" class="btn btn-outline btn-sm w-full justify-start" hx-boost="true">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Create Action
-          </a>
-        </div>
-      </div>
-    </div>
 
     <!-- Repository Info -->
     <div class="card bg-base-100 shadow-lg border border-base-300">
@@ -140,6 +221,71 @@
       </div>
     </div>
 
+    <!-- Quick Actions -->
+    <div class="card bg-base-100 shadow-lg border border-base-300">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Quick Actions</h3>
+        <div class="space-y-2">
+<a href="{{host}}/repos/{{.ID}}/issues" class="btn btn-outline btn-sm w-full justify-start">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            Create Issue
+          </a>
+          <a href="{{host}}/repos/{{.ID}}/actions" class="btn btn-outline btn-sm w-full justify-start" hx-boost="true">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Create Action
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card bg-base-100 shadow-lg border border-base-300">
+      <div class="card-body">
+        <h3 class="card-title text-lg">Recent Activity</h3>
+        {{with repos.RepoActivities 5}}
+        {{if .}}
+        <div class="space-y-2">
+          {{range .}}
+          <div class="flex items-center gap-3 p-2 bg-base-200 rounded">
+            <div class="avatar avatar-placeholder">
+              <div class="bg-primary text-primary-content rounded w-8 h-8">
+                <span class="text-sm">
+                  {{if eq .Type "repo_created"}}R{{else if eq .Type "issue_created"}}I{{else if eq .Type "pr_created"}}P{{else if eq .Type "file_created"}}F{{else}}A{{end}}
+                </span>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">{{.Title}}</div>
+              <div class="text-xs text-base-content/60">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</div>
+            </div>
+          </div>
+          {{end}}
+        </div>
+        <div class="mt-4">
+          <a href="{{host}}/repos/{{$repo.ID}}/activity" class="btn btn-ghost btn-sm btn-block">
+            View All Activity
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+        {{else}}
+        <div class="text-center py-4">
+          <p class="text-sm text-base-content/60">No recent activity</p>
+        </div>
+        {{end}}
+        {{else}}
+        <div class="text-center py-4">
+          <p class="text-sm text-base-content/60">No recent activity</p>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
   </div>
 </div>
 {{else}}
@@ -149,4 +295,7 @@
   <a href="{{host}}/repos" class="btn btn-primary">Back to Repositories</a>
 </div>
 {{end}}
+
+{{template "create-file-modal.html" .}}
+
 {{template "layout/end"}}

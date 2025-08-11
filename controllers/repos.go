@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -17,6 +18,10 @@ import (
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 // Repos is a factory function with the prefix and instance
@@ -46,6 +51,7 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("GET /repos/{id}/commits", app.Serve("repo-commits.html", auth.Required))
 	http.Handle("GET /repos/{id}/commits/{hash}/diff", app.Serve("repo-commit-diff.html", auth.Required))
 	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", auth.Required))
+	http.Handle("GET /repos/{id}/activity", app.Serve("repo-activity.html", auth.Required))
 	// Search functionality removed - not needed
 
 	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepo, auth.Required))
@@ -119,11 +125,8 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Re
 		return nil, errors.New("access denied: " + err.Error())
 	}
 
-	// Update repository state if it's empty or initialized
-	// This ensures the state is current after git operations
-	if repo.State == models.StateEmpty || repo.State == models.StateInitialized {
-		repo.UpdateState()
-	}
+	// Repository state is determined dynamically by IsEmpty() method
+	// No need to track state separately
 
 	return repo, nil
 }
@@ -955,6 +958,31 @@ func (c *ReposController) HasFiles() bool {
 }
 
 // RepoReadme detects and returns README content for the repository
+// RepoIsEmpty checks if the current repository has no commits
+func (c *ReposController) RepoIsEmpty() bool {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return true // If we can't get the repo, treat as empty
+	}
+	return repo.IsEmpty()
+}
+
+// RepoActivities returns activities for the current repository with an optional limit
+func (c *ReposController) RepoActivities(limit ...int) ([]*models.Activity, error) {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return nil, err
+	}
+
+	// Default limit is 10, but can be overridden
+	activityLimit := 10
+	if len(limit) > 0 && limit[0] > 0 {
+		activityLimit = limit[0]
+	}
+
+	return repo.GetRecentActivities(activityLimit)
+}
+
 func (c *ReposController) RepoReadme() (*FileInfo, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
@@ -987,35 +1015,52 @@ func (c *ReposController) RepoReadme() (*FileInfo, error) {
 	return fileInfo, nil // No README found
 }
 
-// RenderMarkdown converts markdown content to HTML (accessible from templates)
+// RenderMarkdown converts markdown content to HTML using goldmark
 func (c *ReposController) RenderMarkdown(content string) template.HTML {
-	// Basic markdown parsing (simplified implementation)
-	// In a production app, you'd use a proper markdown library like blackfriday or goldmark
+	// Create a new goldmark markdown processor with GitHub Flavored Markdown extensions
+	md := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,           // GitHub Flavored Markdown (tables, strikethrough, etc.)
+			extension.Linkify,       // Auto-linkify URLs
+			extension.TaskList,      // Task list support
+			extension.Typographer,   // Smart punctuation
+		),
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(), // Auto-generate heading IDs for anchors
+		),
+		goldmark.WithRendererOptions(
+			html.WithHardWraps(), // Preserve line breaks
+			html.WithXHTML(),     // XHTML output
+			// Note: WithUnsafe() would allow raw HTML, but we'll keep it safe for security
+		),
+	)
 
-	// Convert newlines to HTML
-	html := strings.ReplaceAll(content, "\n", "<br>")
+	// Convert markdown to HTML
+	var buf bytes.Buffer
+	if err := md.Convert([]byte(content), &buf); err != nil {
+		// If conversion fails, return the original content escaped
+		return template.HTML(template.HTMLEscapeString(content))
+	}
 
-	// Headers
-	html = regexp.MustCompile(`(?m)^# (.+)$`).ReplaceAllString(html, "<h1>$1</h1>")
-	html = regexp.MustCompile(`(?m)^## (.+)$`).ReplaceAllString(html, "<h2>$1</h2>")
-	html = regexp.MustCompile(`(?m)^### (.+)$`).ReplaceAllString(html, "<h3>$1</h3>")
-
-	// Bold and italic
-	html = regexp.MustCompile(`\*\*([^*]+)\*\*`).ReplaceAllString(html, "<strong>$1</strong>")
-	html = regexp.MustCompile(`\*([^*]+)\*`).ReplaceAllString(html, "<em>$1</em>")
-
-	// Code blocks (backticks)
-	html = regexp.MustCompile("```([\\s\\S]*?)```").ReplaceAllString(html, "<pre class=\"bg-base-200 p-4 rounded\"><code>$1</code></pre>")
-	html = regexp.MustCompile("`([^`]+)`").ReplaceAllString(html, "<code class=\"bg-base-200 px-1 rounded\">$1</code>")
-
-	// Links
-	html = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`).ReplaceAllString(html, "<a href=\"$2\" class=\"link link-primary\">$1</a>")
-
-	// Lists (basic)
-	html = regexp.MustCompile(`(?m)^- (.+)$`).ReplaceAllString(html, "<li>$1</li>")
-	html = regexp.MustCompile("(<li>.*</li>)").ReplaceAllString(html, "<ul class=\"list-disc list-inside\">$1</ul>")
-
-	return template.HTML(html)
+	// Post-process the HTML to add Tailwind classes
+	htmlStr := buf.String()
+	
+	// Add classes to elements for DaisyUI/Tailwind styling
+	htmlStr = strings.ReplaceAll(htmlStr, "<pre>", `<pre class="bg-base-200 p-4 rounded overflow-x-auto">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<code>", `<code class="bg-base-200 px-1 rounded text-sm">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<blockquote>", `<blockquote class="border-l-4 border-primary pl-4 italic">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<table>", `<table class="table table-zebra">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<a ", `<a class="link link-primary" `)
+	htmlStr = strings.ReplaceAll(htmlStr, "<ul>", `<ul class="list-disc list-inside">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<ol>", `<ol class="list-decimal list-inside">`)
+	
+	// Fix code blocks that are inside pre tags (remove the extra styling)
+	htmlStr = regexp.MustCompile(`<pre[^>]*><code class="[^"]*">([^<]*)</code></pre>`).ReplaceAllString(
+		htmlStr, 
+		`<pre class="bg-base-200 p-4 rounded overflow-x-auto"><code>$1</code></pre>`,
+	)
+	
+	return template.HTML(htmlStr)
 }
 
 // IsMarkdown checks if a file is a markdown file

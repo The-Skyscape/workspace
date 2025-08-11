@@ -22,20 +22,12 @@ type Repository struct {
 	Description   string    // Repository description
 	Visibility    string    // "public" or "private"
 	UserID        string    // Owner ID
-	State         string    // "empty", "initialized", "active"
 	DefaultBranch string    // Default branch name
 	Size          int64     // Repository size in bytes
 }
 
 // Table returns the database table name
 func (*Repository) Table() string { return "repositories" }
-
-// RepositoryState constants
-const (
-	StateEmpty       = "empty"
-	StateInitialized = "initialized"
-	StateActive      = "active"
-)
 
 // Visibility constants
 const (
@@ -153,7 +145,6 @@ func CreateRepository(name, description, visibility, userID string) (*Repository
 		Description:   description,
 		Visibility:    visibility,
 		UserID:        userID,
-		State:         StateEmpty,
 		DefaultBranch: "master",
 		Size:          0,
 	}
@@ -282,37 +273,10 @@ func DeleteRepository(id string) error {
 	return nil
 }
 
-// UpdateState checks the repository state and updates it
-func (r *Repository) UpdateState() error {
-	// Check if repository has any branches
-	branches, err := r.GetBranches()
-	if err != nil || len(branches) == 0 {
-		r.State = StateEmpty
-	} else {
-		// Check if there are any commits
-		count, err := r.GetCommitCount("HEAD")
-		if err != nil || count == 0 {
-			r.State = StateInitialized
-		} else {
-			r.State = StateActive
-		}
-	}
-	
-	return Repositories.Update(r)
-}
-
 // IsEmpty checks if the repository has no commits
 func (r *Repository) IsEmpty() bool {
 	count, err := r.GetCommitCount("HEAD")
 	return err != nil || count == 0
-}
-
-// GetState returns the current repository state
-func (r *Repository) GetState() string {
-	if r.State == "" {
-		r.UpdateState()
-	}
-	return r.State
 }
 
 // GetSize calculates the repository size in bytes

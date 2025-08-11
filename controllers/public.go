@@ -57,11 +57,7 @@ func (c *PublicController) getPublicRepoFromRequest(r *http.Request) (*models.Re
 		return nil, errors.New("repository not found")
 	}
 
-	// Update repository state if it's empty or initialized
-	// This ensures the state is current after git operations
-	if repo.State == models.StateEmpty || repo.State == models.StateInitialized {
-		repo.UpdateState()
-	}
+	// Repository state is determined dynamically by IsEmpty() method
 
 	return repo, nil
 }
