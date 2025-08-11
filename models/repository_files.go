@@ -88,14 +88,18 @@ func (r *Repository) GetFileTree(branch, path string) ([]*FileNode, error) {
 				}
 			}
 			
-			// Clean up the path
+			// Store the full path for navigation
+			fullPath := name
+			
+			// Clean up the name for display
+			displayName := name
 			if path != "." && strings.HasPrefix(name, path+"/") {
-				name = strings.TrimPrefix(name, path+"/")
+				displayName = strings.TrimPrefix(name, path+"/")
 			}
 			
 			node := &FileNode{
-				Name: filepath.Base(name),
-				Path: name,
+				Name: filepath.Base(displayName),
+				Path: fullPath,  // Keep full path for navigation
 				Mode: mode,
 				Hash: hash,
 				Size: size,
@@ -196,8 +200,34 @@ func (r *Repository) FileExists(branch, path string) bool {
 		branch = r.GetDefaultBranch()
 	}
 	
-	_, _, err := r.Git("cat-file", "-e", branch+":"+path)
-	return err == nil
+	if branch == "" {
+		return false // No branches in repository
+	}
+	
+	// Check if object exists and is a blob (file)
+	stdout, _, err := r.Git("cat-file", "-t", branch+":"+path)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(stdout.String()) == "blob"
+}
+
+// IsDirectory checks if a path is a directory in a branch
+func (r *Repository) IsDirectory(branch, path string) bool {
+	if branch == "" {
+		branch = r.GetDefaultBranch()
+	}
+	
+	if branch == "" {
+		return false // No branches in repository
+	}
+	
+	// Check if object exists and is a tree (directory)
+	stdout, _, err := r.Git("cat-file", "-t", branch+":"+path)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(stdout.String()) == "tree"
 }
 
 // GetREADME finds and returns the README file

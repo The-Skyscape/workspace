@@ -7,8 +7,8 @@
 {{template "repo-tabs.html" .}}
 
 <!-- File Viewer -->
-{{with $file := repos.CurrentFile}}
 <div class="container mx-auto px-4 py-6 max-w-7xl">
+{{with $file := repos.CurrentFile}}
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
   <!-- Main File Content -->
@@ -87,14 +87,76 @@
 
         <!-- File Content -->
         {{if .IsDir}}
-        <div class="p-6">
+        <!-- Directory Listing -->
+        <div class="overflow-x-auto">
+          {{with repos.RepoFiles}}
+          {{if .}}
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="hidden md:table-cell">Size</th>
+                <th class="hidden lg:table-cell">Last Modified</th>
+              </tr>
+            </thead>
+            <tbody hx-boost="true">
+              {{range .}}
+              <tr class="hover">
+                <td>
+                  <div class="flex items-center space-x-3">
+                    {{if .IsDir}}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+                    </svg>
+                    <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover font-medium">{{.Name}}/</a>
+                    {{else}}
+                    <!-- File type icons -->
+                    {{if eq .Language "javascript"}}
+                    <div class="w-5 h-5 bg-yellow-400 rounded text-xs flex items-center justify-center text-black font-bold">JS</div>
+                    {{else if eq .Language "typescript"}}
+                    <div class="w-5 h-5 bg-blue-600 rounded text-xs flex items-center justify-center text-white font-bold">TS</div>
+                    {{else if eq .Language "python"}}
+                    <div class="w-5 h-5 bg-green-600 rounded text-xs flex items-center justify-center text-white font-bold">PY</div>
+                    {{else if eq .Language "go"}}
+                    <div class="w-5 h-5 bg-cyan-500 rounded text-xs flex items-center justify-center text-white font-bold">GO</div>
+                    {{else if eq .Language "markdown"}}
+                    <div class="w-5 h-5 bg-slate-600 rounded text-xs flex items-center justify-center text-white font-bold">MD</div>
+                    {{else}}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {{end}}
+                    <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover">{{.Name}}</a>
+                    {{end}}
+                  </div>
+                </td>
+                <td class="hidden md:table-cell text-sm text-base-content/70">
+                  {{if not .IsDir}}
+                  {{if lt .Size 1024}}
+                  {{.Size}} B
+                  {{else}}
+                  {{.Size}} bytes
+                  {{end}}
+                  {{else}}
+                  -
+                  {{end}}
+                </td>
+                <td class="hidden lg:table-cell text-sm text-base-content/70">
+                  {{.ModTime.Format "Jan 2, 2006 3:04 PM"}}
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+          {{else}}
           <div class="text-center py-8">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="currentColor" viewBox="0 0 24 24">
               <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
             </svg>
-            <p class="text-lg">This is a directory</p>
-            <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}" class="btn btn-primary mt-4">Browse Directory</a>
+            <p class="text-lg">Empty directory</p>
           </div>
+          {{end}}
+          {{end}}
         </div>
         {{else if .IsBinary}}
         <div class="p-6">
@@ -211,14 +273,37 @@
 
   </div>
 </div>
-</div>
 {{else}}
-<div class="text-center py-16">
-  <h2 class="text-2xl font-bold mb-4 text-error">File Not Found</h2>
-  <p class="text-base-content/70 mb-6">The file you're looking for doesn't exist.</p>
-  <a href="{{host}}/repos/{{$repo.ID}}/files" class="btn btn-primary">Back to Repository</a>
+<!-- File Not Found -->
+<div class="card bg-base-100 shadow-lg border border-base-300">
+  <div class="card-body text-center py-16">
+    <div class="flex justify-center mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </div>
+    <h2 class="text-2xl font-bold mb-4">File Not Found</h2>
+    <p class="text-base-content/70 mb-2">The file or directory you're looking for doesn't exist.</p>
+    <p class="text-sm text-base-content/50 mb-6">It may have been moved, deleted, or you may not have permission to view it.</p>
+    <div class="flex justify-center gap-2">
+      <a href="{{host}}/repos/{{$repo.ID}}/files?branch={{repos.CurrentBranch}}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
+        </svg>
+        Browse Files
+      </a>
+      <a href="{{host}}/repos/{{$repo.ID}}" class="btn btn-outline">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to Repository
+      </a>
+    </div>
+  </div>
 </div>
 {{end}}
+</div>
 {{else}}
 <div class="text-center py-16">
   <h2 class="text-2xl font-bold mb-4 text-error">Repository Not Found</h2>

@@ -41,7 +41,7 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("GET /repos/{id}/actions", app.Serve("repo-actions.html", auth.Required))
 	http.Handle("GET /repos/{id}/settings", app.Serve("repo-settings.html", auth.Required))
 	http.Handle("GET /repos/{id}/files", app.Serve("repo-files.html", auth.Required))
-	http.Handle("GET /repos/{id}/files/{path...}", app.Serve("repo-file-view.html", auth.Required))
+	http.Handle("GET /repos/{id}/files/{path...}", app.ProtectFunc(c.fileView, auth.Required))
 	http.Handle("GET /repos/{id}/edit/{path...}", app.Serve("repo-file-edit.html", auth.Required))
 	http.Handle("GET /repos/{id}/commits", app.Serve("repo-commits.html", auth.Required))
 	http.Handle("GET /repos/{id}/commits/{hash}/diff", app.Serve("repo-commit-diff.html", auth.Required))
@@ -482,6 +482,13 @@ func (c *ReposController) revokePermission(w http.ResponseWriter, r *http.Reques
 	c.Refresh(w, r)
 }
 
+// fileView handles the file view page with proper error handling
+func (c *ReposController) fileView(w http.ResponseWriter, r *http.Request) {
+	// Try to render the template
+	// If CurrentFile returns an error, it will be caught and we can show a nice error page
+	c.Render(w, r, "repo-file-view.html", nil)
+}
+
 // FileInfo represents a file or directory in the repository
 type FileInfo struct {
 	Name     string
@@ -613,14 +620,19 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 	}
 
 	branch := c.CurrentBranch()
+	
+	// If no branch specified, use default
+	if branch == "" {
+		branch = repo.GetDefaultBranch()
+	}
+	
+	// If still no branch, the repository is empty
+	if branch == "" {
+		return nil, errors.New("repository has no branches")
+	}
 
-	// Check if file exists
-	if !repo.FileExists(branch, path) {
-		// Might be a directory
-		nodes, err := repo.GetFileTree(branch, path)
-		if err != nil || len(nodes) == 0 {
-			return nil, errors.New("file not found")
-		}
+	// Check if it's a directory first
+	if repo.IsDirectory(branch, path) {
 		// It's a directory - for now use current time for directories
 		return &FileInfo{
 			Name:    filepath.Base(path),
@@ -628,6 +640,11 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 			IsDir:   true,
 			ModTime: time.Now(),
 		}, nil
+	}
+
+	// Check if file exists
+	if !repo.FileExists(branch, path) {
+		return nil, fmt.Errorf("file not found: %s on branch %s", path, branch)
 	}
 
 	// Get file content
