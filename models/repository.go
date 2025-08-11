@@ -206,6 +206,23 @@ func (r *Repository) Git(args ...string) (stdout, stderr *bytes.Buffer, err erro
 	return stdout, stderr, err
 }
 
+// GetFileModTime returns the last modification time of a file from git history
+func (r *Repository) GetFileModTime(branch, path string) (time.Time, error) {
+	stdout, _, err := r.Git("log", "-1", "--format=%aI", branch, "--", path)
+	if err != nil {
+		// If error, return zero time which will be handled by caller
+		return time.Time{}, err
+	}
+	
+	timeStr := strings.TrimSpace(stdout.String())
+	if timeStr == "" {
+		// File has no history yet, return zero time
+		return time.Time{}, nil
+	}
+	
+	return time.Parse(time.RFC3339, timeStr)
+}
+
 // GetRepositoryByID retrieves a repository by its ID
 func GetRepositoryByID(id string) (*Repository, error) {
 	return Repositories.Get(id)

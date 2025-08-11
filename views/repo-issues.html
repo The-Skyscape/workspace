@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -51,14 +51,14 @@
         <div class="flex items-center space-x-2">
           {{if eq .Status "open"}}
           <button class="btn btn-outline btn-sm"
-                  hx-post="{{host}}/repos/{{$.ID}}/issues/{{.ID}}/close"
+                  hx-post="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}/close"
                   hx-target="body"
                   hx-swap="outerHTML">
             Close
           </button>
           {{else}}
           <button class="btn btn-outline btn-sm"
-                  hx-post="{{host}}/repos/{{$.ID}}/issues/{{.ID}}/reopen"
+                  hx-post="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}/reopen"
                   hx-target="body"
                   hx-swap="outerHTML">
             Reopen

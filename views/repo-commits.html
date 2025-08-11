@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -11,7 +11,7 @@
 
   <!-- Main Commits List -->
   <div class="lg:col-span-3">
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <div class="flex items-center justify-between mb-6">
           <h2 class="card-title">
@@ -66,7 +66,7 @@
                 
                 <!-- Commit Actions -->
                 <div class="flex items-center space-x-2">
-                  <a href="{{host}}/repos/{{$.ID}}/commits/{{.Hash}}/diff" class="btn btn-ghost btn-sm">
+                  <a href="{{host}}/repos/{{$repo.ID}}/commits/{{.Hash}}/diff" class="btn btn-ghost btn-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -102,7 +102,7 @@
   <div class="space-y-6">
 
     <!-- Branch Info -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Branch Information</h3>
         <div class="space-y-3">
@@ -123,7 +123,7 @@
     </div>
 
     <!-- Quick Actions -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Repository Actions</h3>
         <div class="space-y-2">
@@ -138,7 +138,7 @@
     </div>
 
     <!-- Clone Repository -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Clone Repository</h3>
         <div class="form-control">

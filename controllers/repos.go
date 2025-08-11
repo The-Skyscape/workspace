@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -530,11 +531,18 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 			return []*FileInfo{}, nil
 		}
 
+		// Get modification time for this single file
+		modTime, err := repo.GetFileModTime(branch, file.Path)
+		if err != nil || modTime.IsZero() {
+			modTime = time.Now() // Fallback to current time
+		}
+		
 		fileInfo := &FileInfo{
 			Name:     file.Name,
 			Path:     file.Path,
 			IsDir:    false,
 			Size:     file.Size,
+			ModTime:  modTime,
 			IsBinary: file.IsBinary,
 			Language: file.Language,
 		}
@@ -559,6 +567,7 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 			Path:     node.Path,
 			IsDir:    node.Type == "dir",
 			Size:     node.Size,
+			ModTime:  node.ModTime, // Now populated from git history
 			Language: getLanguageFromExtension(filepath.Ext(node.Name)),
 		}
 		files = append(files, fileInfo)
@@ -574,6 +583,21 @@ func (c *ReposController) FileLines() ([]string, error) {
 		return nil, err
 	}
 	return strings.Split(file.Content, "\n"), nil
+}
+
+// FileLinesWithNumbers returns the file lines with their line numbers (1-based)
+func (c *ReposController) FileLinesWithNumbers() ([]struct{Number int; Content string}, error) {
+	lines, err := c.FileLines()
+	if err != nil {
+		return nil, err
+	}
+	
+	result := make([]struct{Number int; Content string}, len(lines))
+	for i, line := range lines {
+		result[i].Number = i + 1
+		result[i].Content = line
+	}
+	return result, nil
 }
 
 // CurrentFile returns the current file being viewed
@@ -597,11 +621,12 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 		if err != nil || len(nodes) == 0 {
 			return nil, errors.New("file not found")
 		}
-		// It's a directory
+		// It's a directory - for now use current time for directories
 		return &FileInfo{
-			Name:  filepath.Base(path),
-			Path:  path,
-			IsDir: true,
+			Name:    filepath.Base(path),
+			Path:    path,
+			IsDir:   true,
+			ModTime: time.Now(),
 		}, nil
 	}
 
@@ -611,11 +636,18 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 		return nil, err
 	}
 
+	// Get modification time for this file
+	modTime, err := repo.GetFileModTime(branch, file.Path)
+	if err != nil || modTime.IsZero() {
+		modTime = time.Now() // Fallback to current time
+	}
+	
 	fileInfo := &FileInfo{
 		Name:     file.Name,
 		Path:     file.Path,
 		IsDir:    false,
 		Size:     file.Size,
+		ModTime:  modTime,
 		IsBinary: file.IsBinary,
 		Language: file.Language,
 	}
@@ -1595,8 +1627,15 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log activity
-	models.LogActivity("file_edited", "Edited file: "+filePath,
-		commitMessage, user.ID, repoID, "file", filePath)
+	models.LogActivity(
+		"file_updated",
+		fmt.Sprintf("Updated file %s", filePath),
+		fmt.Sprintf("Updated file %s in branch %s with message: %s", filePath, branch, commitMessage),
+		user.ID,
+		repo.ID,
+		"file",
+		filePath,
+	)
 
 	// Redirect back to file view
 	c.Redirect(w, r, "/repos/"+repoID+"/files/"+filePath+"?branch="+branch)
@@ -1652,10 +1691,17 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 		c.Render(w, r, "error-message.html", errors.New("failed to create file: "+err.Error()))
 		return
 	}
-
+	
 	// Log activity
-	models.LogActivity("file_created", "Created file: "+filePath,
-		commitMessage, user.ID, repoID, "file", filePath)
+	models.LogActivity(
+		"file_created",
+		fmt.Sprintf("Created file %s", filePath),
+		fmt.Sprintf("Created file %s in branch %s with message: %s", filePath, branch, commitMessage),
+		user.ID,
+		repo.ID,
+		"file",
+		filePath,
+	)
 
 	// Redirect to file view
 	c.Redirect(w, r, "/repos/"+repoID+"/files/"+filePath+"?branch="+branch)
@@ -1709,8 +1755,15 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log activity
-	models.LogActivity("file_deleted", "Deleted file: "+filePath,
-		commitMessage, user.ID, repoID, "file", filePath)
+	models.LogActivity(
+		"file_deleted",
+		fmt.Sprintf("Deleted file %s", filePath),
+		fmt.Sprintf("Deleted file %s from branch %s with message: %s", filePath, branch, commitMessage),
+		user.ID,
+		repo.ID,
+		"file",
+		filePath,
+	)
 
 	// Redirect to repository files
 	c.Redirect(w, r, "/repos/"+repoID+"/files")
@@ -1756,24 +1809,44 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	// Use repo.ID for the URL (not repo.Name which can have spaces)
 	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s", token.ID, token.Token, repo.ID)
 
-	// Execute git clone in the coder container
+	// Execute git clone or pull in the coder container
 	// Use proper shell escaping for repository names that might contain spaces
 	escapedName := strings.ReplaceAll(repo.Name, "'", "'\\''")
+	
+	// Check if repository already exists and update it, otherwise clone it
 	cloneCmd := fmt.Sprintf(`
 		cd /home/coder/project && 
-		rm -rf '%s' && 
-		git clone '%s' '%s' && 
-		echo "Repository cloned successfully"
-	`, escapedName, cloneURL, escapedName)
+		if [ -d '%s/.git' ]; then
+			echo "Repository already exists, updating..." &&
+			cd '%s' &&
+			git fetch origin &&
+			git pull origin $(git symbolic-ref --short HEAD 2>/dev/null || echo 'master') &&
+			echo "Repository updated successfully"
+		else
+			echo "Cloning repository..." &&
+			rm -rf '%s' &&
+			git clone '%s' '%s' &&
+			echo "Repository cloned successfully"
+		fi
+	`, escapedName, escapedName, escapedName, cloneURL, escapedName)
 
 	// Execute in the coder container
 	output, err := exec.Command("docker", "exec", "skyscape-coder", "bash", "-c", cloneCmd).CombinedOutput()
 	if err != nil {
-		c.Render(w, r, "error-message.html", fmt.Errorf("failed to clone repository: %s", string(output)))
+		c.Render(w, r, "error-message.html", fmt.Errorf("failed to clone/update repository: %s", string(output)))
 		return
 	}
 
+	// Determine if it was updated or cloned based on output
+	action := "prepared"
+	if strings.Contains(string(output), "updated successfully") {
+		action = "updated"
+	} else if strings.Contains(string(output), "cloned successfully") {
+		action = "cloned"
+	}
+	
 	// Return success message with link to open IDE
+	// Use repo.Name for the folder path since that's what we clone it as
 	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, `
 		<div class="alert alert-success">
@@ -1782,9 +1855,9 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 			</svg>
 			<div>
 				<div class="font-bold">Repository ready in IDE!</div>
-				<div class="text-sm">The repository has been cloned to /home/coder/project/%s</div>
+				<div class="text-sm">The repository has been %s at /home/coder/project/%s</div>
 			</div>
-			<a href="/coder/" target="_blank" class="btn btn-sm btn-primary">Open IDE</a>
+			<a href="/coder/?folder=/home/coder/project/%s" target="_blank" class="btn btn-sm btn-primary">Open IDE</a>
 		</div>
-	`, repo.Name)
+	`, action, repo.Name, url.QueryEscape(repo.Name))
 }

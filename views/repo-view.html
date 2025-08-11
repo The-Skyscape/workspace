@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -14,7 +14,7 @@
     
     <!-- Repository Description -->
     {{if .Description}}
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <p class="text-lg">{{.Description}}</p>
       </div>
@@ -23,7 +23,7 @@
 
     <!-- README Section -->
     {{with repos.RepoReadme}}
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <div class="flex items-center justify-between mb-4">
           <h2 class="card-title">
@@ -32,7 +32,7 @@
             </svg>
             {{.Name}}
           </h2>
-          <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}" class="btn btn-ghost btn-sm">
+          <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}" class="btn btn-ghost btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
@@ -52,7 +52,7 @@
     </div>
     {{else}}
     <!-- No README - Show getting started -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h2 class="card-title">Getting Started</h2>
         
@@ -75,7 +75,7 @@
     {{end}}
 
     <!-- Recent Activity -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title">Recent Activity</h3>
         <div class="space-y-3">
@@ -99,7 +99,7 @@
   <div class="space-y-6">
 
     <!-- Quick Actions -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Quick Actions</h3>
         <div class="space-y-2">
@@ -120,7 +120,7 @@
     </div>
 
     <!-- Repository Info -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Repository Info</h3>
         <div class="space-y-3">

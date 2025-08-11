@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -19,6 +20,7 @@ type FileNode struct {
 	Size     int64
 	Mode     string
 	Hash     string
+	ModTime  time.Time // Last modification time from git history
 	Content  string // Only for files when requested
 }
 
@@ -51,7 +53,7 @@ func (r *Repository) GetFileTree(branch, path string) ([]*FileNode, error) {
 	// List files using git ls-tree
 	args := []string{"ls-tree", "--long", branch}
 	if path != "." {
-		args = append(args, path+"/")
+		args = append(args, "--", path+"/")
 	}
 	
 	stdout, stderr, err := r.Git(args...)
@@ -106,6 +108,22 @@ func (r *Repository) GetFileTree(branch, path string) ([]*FileNode, error) {
 			}
 			
 			nodes = append(nodes, node)
+		}
+	}
+	
+	// Get modification times for each node
+	for i, node := range nodes {
+		if node.Type == "file" {
+			modTime, err := r.GetFileModTime(branch, node.Path)
+			if err == nil && !modTime.IsZero() {
+				nodes[i].ModTime = modTime
+			} else {
+				// Fallback to current time if we can't get git history
+				nodes[i].ModTime = time.Now()
+			}
+		} else {
+			// For directories, use current time
+			nodes[i].ModTime = time.Now()
 		}
 	}
 	

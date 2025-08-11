@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -7,11 +7,12 @@
 {{template "repo-tabs.html" .}}
 
 <!-- File Browser -->
+<div class="container mx-auto px-4 py-6 max-w-7xl">
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
   <!-- Main File Listing -->
   <div class="lg:col-span-3">
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <div class="flex items-center justify-between mb-4">
           <h2 class="card-title">
@@ -32,7 +33,7 @@
             
             <!-- Branch Selector -->
             <div class="dropdown dropdown-end">
-            <button class="btn btn-ghost btn-sm" tabindex="0">
+            <button class="btn btn-outline btn-sm" tabindex="0">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
               </svg>
@@ -44,7 +45,7 @@
             <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
               {{range repos.RepoBranches}}
               <li>
-                <a href="{{host}}/repos/{{$.ID}}/files?branch={{.Name}}" 
+                <a href="{{host}}/repos/{{$repo.ID}}/files?branch={{.Name}}" 
                    class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
@@ -72,7 +73,7 @@
                 <th class="hidden lg:table-cell">Last Modified</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody hx-boost="true">
               {{range .}}
               <tr class="hover">
                 <td>
@@ -81,7 +82,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
                     </svg>
-                    <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover font-medium">{{.Name}}/</a>
+                    <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover font-medium">{{.Name}}/</a>
                     {{else}}
                     <!-- File type icons -->
                     {{if eq .Language "javascript"}}
@@ -93,16 +94,13 @@
                     {{else if eq .Language "go"}}
                     <div class="w-5 h-5 bg-cyan-500 rounded text-xs flex items-center justify-center text-white font-bold">GO</div>
                     {{else if eq .Language "markdown"}}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M22.269 19.385c-.13-.163-.397-.226-.615-.125l-2.273 1.061a1.018 1.018 0 0 1-.419.096c-.253 0-.491-.108-.659-.299l-2.021-2.297c-.164-.186-.394-.29-.644-.29s-.48.104-.644.29L13.473 20.117c-.168.191-.406.299-.659.299a1.018 1.018 0 0 1-.419-.096l-2.273-1.061c-.218-.101-.485-.038-.615.125-.13.163-.139.397-.025.57l1.171 1.769a1 1 0 0 0 .831.447h8.032a1 1 0 0 0 .831-.447l1.171-1.769c.114-.173.105-.407-.025-.57z"/>
-                      <path d="M2.021 3.883C1.857 3.72 1.589 3.657 1.371 3.758L.458 4.161A1.018 1.018 0 0 0 .038 4.257c0 .253.108.491.299.659l2.297 2.021c.186.164.29.394.29.644s-.104.48-.29.644L.338 10.522c-.191.168-.299.406-.299.659a1.018 1.018 0 0 0 .42.839l.913.403c.218.101.485.038.615-.125.13-.163.139-.397.025-.57L.841 9.959a1 1 0 0 1-.447-.831V1.096a1 1 0 0 1 .447-.831L2.011 3.034c.173.114.407.105.57-.025.163-.13.226-.397.125-.615l-.403-.913A1.018 1.018 0 0 0 1.464.038C1.211.038.973.146.805.337L.338 2.636c-.164.186-.29.394-.29.644s.126.458.29.644z"/>
-                    </svg>
+                    <div class="w-5 h-5 bg-slate-600 rounded text-xs flex items-center justify-center text-white font-bold">MD</div>
                     {{else}}
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     {{end}}
-                    <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover">{{.Name}}</a>
+                    <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="link link-hover">{{.Name}}</a>
                     {{end}}
                   </div>
                 </td>
@@ -151,7 +149,7 @@
             </svg>
             {{.Name}}
           </h2>
-          <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}" class="btn btn-ghost btn-sm">
+          <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}" class="btn btn-ghost btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
@@ -176,7 +174,7 @@
   <div class="space-y-6">
 
     <!-- Repository Actions -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Repository</h3>
         <div class="space-y-2">
@@ -191,7 +189,7 @@
     </div>
 
     <!-- Clone Repository -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Clone Repository</h3>
         <div class="form-control">
@@ -199,8 +197,8 @@
             <span class="label-text">HTTPS</span>
           </label>
           <div class="join">
-            <input type="text" value="git clone {{host}}/repo/{{.ID}}.git" class="input input-bordered join-item flex-1 text-sm" readonly>
-            <button class="btn join-item" _="on click writeText('git clone {{host}}/repo/{{.ID}}.git') to navigator.clipboard">
+            <input type="text" value="git clone {{host}}/repo/{{$repo.ID}}" class="input input-bordered join-item flex-1 text-sm" readonly>
+            <button class="btn join-item" _="on click writeText('git clone {{host}}/repo/{{$repo.ID}}') to navigator.clipboard">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
@@ -212,46 +210,57 @@
 
   </div>
 </div>
+</div>
 
 <!-- Create File Modal -->
 <dialog id="create_file_modal" class="modal">
-  <div class="modal-box w-11/12">
-    <h3 class="font-bold text-lg mb-4">Create New File</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/files/create" hx-target="body" hx-swap="outerHTML">
+  <div class="modal-box">
+    <h3 class="text-2xl font-bold mb-6">Create New File</h3>
+    <form hx-post="{{host}}/repos/{{$repo.ID}}/files/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
       <input type="hidden" name="branch" value="{{repos.CurrentBranch}}">
       
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">File Path <span class="text-error">*</span></span>
-          </label>
-          <input type="text" name="path" placeholder="src/main.go" class="input input-bordered" required>
-          <label class="label">
-            <span class="label-text-alt">Include directory path and file extension</span>
-          </label>
+      <!-- File Path Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">File Path</span>
+          <span class="label-text-alt text-xs">Required</span>
         </div>
+        <input type="text" name="path" class="input input-bordered w-full"
+               placeholder="src/main.go"
+               title="Include directory path and file extension"
+               required />
+      </label>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Commit Message <span class="text-error">*</span></span>
-          </label>
-          <input type="text" name="commit_message" placeholder="Add new file" class="input input-bordered" required>
+      <!-- Commit Message Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Commit Message</span>
+          <span class="label-text-alt text-xs">Required</span>
         </div>
+        <input type="text" name="commit_message" class="input input-bordered w-full"
+               placeholder="Add new file"
+               required />
+      </label>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">File Content</span>
-          </label>
-          <textarea name="content" class="textarea textarea-bordered h-40 font-mono text-sm" placeholder="// File content here..."></textarea>
-          <label class="label">
-            <span class="label-text-alt">Initial file content (optional)</span>
-          </label>
+      <!-- File Content Textarea -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">File Content</span>
+          <span class="label-text-alt text-xs">Optional - Initial content</span>
         </div>
+        <textarea name="content" class="textarea textarea-bordered h-40 font-mono text-sm w-full" 
+                  placeholder="// File content here..."></textarea>
+      </label>
 
-        <div class="modal-action">
-          <button type="submit" class="btn btn-primary">Create File</button>
-          <button type="button" class="btn" onclick="create_file_modal.close()">Cancel</button>
-        </div>
+      <!-- Modal Actions -->
+      <div class="modal-action mt-4">
+        <button type="submit" class="btn btn-primary">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Create File
+        </button>
+        <button type="button" class="btn" onclick="create_file_modal.close()">Cancel</button>
       </div>
     </form>
   </div>

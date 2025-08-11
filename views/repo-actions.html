@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -64,7 +64,7 @@
           <button class="btn btn-ghost btn-sm">Edit</button>
           {{if eq .Type "manual"}}
           <button class="btn btn-primary btn-sm"
-                  hx-post="{{host}}/repos/{{$.ID}}/actions/{{.ID}}/run"
+                  hx-post="{{host}}/repos/{{$repo.ID}}/actions/{{.ID}}/run"
                   hx-target="body"
                   hx-swap="outerHTML"
                   {{if eq .Status "running"}}disabled{{end}}>

@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -12,7 +12,7 @@
 
   <!-- Main Editor Content -->
   <div class="lg:col-span-3">
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body p-0">
         <!-- Editor Header -->
         <div class="flex items-center justify-between p-6 border-b border-base-300">
@@ -29,7 +29,7 @@
           </div>
           
           <div class="flex items-center space-x-2">
-            <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-ghost btn-sm">
+            <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-ghost btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -39,7 +39,7 @@
         </div>
 
         <!-- Editor Form -->
-        <form hx-post="{{host}}/repos/{{$.ID}}/files/save" hx-target="body" hx-swap="outerHTML" class="p-6">
+        <form hx-post="{{host}}/repos/{{$repo.ID}}/files/save" hx-target="body" hx-swap="outerHTML" class="p-6">
           <input type="hidden" name="path" value="{{.Path}}">
           <input type="hidden" name="branch" value="{{repos.CurrentBranch}}">
           
@@ -59,7 +59,7 @@
 
           <!-- Action Buttons -->
           <div class="flex justify-end space-x-2">
-            <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-ghost">Cancel</a>
+            <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-ghost">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1-1V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v1m4 0v1m0-2V4" />
@@ -76,7 +76,7 @@
   <div class="space-y-6">
 
     <!-- Editor Tips -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">💡 Editor Tips</h3>
         <div class="space-y-2 text-sm">
@@ -97,7 +97,7 @@
     </div>
 
     <!-- File Info -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">File Information</h3>
         <div class="space-y-3">
@@ -122,17 +122,17 @@
     </div>
 
     <!-- Navigation -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Navigation</h3>
         <div class="space-y-2">
-          <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
+          <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             View File
           </a>
-          <a href="{{host}}/repos/{{$.ID}}/files" class="btn btn-outline btn-sm w-full">
+          <a href="{{host}}/repos/{{$repo.ID}}/files" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
             </svg>
@@ -148,7 +148,7 @@
 <div class="text-center py-16">
   <h2 class="text-2xl font-bold mb-4 text-error">File Not Found</h2>
   <p class="text-base-content/70 mb-6">The file you're trying to edit doesn't exist.</p>
-  <a href="{{host}}/repos/{{$.ID}}/files" class="btn btn-primary">Back to Repository</a>
+  <a href="{{host}}/repos/{{$repo.ID}}/files" class="btn btn-primary">Back to Repository</a>
 </div>
 {{end}}
 {{else}}

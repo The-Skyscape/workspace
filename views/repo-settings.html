@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -112,7 +112,7 @@
               <div class="flex items-center space-x-2">
                 <div class="badge badge-outline">{{.Role}}</div>
                 <button class="btn btn-ghost btn-xs text-error"
-                        hx-delete="{{host}}/repos/{{$.ID}}/permissions/{{.UserID}}"
+                        hx-delete="{{host}}/repos/{{$repo.ID}}/permissions/{{.UserID}}"
                         hx-target="closest .flex"
                         hx-swap="outerHTML"
                         hx-confirm="Remove access for this user?">

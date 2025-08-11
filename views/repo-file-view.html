@@ -1,5 +1,5 @@
 {{template "layout/start"}}
-{{with repos.CurrentRepo}}
+{{with $repo := repos.CurrentRepo}}
 {{template "repo-breadcrumbs.html" .}}
 
 {{template "repo-header.html" .}}
@@ -7,43 +7,17 @@
 {{template "repo-tabs.html" .}}
 
 <!-- File Viewer -->
-{{with repos.CurrentFile}}
+{{with $file := repos.CurrentFile}}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
   <!-- Main File Content -->
   <div class="lg:col-span-3">
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body p-0">
         <!-- File Header -->
         <div class="flex items-center justify-between p-6 border-b border-base-300">
-          <!-- Branch Selector -->
-          <div class="dropdown dropdown-start">
-            <button class="btn btn-ghost btn-sm" tabindex="0">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-              </svg>
-              {{repos.CurrentBranch}}
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-              {{range repos.RepoBranches}}
-              <li>
-                <a href="{{host}}/repos/{{$.ID}}/files/{{$.Path}}?branch={{.Name}}" 
-                   class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                  </svg>
-                  {{.Name}}
-                  {{if .IsCurrent}}<span class="text-success">(current)</span>{{end}}
-                  {{if .IsDefault}}<span class="text-info">(default)</span>{{end}}
-                </a>
-              </li>
-              {{end}}
-            </ul>
-          </div>
-          
+          <!-- File Info (Left Side) -->
           <div class="flex items-center space-x-3">
             {{if .IsDir}}
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
@@ -64,9 +38,10 @@
             </div>
           </div>
           
-          {{if not .IsDir}}
+          <!-- Actions (Right Side) -->
           <div class="flex items-center space-x-2">
-            <a href="{{host}}/repos/{{$.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm">
+            {{if not .IsDir}}
+            <a href="{{host}}/repos/{{$repo.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
@@ -78,8 +53,36 @@
               </svg>
               Copy
             </button>
+            {{end}}
+            
+            <!-- Branch Selector -->
+            <div class="dropdown dropdown-end">
+              <button class="btn btn-outline btn-sm" tabindex="0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                </svg>
+                {{repos.CurrentBranch}}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                {{range repos.RepoBranches}}
+                <li>
+                  <a href="{{host}}/repos/{{$repo.ID}}/files/{{$file.Path}}?branch={{.Name}}" 
+                     class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                    {{.Name}}
+                    {{if .IsCurrent}}<span class="text-success">(current)</span>{{end}}
+                    {{if .IsDefault}}<span class="text-info">(default)</span>{{end}}
+                  </a>
+                </li>
+                {{end}}
+              </ul>
+            </div>
           </div>
-          {{end}}
         </div>
 
         <!-- File Content -->
@@ -90,7 +93,7 @@
               <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
             </svg>
             <p class="text-lg">This is a directory</p>
-            <a href="{{host}}/repos/{{$.ID}}/files/{{.Path}}" class="btn btn-primary mt-4">Browse Directory</a>
+            <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}" class="btn btn-primary mt-4">Browse Directory</a>
           </div>
         </div>
         {{else if .IsBinary}}
@@ -114,9 +117,9 @@
           </div>
         </div>
         {{else}}
-        <!-- Code Content with Line Numbers -->
-        <div class="relative">
-          <pre class="overflow-x-auto"><code class="language-{{.Language}} block text-sm" style="padding: 0;">{{range $index, $line := repos.FileLines}}<span class="flex"><span class="select-none text-base-content/40 pr-4 pl-4 py-0 text-right bg-base-200 border-r border-base-300" style="min-width: 4rem; user-select: none;">{{printf "%d" (printf "%d" $index)}}</span><span class="px-4 py-0 flex-1 whitespace-pre">{{$line}}</span></span>{{end}}</code></pre>
+        <!-- Code Content -->
+        <div class="rounded-lg overflow-hidden">
+          <pre class="p-4 overflow-x-auto"><code class="language-{{.Language}} text-sm">{{.Content}}</code></pre>
         </div>
         {{end}}
         {{end}}
@@ -129,11 +132,11 @@
 
     <!-- File Actions -->
     {{if not .IsDir}}
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">File Actions</h3>
         <div class="space-y-2">
-          <a href="{{host}}/repos/{{$.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
+          <a href="{{host}}/repos/{{$repo.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
@@ -159,7 +162,7 @@
     {{end}}
 
     <!-- File Info -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">File Information</h3>
         <div class="space-y-3">
@@ -192,11 +195,11 @@
     </div>
 
     <!-- Navigation -->
-    <div class="card bg-base-100 shadow-lg">
+    <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Navigation</h3>
         <div class="space-y-2">
-          <a href="{{host}}/repos/{{$.ID}}/files" class="btn btn-outline btn-sm w-full">
+          <a href="{{host}}/repos/{{$repo.ID}}/files" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />
             </svg>
@@ -208,11 +211,12 @@
 
   </div>
 </div>
+</div>
 {{else}}
 <div class="text-center py-16">
   <h2 class="text-2xl font-bold mb-4 text-error">File Not Found</h2>
   <p class="text-base-content/70 mb-6">The file you're looking for doesn't exist.</p>
-  <a href="{{host}}/repos/{{$.ID}}/files" class="btn btn-primary">Back to Repository</a>
+  <a href="{{host}}/repos/{{$repo.ID}}/files" class="btn btn-primary">Back to Repository</a>
 </div>
 {{end}}
 {{else}}
@@ -222,10 +226,5 @@
   <a href="{{host}}/repos" class="btn btn-primary">Back to Repositories</a>
 </div>
 {{end}}
-
-<!-- Syntax Highlighting -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
 {{template "layout/end"}}
