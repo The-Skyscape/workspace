@@ -139,3 +139,29 @@
   border-bottom: 1px solid var(--bc);
   opacity: 0.1;
 }
+
+/* Prism.js customization - minimal overrides */
+/* Let Prism handle most styling, just add minor enhancements */
+code[class*="language-"] {
+  font-family: 'Fira Code', 'JetBrains Mono', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+}
+
+/* Better scrollbar for code blocks */
+pre[class*="language-"]::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+pre[class*="language-"]::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+pre[class*="language-"]::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+pre[class*="language-"]::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
