@@ -45,7 +45,7 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("GET /repos/{id}/commits", app.Serve("repo-commits.html", auth.Required))
 	http.Handle("GET /repos/{id}/commits/{hash}/diff", app.Serve("repo-commit-diff.html", auth.Required))
 	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", auth.Required))
-	http.Handle("GET /repos/{id}/search", app.Serve("repo-search.html", auth.Required))
+	// Search functionality removed - not needed
 
 	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepo, auth.Required))
 	http.Handle("POST /repos/{id}/actions/create", app.ProtectFunc(c.createAction, auth.Required))
