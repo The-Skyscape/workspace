@@ -326,8 +326,8 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Redirect back to settings
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/settings", repoID))
+	// Redirect to integrations page
+	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
 }
 
 // deleteRepository handles repository deletion
@@ -353,8 +353,7 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Delete the repository directory
-	repoPath := filepath.Join("./repos", repoID)
-	if err := os.RemoveAll(repoPath); err != nil {
+	if err := os.RemoveAll(repo.Path()); err != nil {
 		log.Printf("Failed to delete repository directory: %v", err)
 	}
 
@@ -412,20 +411,36 @@ func (c *ReposController) setupGitHub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse GitHub URL to add authentication
+	parsedURL, err := url.Parse(githubURL)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("invalid GitHub URL"))
+		return
+	}
+
+	// Add token authentication to URL for HTTPS
+	var authenticatedURL string
+	if parsedURL.Scheme == "https" {
+		parsedURL.User = url.User(githubToken)
+		authenticatedURL = parsedURL.String()
+	} else {
+		// For SSH URLs, use as-is
+		authenticatedURL = githubURL
+	}
+
 	// Update GitHub settings
-	repo.GitHubURL = githubURL
+	repo.GitHubURL = githubURL // Store original URL without token
 	repo.GitHubToken = githubToken // TODO: Encrypt this
 	repo.SyncDirection = syncDirection
 	repo.AutoSync = autoSync
 
-	// Configure git remote
-	repoPath := filepath.Join("./repos", repoID)
-	cmd := exec.Command("git", "remote", "add", "github", githubURL)
-	cmd.Dir = repoPath
+	// Configure git remote with authenticated URL
+	cmd := exec.Command("git", "remote", "add", "github", authenticatedURL)
+	cmd.Dir = repo.Path()
 	if err := cmd.Run(); err != nil {
 		// Try to set the URL if remote already exists
-		cmd = exec.Command("git", "remote", "set-url", "github", githubURL)
-		cmd.Dir = repoPath
+		cmd = exec.Command("git", "remote", "set-url", "github", authenticatedURL)
+		cmd.Dir = repo.Path()
 		if err := cmd.Run(); err != nil {
 			c.Render(w, r, "error-message.html", fmt.Errorf("failed to configure GitHub remote: %v", err))
 			return
@@ -439,8 +454,8 @@ func (c *ReposController) setupGitHub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect back to settings
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/settings", repoID))
+	// Redirect to integrations page
+	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
 }
 
 // syncGitHub handles manual GitHub sync
@@ -477,35 +492,99 @@ func (c *ReposController) syncGitHub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse GitHub URL to add authentication
+	parsedURL, err := url.Parse(repo.GitHubURL)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("invalid GitHub URL"))
+		return
+	}
+
+	// Add token authentication to URL for HTTPS
+	var authenticatedURL string
+	if parsedURL.Scheme == "https" && repo.GitHubToken != "" {
+		parsedURL.User = url.User(repo.GitHubToken)
+		authenticatedURL = parsedURL.String()
+	} else {
+		// For SSH URLs or no token, use as-is
+		authenticatedURL = repo.GitHubURL
+	}
+
+	// Update remote with authenticated URL
+	cmd := exec.Command("git", "remote", "set-url", "github", authenticatedURL)
+	cmd.Dir = repo.Path()
+	cmd.Run() // Ignore error if remote doesn't exist yet
+
+	// Since this is a bare repository, we need to use fetch/push with refspecs
+	// Get the default branch from the bare repo
+	stdout, _, err := repo.Git("symbolic-ref", "HEAD")
+	branch := "master" // default fallback
+	if err == nil && stdout != nil {
+		ref := strings.TrimSpace(stdout.String())
+		if strings.HasPrefix(ref, "refs/heads/") {
+			branch = strings.TrimPrefix(ref, "refs/heads/")
+		}
+	}
+
 	// Perform sync based on direction
-	repoPath := filepath.Join("./repos", repoID)
 	var syncErr error
+	var errorDetails string
 
 	switch repo.SyncDirection {
 	case "push":
-		// Push to GitHub
-		cmd := exec.Command("git", "push", "github", "main")
-		cmd.Dir = repoPath
-		syncErr = cmd.Run()
-	case "pull":
-		// Pull from GitHub
-		cmd := exec.Command("git", "pull", "github", "main")
-		cmd.Dir = repoPath
-		syncErr = cmd.Run()
-	case "both":
-		// Pull then push
-		cmd := exec.Command("git", "pull", "github", "main")
-		cmd.Dir = repoPath
-		if err := cmd.Run(); err != nil {
-			log.Printf("Pull failed: %v", err)
+		// Push from bare repository to GitHub
+		cmd := exec.Command("git", "push", "github", fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
+		cmd.Dir = repo.Path()
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			syncErr = err
+			errorDetails = string(output)
 		}
-		cmd = exec.Command("git", "push", "github", "main")
-		cmd.Dir = repoPath
-		syncErr = cmd.Run()
+	case "pull":
+		// Fetch from GitHub to bare repository
+		cmd := exec.Command("git", "fetch", "github", fmt.Sprintf("+refs/heads/%s:refs/heads/%s", branch, branch))
+		cmd.Dir = repo.Path()
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			syncErr = err
+			errorDetails = string(output)
+		}
+	case "both":
+		// Fetch then push
+		cmd := exec.Command("git", "fetch", "github", fmt.Sprintf("+refs/heads/%s:refs/heads/%s", branch, branch))
+		cmd.Dir = repo.Path()
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Fetch failed: %v - %s", err, string(output))
+			errorDetails = string(output)
+		}
+		
+		cmd = exec.Command("git", "push", "github", fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
+		cmd.Dir = repo.Path()
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			syncErr = err
+			if errorDetails != "" {
+				errorDetails += "\n\n"
+			}
+			errorDetails += string(output)
+		}
+	default:
+		// Default to push if no direction specified
+		cmd := exec.Command("git", "push", "github", fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
+		cmd.Dir = repo.Path()
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			syncErr = err
+			errorDetails = string(output)
+		}
 	}
 
 	if syncErr != nil {
-		c.Render(w, r, "error-message.html", fmt.Errorf("sync failed: %v", syncErr))
+		errMsg := fmt.Sprintf("sync failed: %v", syncErr)
+		if errorDetails != "" {
+			errMsg = fmt.Sprintf("sync failed: %s", errorDetails)
+		}
+		c.Render(w, r, "error-message.html", errors.New(errMsg))
 		return
 	}
 
@@ -513,8 +592,8 @@ func (c *ReposController) syncGitHub(w http.ResponseWriter, r *http.Request) {
 	repo.LastSyncAt = time.Now()
 	models.Repositories.Update(repo)
 
-	// Redirect back to settings
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/settings", repoID))
+	// Redirect to integrations page
+	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
 }
 
 // disconnectGitHub handles GitHub disconnection
@@ -547,9 +626,8 @@ func (c *ReposController) disconnectGitHub(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Remove git remote
-	repoPath := filepath.Join("./repos", repoID)
 	cmd := exec.Command("git", "remote", "remove", "github")
-	cmd.Dir = repoPath
+	cmd.Dir = repo.Path()
 	cmd.Run() // Ignore error if remote doesn't exist
 
 	// Clear GitHub settings
@@ -565,8 +643,8 @@ func (c *ReposController) disconnectGitHub(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Redirect back to settings
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/settings", repoID))
+	// Redirect to integrations page
+	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
 }
 
 // createRepo handles repository creation
@@ -1233,7 +1311,13 @@ func (c *ReposController) SearchCode() ([]*SearchResult, error) {
 
 // searchInRepository performs the actual file search within a repository
 func (c *ReposController) searchInRepository(repoID, query string) ([]*SearchResult, error) {
-	repoPath := filepath.Join("repos", repoID)
+	// Get the repository to use its Path() method
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		return nil, errors.New("repository not found")
+	}
+	
+	repoPath := repo.Path()
 	var results []*SearchResult
 
 	// Compile regex for case-insensitive search
