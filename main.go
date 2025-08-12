@@ -27,6 +27,8 @@ func main() {
 		application.WithController(controllers.Repos()),
 		application.WithController(controllers.Services()),
 		application.WithController(controllers.Public()),
+		application.WithController(controllers.Settings()),
+		application.WithController(controllers.AI()),
 		application.WithHostPrefix(cmp.Or(os.Getenv("PREFIX"), "")),
 		application.WithDaisyTheme(cmp.Or(os.Getenv("THEME"), "corporate")),
 	)
@@ -41,5 +43,12 @@ func startServices() {
 	if err := services.Coder.Init(); err != nil {
 		log.Printf("Warning: Failed to initialize coder service: %v", err)
 		// Don't fail the application if coder fails to start
+	}
+
+	// Initialize Ollama AI service
+	log.Println("Initializing Ollama AI service...")
+	if err := services.Ollama.Init(); err != nil {
+		log.Printf("Warning: Failed to initialize Ollama service: %v", err)
+		// Don't fail the application if Ollama fails to start
 	}
 }

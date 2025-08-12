@@ -1,0 +1,464 @@
+{{template "layout/start"}}
+
+<!-- Settings Header -->
+<div class="navbar bg-base-100 border-b border-base-300">
+  <div class="container mx-auto max-w-7xl px-4">
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold">Global Settings</h1>
+      <p class="text-base-content/70">Configure AI providers, features, and system settings</p>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Container -->
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Sidebar Navigation -->
+    <div class="lg:col-span-1">
+      <div class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body p-4">
+          <ul class="menu menu-compact">
+            <li>
+              <a href="#ai-providers" class="active">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                AI Providers
+              </a>
+            </li>
+            <li>
+              <a href="#vector-database">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                Vector Database
+              </a>
+            </li>
+            <li>
+              <a href="#features">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Features
+              </a>
+            </li>
+            <li>
+              <a href="#rate-limits">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Rate Limits
+              </a>
+            </li>
+            <li>
+              <a href="#caching">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                </svg>
+                Caching
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Settings Content -->
+    <div class="lg:col-span-2 space-y-6">
+      {{with $settings := settings.GetSanitizedSettings}}
+      
+      <!-- AI Providers Section -->
+      <div id="ai-providers" class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title mb-4">AI Provider Configuration</h2>
+          
+          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-6">
+            
+            <!-- Anthropic -->
+            <div class="border border-base-300 rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <span class="text-lg font-bold">A</span>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold">Anthropic Claude</h3>
+                  <p class="text-sm text-base-content/70">
+                    {{if $settings.has_anthropic}}
+                    <span class="text-success">✓ Configured</span>
+                    {{else}}
+                    <span class="text-warning">Not configured</span>
+                    {{end}}
+                  </p>
+                </div>
+              </div>
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">API Key</span>
+                  <span class="label-text-alt text-xs">
+                    <a href="https://console.anthropic.com/api" target="_blank" class="link link-primary">Get API Key</a>
+                  </span>
+                </div>
+                <input type="password" name="anthropic_api_key" class="input input-bordered w-full" 
+                       placeholder="sk-ant-api03-..." />
+              </label>
+            </div>
+
+            <!-- OpenAI -->
+            <div class="border border-base-300 rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
+                  <span class="text-lg font-bold">O</span>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold">OpenAI GPT</h3>
+                  <p class="text-sm text-base-content/70">
+                    {{if $settings.has_openai}}
+                    <span class="text-success">✓ Configured</span>
+                    {{else}}
+                    <span class="text-warning">Not configured</span>
+                    {{end}}
+                  </p>
+                </div>
+              </div>
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">API Key</span>
+                  <span class="label-text-alt text-xs">
+                    <a href="https://platform.openai.com/api-keys" target="_blank" class="link link-primary">Get API Key</a>
+                  </span>
+                </div>
+                <input type="password" name="openai_api_key" class="input input-bordered w-full" 
+                       placeholder="sk-..." />
+              </label>
+            </div>
+
+            <!-- Ollama -->
+            <div class="border border-base-300 rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-lg bg-info/20 flex items-center justify-center">
+                  <span class="text-lg font-bold">O</span>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold">Ollama (Local)</h3>
+                  <p class="text-sm text-base-content/70">
+                    {{if $settings.has_ollama}}
+                    <span class="text-success">✓ Configured</span>
+                    {{else}}
+                    <span class="text-warning">Not configured</span>
+                    {{end}}
+                  </p>
+                </div>
+              </div>
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Host URL</span>
+                  <span class="label-text-alt text-xs">Default: http://localhost:11434</span>
+                </div>
+                <input type="url" name="ollama_host" class="input input-bordered w-full" 
+                       value="{{$settings.ollama_host}}"
+                       placeholder="http://localhost:11434" />
+              </label>
+            </div>
+
+            <!-- Default Settings -->
+            <div class="divider">Default AI Settings</div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Default Provider</span>
+                </div>
+                <select name="default_provider" class="select select-bordered w-full">
+                  <option value="anthropic" {{if eq $settings.default_provider "anthropic"}}selected{{end}}>Anthropic</option>
+                  <option value="openai" {{if eq $settings.default_provider "openai"}}selected{{end}}>OpenAI</option>
+                  <option value="ollama" {{if eq $settings.default_provider "ollama"}}selected{{end}}>Ollama</option>
+                </select>
+              </label>
+
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Default Model</span>
+                </div>
+                <input type="text" name="default_model" class="input input-bordered w-full" 
+                       value="{{$settings.default_model}}"
+                       placeholder="claude-3-opus-20240229" />
+              </label>
+
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Temperature</span>
+                  <span class="label-text-alt text-xs">0.0 - 1.0</span>
+                </div>
+                <input type="number" name="temperature" class="input input-bordered w-full" 
+                       value="{{$settings.temperature}}"
+                       min="0" max="1" step="0.1" />
+              </label>
+
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Max Tokens</span>
+                </div>
+                <input type="number" name="max_tokens" class="input input-bordered w-full" 
+                       value="{{$settings.max_tokens}}"
+                       min="100" max="100000" />
+              </label>
+            </div>
+
+            <div class="card-actions justify-end">
+              <button type="button" class="btn btn-outline"
+                      hx-post="{{host}}/settings/ai/test"
+                      hx-target="#ai-test-result">
+                Test Connection
+              </button>
+              <button type="submit" class="btn btn-primary">Save AI Settings</button>
+            </div>
+            
+            <div id="ai-test-result" class="text-sm"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Vector Database Section -->
+      <div id="vector-database" class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title mb-4">Vector Database Configuration</h2>
+          
+          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-4">
+            
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">Vector Database Provider</span>
+              </div>
+              <select name="vectordb_provider" class="select select-bordered w-full">
+                <option value="" {{if eq $settings.vectordb_provider ""}}selected{{end}}>None</option>
+                <option value="chroma" {{if eq $settings.vectordb_provider "chroma"}}selected{{end}}>ChromaDB</option>
+                <option value="pinecone" {{if eq $settings.vectordb_provider "pinecone"}}selected{{end}}>Pinecone</option>
+                <option value="weaviate" {{if eq $settings.vectordb_provider "weaviate"}}selected{{end}}>Weaviate</option>
+              </select>
+            </label>
+
+            <!-- ChromaDB Settings -->
+            <div class="border border-base-300 rounded-lg p-4">
+              <h3 class="font-semibold mb-3">ChromaDB Settings</h3>
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Host URL</span>
+                </div>
+                <input type="url" name="chroma_host" class="input input-bordered w-full" 
+                       value="{{$settings.chroma_host}}"
+                       placeholder="http://localhost:8000" />
+              </label>
+            </div>
+
+            <!-- Pinecone Settings -->
+            <div class="border border-base-300 rounded-lg p-4">
+              <h3 class="font-semibold mb-3">Pinecone Settings</h3>
+              <label class="form-control w-full mb-2">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">API Key</span>
+                </div>
+                <input type="password" name="pinecone_api_key" class="input input-bordered w-full" 
+                       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+              </label>
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Environment</span>
+                </div>
+                <input type="text" name="pinecone_environment" class="input input-bordered w-full" 
+                       value="{{$settings.pinecone_environment}}"
+                       placeholder="us-west1-gcp" />
+              </label>
+            </div>
+
+            <!-- Weaviate Settings -->
+            <div class="border border-base-300 rounded-lg p-4">
+              <h3 class="font-semibold mb-3">Weaviate Settings</h3>
+              <label class="form-control w-full mb-2">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Host URL</span>
+                </div>
+                <input type="url" name="weaviate_host" class="input input-bordered w-full" 
+                       value="{{$settings.weaviate_host}}"
+                       placeholder="http://localhost:8080" />
+              </label>
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">API Key (Optional)</span>
+                </div>
+                <input type="password" name="weaviate_api_key" class="input input-bordered w-full" 
+                       placeholder="Optional API key" />
+              </label>
+            </div>
+
+            <div class="card-actions justify-end">
+              <button type="button" class="btn btn-outline"
+                      hx-post="{{host}}/settings/vectordb/test"
+                      hx-target="#vectordb-test-result">
+                Test Connection
+              </button>
+              <button type="submit" class="btn btn-primary">Save Database Settings</button>
+            </div>
+            
+            <div id="vectordb-test-result" class="text-sm"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Features Section -->
+      <div id="features" class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title mb-4">Feature Toggles</h2>
+          
+          <form hx-post="{{host}}/settings/features" hx-swap="outerHTML" class="space-y-4">
+            
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <div>
+                  <span class="label-text font-medium">Enable AI Agent</span>
+                  <p class="text-sm text-base-content/70">Allow AI agents to assist with code and answer questions</p>
+                </div>
+                <input type="checkbox" name="enable_ai_agent" value="true" 
+                       class="checkbox checkbox-primary" {{if $settings.enable_ai_agent}}checked{{end}} />
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <div>
+                  <span class="label-text font-medium">Enable Code Analysis</span>
+                  <p class="text-sm text-base-content/70">Analyze code for improvements and potential issues</p>
+                </div>
+                <input type="checkbox" name="enable_code_analysis" value="true" 
+                       class="checkbox checkbox-primary" {{if $settings.enable_code_analysis}}checked{{end}} />
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <div>
+                  <span class="label-text font-medium">Enable Auto Summary</span>
+                  <p class="text-sm text-base-content/70">Automatically generate summaries for repositories and PRs</p>
+                </div>
+                <input type="checkbox" name="enable_auto_summary" value="true" 
+                       class="checkbox checkbox-primary" {{if $settings.enable_auto_summary}}checked{{end}} />
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <div>
+                  <span class="label-text font-medium">Enable Semantic Search</span>
+                  <p class="text-sm text-base-content/70">Use AI-powered semantic search for code and issues</p>
+                </div>
+                <input type="checkbox" name="enable_semantic_search" value="true" 
+                       class="checkbox checkbox-primary" {{if $settings.enable_semantic_search}}checked{{end}} />
+              </label>
+            </div>
+
+            <div class="divider">Security</div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <div>
+                  <span class="label-text font-medium">Require Admin for AI</span>
+                  <p class="text-sm text-base-content/70">Only administrators can use AI features</p>
+                </div>
+                <input type="checkbox" name="require_admin_for_ai" value="true" 
+                       class="checkbox checkbox-primary" {{if $settings.require_admin_for_ai}}checked{{end}} />
+              </label>
+            </div>
+
+            <div class="card-actions justify-end">
+              <button type="submit" class="btn btn-primary">Save Features</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Rate Limits Section -->
+      <div id="rate-limits" class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title mb-4">Rate Limiting</h2>
+          
+          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-4">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Requests per Minute</span>
+                </div>
+                <input type="number" name="ai_requests_per_minute" class="input input-bordered w-full" 
+                       value="{{$settings.ai_requests_per_minute}}"
+                       min="1" max="1000" />
+              </label>
+
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Requests per Day</span>
+                </div>
+                <input type="number" name="ai_requests_per_day" class="input input-bordered w-full" 
+                       value="{{$settings.ai_requests_per_day}}"
+                       min="1" max="100000" />
+              </label>
+            </div>
+
+            <div class="card-actions justify-end">
+              <button type="submit" class="btn btn-primary">Save Rate Limits</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Caching Section -->
+      <div id="caching" class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body">
+          <h2 class="card-title mb-4">Cache Configuration</h2>
+          
+          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-4">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Cache TTL (minutes)</span>
+                </div>
+                <input type="number" name="cache_ttl_minutes" class="input input-bordered w-full" 
+                       value="{{$settings.cache_ttl_minutes}}"
+                       min="1" max="1440" />
+              </label>
+
+              <label class="form-control w-full">
+                <div class="label">
+                  <span class="label-text text-sm font-medium">Max Cache Size (MB)</span>
+                </div>
+                <input type="number" name="max_cache_size_mb" class="input input-bordered w-full" 
+                       value="{{$settings.max_cache_size_mb}}"
+                       min="1" max="10000" />
+              </label>
+            </div>
+
+            <div class="card-actions justify-end">
+              <button type="submit" class="btn btn-primary">Save Cache Settings</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Status Info -->
+      <div class="card bg-base-200 border border-base-300">
+        <div class="card-body">
+          <div class="text-sm text-base-content/70">
+            <p>Last updated: {{$settings.last_updated_at}}</p>
+            {{if $settings.last_updated_by}}
+            <p>Updated by: {{$settings.last_updated_by}}</p>
+            {{end}}
+          </div>
+        </div>
+      </div>
+
+      {{end}}
+    </div>
+  </div>
+</div>
+
+{{template "layout/end"}}

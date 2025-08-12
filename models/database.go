@@ -24,4 +24,7 @@ var (
 	Permissions  = database.Manage(DB, new(Permission))
 	Actions      = database.Manage(DB, new(Action))
 	Activities   = database.Manage(DB, new(Activity))
+	
+	// Global settings
+	GlobalSettings = database.Manage(DB, new(Settings))
 )

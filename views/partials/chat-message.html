@@ -1,0 +1,13 @@
+{{if eq .Role "user"}}
+<div class="chat chat-end">
+  <div class="chat-bubble chat-bubble-accent">{{.Content}}</div>
+</div>
+{{else if eq .Role "error"}}
+<div class="chat chat-start">
+  <div class="chat-bubble chat-bubble-error">{{.Content}}</div>
+</div>
+{{else}}
+<div class="chat chat-start">
+  <div class="chat-bubble chat-bubble-primary">{{.Content}}</div>
+</div>
+{{end}}
