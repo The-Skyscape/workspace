@@ -75,6 +75,22 @@ func hasRolePermission(userRole, requiredRole string) bool {
 	return userLevel >= requiredLevel
 }
 
+// DeleteRepoPermissions deletes all permissions for a repository
+func DeleteRepoPermissions(repoID string) error {
+	permissions, err := Permissions.Search("WHERE RepoID = ?", repoID)
+	if err != nil {
+		return err
+	}
+	
+	for _, perm := range permissions {
+		if err := Permissions.Delete(perm); err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
+
 // GrantPermission grants or updates a permission for a user on a repository
 func GrantPermission(userID, repoID, role string) error {
 	// Validate inputs

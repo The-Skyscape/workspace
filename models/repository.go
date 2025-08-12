@@ -24,6 +24,13 @@ type Repository struct {
 	UserID        string    // Owner ID
 	DefaultBranch string    // Default branch name
 	Size          int64     // Repository size in bytes
+	
+	// GitHub Integration
+	GitHubURL     string    // GitHub repository URL
+	GitHubToken   string    // GitHub personal access token (should be encrypted)
+	SyncDirection string    // "push", "pull", or "both"
+	AutoSync      bool      // Whether to auto-sync on changes
+	LastSyncAt    time.Time // Last sync timestamp
 }
 
 // Table returns the database table name

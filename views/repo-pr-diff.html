@@ -29,8 +29,8 @@
         </div>
 
         <!-- Diff Stats -->
-        {{with repos.RepoPRDiff}}
-        {{if .}}
+        {{with $diff := repos.RepoPRDiff}}
+        {{if $diff}}
         <div class="stats shadow mb-6">
           <div class="stat">
             <div class="stat-figure text-secondary">
@@ -39,7 +39,7 @@
               </svg>
             </div>
             <div class="stat-title">Files Changed</div>
-            <div class="stat-value">{{len .}}</div>
+            <div class="stat-value">{{len $diff.Files}}</div>
           </div>
           
           <div class="stat">
@@ -50,7 +50,7 @@
             </div>
             <div class="stat-title">Additions</div>
             <div class="stat-value text-success">
-              {{range .}}{{.Additions}}{{end}}
+              {{$diff.Additions}}
             </div>
           </div>
           
@@ -62,14 +62,14 @@
             </div>
             <div class="stat-title">Deletions</div>
             <div class="stat-value text-error">
-              {{range .}}{{.Deletions}}{{end}}
+              {{$diff.Deletions}}
             </div>
           </div>
         </div>
 
         <!-- File Diffs -->
         <div class="space-y-6">
-          {{range .}}
+          {{range $diff.Files}}
           <div class="card bg-base-200/50 shadow">
             <div class="card-body p-0">
               <!-- File Header -->
@@ -87,56 +87,30 @@
                     {{end}}
                   </div>
                   <div class="font-mono text-sm">
-                    {{if .OldFilePath}}
-                    <span class="text-error line-through">{{.OldFilePath}}</span>
-                    <span class="mx-2">→</span>
-                    <span class="text-success">{{.FilePath}}</span>
-                    {{else}}
-                    {{.FilePath}}
-                    {{end}}
+                    {{.Path}}
                   </div>
                 </div>
                 <div class="flex items-center space-x-2 text-sm">
-                  {{if not .IsBinary}}
                   <span class="text-success">+{{.Additions}}</span>
                   <span class="text-error">-{{.Deletions}}</span>
-                  {{else}}
-                  <span class="text-warning">Binary file</span>
-                  {{end}}
                 </div>
               </div>
 
-              <!-- Diff Content -->
-              {{if not .IsBinary}}
-              <div class="overflow-x-auto">
-                <table class="table table-zebra table-pin-rows w-full font-mono text-xs">
-                  <tbody>
-                    {{range .Changes}}
-                    {{range .Lines}}
-                    <tr class="{{if eq .Type "add"}}bg-success/10{{else if eq .Type "delete"}}bg-error/10{{end}}">
-                      <td class="w-12 text-center text-base-content/50 border-r">
-                        {{if ne .Type "add"}}{{.OldNum}}{{end}}
-                      </td>
-                      <td class="w-12 text-center text-base-content/50 border-r">
-                        {{if ne .Type "delete"}}{{.NewNum}}{{end}}
-                      </td>
-                      <td class="pl-4">
-                        <span class="{{if eq .Type "add"}}text-success{{else if eq .Type "delete"}}text-error{{end}}">{{.Content}}</span>
-                      </td>
-                    </tr>
+              <!-- Diff Summary for File -->
+              <div class="p-4 bg-base-100">
+                <div class="text-center text-base-content/70">
+                  <p class="text-sm">
+                    {{if eq .Status "added"}}
+                    <span class="text-success">File added with {{.Additions}} lines</span>
+                    {{else if eq .Status "deleted"}}
+                    <span class="text-error">File deleted with {{.Deletions}} lines removed</span>
+                    {{else}}
+                    <span>{{.Additions}} additions, {{.Deletions}} deletions</span>
                     {{end}}
-                    {{end}}
-                  </tbody>
-                </table>
+                  </p>
+                  <p class="text-xs mt-2 text-base-content/50">Full diff view coming soon</p>
+                </div>
               </div>
-              {{else}}
-              <div class="p-8 text-center text-base-content/70">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p>Binary file - cannot display diff</p>
-              </div>
-              {{end}}
             </div>
           </div>
           {{end}}
@@ -162,19 +136,19 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Diff Summary</h3>
-        {{with repos.RepoPRDiff}}
+        {{with $diff := repos.RepoPRDiff}}
         <div class="space-y-3">
           <div class="flex justify-between">
             <span class="text-base-content/70">Files changed</span>
-            <span>{{len .}}</span>
+            <span>{{len $diff.Files}}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-base-content/70">Total additions</span>
-            <span class="text-success">+{{range .}}{{.Additions}}{{end}}</span>
+            <span class="text-success">+{{$diff.Additions}}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-base-content/70">Total deletions</span>
-            <span class="text-error">-{{range .}}{{.Deletions}}{{end}}</span>
+            <span class="text-error">-{{$diff.Deletions}}</span>
           </div>
         </div>
         {{end}}

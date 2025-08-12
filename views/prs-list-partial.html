@@ -1,0 +1,100 @@
+{{with $repo := repos.CurrentRepo}}
+{{$prs := repos.RepoPullRequests}}
+{{if $prs}}
+<div class="space-y-4">
+  {{range $prs}}
+  <div class="card bg-base-100 shadow-lg border border-base-300">
+    <div class="card-body">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center space-x-3 mb-2">
+            <h3 class="font-semibold text-lg">{{.Title}}</h3>
+            {{if eq .Status "open"}}
+            <div class="badge badge-success">Open</div>
+            {{else if eq .Status "merged"}}
+            <div class="badge badge-primary">Merged</div>
+            {{else if eq .Status "draft"}}
+            <div class="badge badge-warning">Draft</div>
+            {{else}}
+            <div class="badge badge-neutral">Closed</div>
+            {{end}}
+          </div>
+          {{if .Body}}
+          <p class="text-base-content/70 mb-3">{{.Body}}</p>
+          {{end}}
+          <div class="flex items-center space-x-4 text-sm text-base-content/50">
+            <div class="flex items-center space-x-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              <span>{{.CompareBranch}} → {{.BaseBranch}}</span>
+            </div>
+            <div class="flex items-center space-x-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          {{if eq .Status "open"}}
+          <button class="btn btn-success btn-sm"
+                  hx-post="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}/merge"
+                  hx-target="body"
+                  hx-swap="outerHTML"
+                  hx-confirm="Are you sure you want to merge this pull request?">
+            Merge
+          </button>
+          <button class="btn btn-outline btn-sm"
+                  hx-post="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}/close"
+                  hx-target="body"
+                  hx-swap="outerHTML">
+            Close
+          </button>
+          {{else if eq .Status "closed"}}
+          <button class="btn btn-outline btn-sm" disabled>Closed</button>
+          {{else if eq .Status "merged"}}
+          <button class="btn btn-success btn-sm" disabled>Merged</button>
+          {{end}}
+          <div class="dropdown dropdown-end">
+            <button class="btn btn-ghost btn-sm" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li><a href="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}/diff">View Changes</a></li>
+              <li><a>Edit Pull Request</a></li>
+              <li><a>Add Comment</a></li>
+              <li class="menu-title">Danger Zone</li>
+              <li><a class="text-error">Delete PR</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{else}}
+<!-- No Pull Requests - Context-aware empty state -->
+<div class="text-center py-12">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+  </svg>
+  {{if repos.SearchPRQuery}}
+    <p class="text-lg text-base-content/70">No pull requests found matching "{{repos.SearchPRQuery}}"</p>
+    {{if not repos.IncludeMerged}}
+    <p class="text-sm text-base-content/50 mt-2">Try including merged/closed pull requests in your search</p>
+    {{end}}
+  {{else if not repos.IncludeMerged}}
+    <p class="text-lg text-base-content/70">No open pull requests</p>
+    <p class="text-sm text-base-content/50 mt-2">All pull requests have been merged or closed!</p>
+  {{else}}
+    <p class="text-lg text-base-content/70">No pull requests yet</p>
+    <p class="text-sm text-base-content/50 mt-2">Create your first pull request to collaborate on code</p>
+  {{end}}
+</div>
+{{end}}
+{{end}}

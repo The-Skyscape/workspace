@@ -6,22 +6,55 @@
 
 {{template "repo-tabs.html" .}}
 
-<div class="flex items-center justify-between mb-6">
-  <h2 class="text-2xl font-bold">Pull Requests</h2>
-  <button class="btn btn-primary" onclick="create_pr_modal.showModal()">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-    </svg>
-    New Pull Request
-  </button>
-</div>
+<!-- Pull Requests Container -->
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+  
+  <!-- Search Bar and Controls -->
+  <div class="flex items-center gap-4 mb-6">
+    <div class="flex-1 relative">
+      <input type="search" 
+             id="search-input"
+             name="search"
+             class="input input-bordered w-full" 
+             placeholder="Search pull requests..."
+             hx-get="{{host}}/repos/{{$repo.ID}}/prs/search"
+             hx-trigger="keyup changed delay:500ms, search"
+             hx-target="#prs-list"
+             hx-indicator="#search-indicator"
+             hx-include="#include-merged">
+      <span id="search-indicator" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
+        <div class="loading loading-spinner loading-sm"></div>
+      </span>
+    </div>
+    <div class="form-control">
+      <label class="label cursor-pointer flex items-center gap-2 py-0">
+        <span class="label-text">Include merged/closed</span>
+        <input type="checkbox" 
+               id="include-merged"
+               name="includeMerged"
+               value="true"
+               class="checkbox checkbox-sm"
+               hx-get="{{host}}/repos/{{$repo.ID}}/prs/search"
+               hx-trigger="change"
+               hx-target="#prs-list"
+               hx-include="#search-input">
+      </label>
+    </div>
+    <button class="btn btn-primary" onclick="create_pr_modal.showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+      New PR
+    </button>
+  </div>
 
-<!-- Pull Requests List -->
-{{with repos.RepoPullRequests}}
-{{if .}}
+  <!-- Pull Requests List Container -->
+  <div id="prs-list">
+{{$prs := repos.RepoPullRequests}}
+{{if $prs}}
 <div class="space-y-4">
-  {{range .}}
-  <div class="card bg-base-100 shadow hover:shadow-lg transition-shadow">
+  {{range $prs}}
+  <div class="card bg-base-100 shadow-lg border border-base-300">
     <div class="card-body">
       <div class="flex items-start justify-between">
         <div class="flex-1">
@@ -96,83 +129,99 @@
   {{end}}
 </div>
 {{else}}
-<!-- No Pull Requests -->
-<div class="text-center py-16">
-  <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-6 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+<!-- No Pull Requests - Context-aware empty state -->
+<div class="text-center py-12">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
   </svg>
-  <h2 class="text-2xl font-bold mb-4">No pull requests yet</h2>
-  <p class="text-base-content/70 mb-6">Create your first pull request to collaborate on code</p>
-  <button class="btn btn-primary btn-lg" onclick="create_pr_modal.showModal()">Create Pull Request</button>
+  {{if repos.SearchPRQuery}}
+    <p class="text-lg text-base-content/70">No pull requests found matching "{{repos.SearchPRQuery}}"</p>
+    {{if not repos.IncludeMerged}}
+    <p class="text-sm text-base-content/50 mt-2">Try including merged/closed pull requests in your search</p>
+    {{end}}
+  {{else if not repos.IncludeMerged}}
+    <p class="text-lg text-base-content/70">No open pull requests</p>
+    <p class="text-sm text-base-content/50 mt-2">All pull requests have been merged or closed!</p>
+  {{else}}
+    <p class="text-lg text-base-content/70">No pull requests yet</p>
+    <p class="text-sm text-base-content/50 mt-2">Create your first pull request to collaborate on code</p>
+  {{end}}
 </div>
 {{end}}
-{{end}}
+  </div>
+</div>
 
 <!-- Create Pull Request Modal -->
 <dialog id="create_pr_modal" class="modal">
-  <div class="modal-box w-11/12">
-    <h3 class="font-bold text-lg mb-4">Create Pull Request</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/prs/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Title <span class="text-error">*</span></span>
-          </label>
-          <input type="text" name="title" placeholder="Brief description of the changes" class="input input-bordered" required>
+  <div class="modal-box">
+    <h3 class="text-2xl font-bold mb-6">Create New Pull Request</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/prs/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+      
+      <!-- Title Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Title</span>
+          <span class="label-text-alt text-xs">Required</span>
         </div>
+        <input type="text" name="title" class="input input-bordered w-full" 
+               placeholder="Brief description of the changes" 
+               required />
+      </label>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Description</span>
-          </label>
-          <textarea name="body" class="textarea textarea-bordered h-32" placeholder="Describe what changes this pull request makes and why"></textarea>
+      <!-- Description Textarea -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Description</span>
+          <span class="label-text-alt text-xs">Optional</span>
         </div>
+        <textarea name="body" class="textarea textarea-bordered h-32 w-full" 
+                  placeholder="Describe what changes this pull request makes and why"></textarea>
+      </label>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Base Branch <span class="text-error">*</span></span>
-            </label>
-            <select name="base_branch" class="select select-bordered" required>
-              <option value="">Select base branch</option>
-              {{range repos.RepoBranches}}
-              <option value="{{.Name}}" {{if .IsDefault}}selected{{end}}>{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
-              {{end}}
-            </select>
-            <label class="label">
-              <span class="label-text-alt">Branch to merge into</span>
-            </label>
+      <!-- Branch Selection -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Base Branch</span>
+            <span class="label-text-alt text-xs">Required</span>
           </div>
-
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">Compare Branch <span class="text-error">*</span></span>
-            </label>
-            <select name="compare_branch" class="select select-bordered" required>
-              <option value="">Select compare branch</option>
-              {{range repos.RepoBranches}}
-              <option value="{{.Name}}">{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
-              {{end}}
-            </select>
-            <label class="label">
-              <span class="label-text-alt">Branch with your changes</span>
-            </label>
+          <select name="base_branch" class="select select-bordered w-full" required>
+            <option value="">Select base branch</option>
+            {{range repos.RepoBranches}}
+            <option value="{{.Name}}" {{if .IsDefault}}selected{{end}}>{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
+            {{end}}
+          </select>
+          <div class="label">
+            <span class="label-text-alt text-xs">Branch to merge into</span>
           </div>
-        </div>
+        </label>
 
-        <div class="alert alert-info">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Compare Branch</span>
+            <span class="label-text-alt text-xs">Required</span>
+          </div>
+          <select name="compare_branch" class="select select-bordered w-full" required>
+            <option value="">Select compare branch</option>
+            {{range repos.RepoBranches}}
+            <option value="{{.Name}}">{{.Name}}{{if .IsCurrent}} (current){{end}}</option>
+            {{end}}
+          </select>
+          <div class="label">
+            <span class="label-text-alt text-xs">Branch with your changes</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="modal-action mt-4">
+        <button type="submit" class="btn btn-primary">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
           </svg>
-          <div>
-            <p class="text-sm">This will create a pull request to merge your changes into the base branch. Make sure your compare branch has the changes you want to merge.</p>
-          </div>
-        </div>
-
-        <div class="modal-action">
-          <button type="submit" class="btn btn-primary">Create Pull Request</button>
-          <button type="button" class="btn" onclick="create_pr_modal.close()">Cancel</button>
-        </div>
+          Create Pull Request
+        </button>
+        <button type="button" class="btn" onclick="create_pr_modal.close()">Cancel</button>
       </div>
     </form>
   </div>

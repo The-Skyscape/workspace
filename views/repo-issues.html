@@ -6,23 +6,56 @@
 
 {{template "repo-tabs.html" .}}
 
-<div class="flex items-center justify-between mb-6">
-  <h2 class="text-2xl font-bold">Issues</h2>
-  <button class="btn btn-primary" onclick="create_issue_modal.showModal()">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-    </svg>
-    New Issue
-  </button>
-</div>
+<!-- Issues Container -->
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+  
+  <!-- Search Bar and Controls -->
+  <div class="flex items-center gap-4 mb-6">
+    <div class="flex-1 relative">
+      <input type="search" 
+             id="search-input"
+             name="search"
+             class="input input-bordered w-full" 
+             placeholder="Search issues..."
+             hx-get="{{host}}/repos/{{$repo.ID}}/issues/search"
+             hx-trigger="keyup changed delay:500ms, search"
+             hx-target="#issues-list"
+             hx-indicator="#search-indicator"
+             hx-include="#include-closed">
+      <span id="search-indicator" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
+        <div class="loading loading-spinner loading-sm"></div>
+      </span>
+    </div>
+    <div class="form-control">
+      <label class="label cursor-pointer flex items-center gap-2 py-0">
+        <span class="label-text">Include closed</span>
+        <input type="checkbox" 
+               id="include-closed"
+               name="includeClosed"
+               value="true"
+               class="checkbox checkbox-sm"
+               hx-get="{{host}}/repos/{{$repo.ID}}/issues/search"
+               hx-trigger="change"
+               hx-target="#issues-list"
+               hx-include="#search-input">
+      </label>
+    </div>
+    <button class="btn btn-primary" onclick="create_issue_modal.showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+      New Issue
+    </button>
+  </div>
 
-<!-- Issues List -->
-{{with repos.RepoIssues}}
-{{if .}}
-<div class="space-y-4">
-  {{range .}}
-  <div class="card bg-base-100 shadow hover:shadow-lg transition-shadow">
-    <div class="card-body">
+  <!-- Issues List Container -->
+  <div id="issues-list">
+    {{$issues := repos.RepoIssues}}
+    {{if $issues}}
+  <div class="space-y-4">
+    {{range $issues}}
+    <div class="card bg-base-100 shadow-lg border border-base-300">
+      <div class="card-body">
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <div class="flex items-center space-x-3 mb-2">
@@ -80,56 +113,78 @@
         </div>
       </div>
     </div>
+    </div>
+    {{end}}
   </div>
-  {{end}}
+    {{else}}
+    <!-- No Issues - Context-aware empty state -->
+    <div class="text-center py-12">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+      </svg>
+      {{if repos.SearchQuery}}
+        <p class="text-lg text-base-content/70">No issues found matching "{{repos.SearchQuery}}"</p>
+        {{if not repos.IncludeClosed}}
+        <p class="text-sm text-base-content/50 mt-2">Try including closed issues in your search</p>
+        {{end}}
+      {{else if not repos.IncludeClosed}}
+        <p class="text-lg text-base-content/70">No open issues</p>
+        <p class="text-sm text-base-content/50 mt-2">All issues have been resolved!</p>
+      {{else}}
+        <p class="text-lg text-base-content/70">No issues yet</p>
+        <p class="text-sm text-base-content/50 mt-2">Create your first issue to get started</p>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
 </div>
-{{else}}
-<!-- No Issues -->
-<div class="text-center py-16">
-  <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-6 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-  </svg>
-  <h2 class="text-2xl font-bold mb-4">No issues yet</h2>
-  <p class="text-base-content/70 mb-6">Create your first issue to start tracking work</p>
-  <button class="btn btn-primary btn-lg" onclick="create_issue_modal.showModal()">Create First Issue</button>
-</div>
-{{end}}
-{{end}}
 
 <!-- Create Issue Modal -->
 <dialog id="create_issue_modal" class="modal">
-  <div class="modal-box w-11/12">
-    <h3 class="font-bold text-lg mb-4">Create New Issue</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/issues/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Title <span class="text-error">*</span></span>
-          </label>
-          <input type="text" name="title" placeholder="Brief description of the issue" class="input input-bordered" required>
+  <div class="modal-box">
+    <h3 class="text-2xl font-bold mb-6">Create New Issue</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/issues/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+      
+      <!-- Title Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Title</span>
+          <span class="label-text-alt text-xs">Required</span>
         </div>
+        <input type="text" name="title" class="input input-bordered w-full" 
+               placeholder="Brief description of the issue" 
+               required />
+      </label>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Description</span>
-          </label>
-          <textarea name="body" class="textarea textarea-bordered h-32" placeholder="Provide more details about the issue, steps to reproduce, expected behavior, etc."></textarea>
+      <!-- Description Textarea -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Description</span>
+          <span class="label-text-alt text-xs">Optional</span>
         </div>
+        <textarea name="body" class="textarea textarea-bordered h-32 w-full" 
+                  placeholder="Provide more details about the issue, steps to reproduce, expected behavior, etc."></textarea>
+      </label>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Labels</span>
-          </label>
-          <input type="text" name="tags" placeholder="bug, enhancement, question" class="input input-bordered">
-          <label class="label">
-            <span class="label-text-alt">Comma-separated tags</span>
-          </label>
+      <!-- Labels Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Labels</span>
+          <span class="label-text-alt text-xs">Optional - Comma-separated</span>
         </div>
+        <input type="text" name="tags" class="input input-bordered w-full" 
+               placeholder="bug, enhancement, question" />
+      </label>
 
-        <div class="modal-action">
-          <button type="submit" class="btn btn-primary">Create Issue</button>
-          <button type="button" class="btn" onclick="create_issue_modal.close()">Cancel</button>
-        </div>
+      <!-- Modal Actions -->
+      <div class="modal-action mt-4">
+        <button type="submit" class="btn btn-primary">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+          Create Issue
+        </button>
+        <button type="button" class="btn" onclick="create_issue_modal.close()">Cancel</button>
       </div>
     </form>
   </div>
