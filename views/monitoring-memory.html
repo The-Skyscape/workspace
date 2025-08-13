@@ -1,0 +1,38 @@
+<div class="card-body">
+  <h3 class="card-title text-lg">Memory</h3>
+  {{with monitoring.GetCurrentStats}}
+  <div class="space-y-3">
+    <div>
+      <div class="flex justify-between mb-1">
+        <span class="text-sm text-base-content/70">Usage</span>
+        <span class="text-sm font-mono">{{monitoring.FormatPercent .Memory.UsedPercent}}</span>
+      </div>
+      <progress class="progress {{if gt .Memory.UsedPercent 90.0}}progress-error{{else if gt .Memory.UsedPercent 80.0}}progress-warning{{else}}progress-success{{end}}" 
+               value="{{.Memory.UsedPercent}}" max="100"></progress>
+    </div>
+    <div class="text-xs space-y-1">
+      <div class="flex justify-between">
+        <span class="text-base-content/70">Used</span>
+        <span class="font-mono">{{monitoring.FormatBytes .Memory.Used}}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-base-content/70">Available</span>
+        <span class="font-mono">{{monitoring.FormatBytes .Memory.Available}}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-base-content/70">Total</span>
+        <span class="font-mono">{{monitoring.FormatBytes .Memory.Total}}</span>
+      </div>
+    </div>
+    {{if gt .Memory.SwapTotal 0}}
+    <div class="divider my-2"></div>
+    <div class="text-xs">
+      <span class="text-base-content/70">Swap</span>
+      <div class="font-mono">
+        {{monitoring.FormatBytes .Memory.SwapUsed}} / {{monitoring.FormatBytes .Memory.SwapTotal}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+</div>

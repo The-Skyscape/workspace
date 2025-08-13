@@ -28,3 +28,9 @@ var (
 	// Global settings
 	GlobalSettings = database.Manage(DB, new(Settings))
 )
+
+func init() {
+	// Initialize FTS5 search
+	// Note: FTS5 initialization happens separately when needed
+	// since we need the underlying sql.DB, not the DynamicDB wrapper
+}
