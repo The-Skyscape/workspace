@@ -1,206 +1,318 @@
 # Skyscape Workspace
 
-A GitHub-like developer workspace platform built with TheSkyscape DevTools, featuring AI-powered development tools, containerized workspaces, and comprehensive project management.
+A comprehensive developer platform combining Git repository hosting, containerized development environments, and automated CI/CD workflows. Built with Go and modern web technologies, Skyscape provides a self-hosted alternative to GitHub + Codespaces.
 
-## ✨ Features
+## 🚀 Overview
 
-### 🏠 **Public Developer Portfolio**
-- Professional homepage with developer profile and bio
-- Public repository showcase with visibility controls
-- Community issue submission for open source projects
-- Mobile-responsive design across all devices
+Skyscape Workspace is a full-featured development platform that empowers teams to:
+- Host and manage Git repositories with fine-grained access control
+- Launch instant, containerized VS Code development environments
+- Automate workflows with Docker-based CI/CD actions
+- Track issues, pull requests, and project progress
+- Search and analyze code with SQLite FTS5 full-text search
 
-### 🔐 **Authenticated Developer Environment**
-- Private repository management with Git integration
-- One-click containerized VS Code workspaces
-- Complete issue and pull request lifecycle management
-- Advanced code search with context highlighting
-- README rendering with markdown support
-- Permission-based access control system
+## ✨ Core Features
 
-### 🎯 **Project Management**
-- **Issues**: Full CRUD operations with status management
-- **Pull Requests**: Create, merge, close with branch selection
-- **Actions**: AI-powered automation and workflow management
-- **File Browser**: Syntax highlighting and file type detection
-- **Search**: Regex-based code search across repository files
+### 📦 **Repository Management**
+- **Git Hosting**: Full Git server implementation with SSH and HTTPS support
+- **Access Control**: Role-based permissions (read/write/admin)
+- **Visibility**: Public and private repository support
+- **File Browser**: Web-based file explorer with syntax highlighting
+- **Code Search**: Fast, regex-based search with SQLite FTS5
+- **Commit History**: Visual commit log with diff viewing
 
-### 🚀 **Development Tools**
-- **Workspaces**: Docker-based VS Code environments
-- **Git Integration**: Commit history and branch management
-- **File Management**: Browse, view, and edit repository files
-- **Mobile Support**: Responsive design for development on any device
+### 🖥️ **Development Environments**
+- **Instant Workspaces**: One-click VS Code in the browser
+- **Persistent Storage**: Your work is saved between sessions
+- **Docker Integration**: Full Docker access within workspaces
+- **Custom Images**: Support for project-specific development containers
+- **Resource Management**: Automatic cleanup of idle workspaces
 
-## 🛠 Technology Stack
+### 🤖 **CI/CD Actions System**
+- **Docker Sandboxes**: Isolated execution environments for each action
+- **Action Types**: Manual, scheduled, and event-triggered workflows
+- **Execution History**: Complete audit trail of all action runs
+- **Artifact Collection**: Automatic collection and versioning of build artifacts
+- **Real-time Logs**: Live streaming of action execution output
+- **Statistics**: Success rates, duration tracking, and performance metrics
 
-- **Backend**: Go with TheSkyscape DevTools MVC framework
-- **Frontend**: HTMX + DaisyUI + TailwindCSS
-- **Database**: SQLite3 with automatic migrations
-- **Authentication**: JWT-based with bcrypt password hashing
-- **Containerization**: Docker for isolated development environments
-- **UI Framework**: DaisyUI components with mobile-first design
+### 📋 **Project Management**
+- **Issues**: Full issue tracking with status management
+- **Pull Requests**: Branch comparison, merging, and review workflows
+- **Comments**: Threaded discussions on issues and PRs
+- **Activity Feed**: Real-time updates on repository activity
+- **Notifications**: Email and in-app notifications (coming soon)
 
-## 📱 Architecture
+### 🔗 **Integrations**
+- **GitHub Sync**: Bidirectional synchronization with GitHub repositories
+- **OAuth Support**: Login with GitHub, GitLab, or custom OAuth providers
+- **Webhook Support**: Trigger actions from external services
+- **API Access**: RESTful API for automation and integrations
 
-### MVC Pattern
-- **Models**: Database entities with Table() methods and global repositories
-- **Views**: HTML templates with HTMX integration and DaisyUI styling
-- **Controllers**: HTTP handlers with factory functions and Setup/Handle methods
-- **Internal Packages**: Self-contained modules for Git and workspace management
+## 🏗️ Architecture
 
-### Key Components
-- **Repository Management**: Self-contained Git integration with file browsing and version control
-- **Workspace Orchestration**: Docker container lifecycle management
-- **Permission System**: Role-based access control (read/write/admin)
-- **Activity Logging**: Comprehensive audit trail for all user actions
-- **Search Engine**: File content indexing with context-aware results
-- **Internal Coding Package**: Dedicated Git repository and workspace management (moved from devtools)
+### Technology Stack
+- **Backend**: Go 1.21+ with TheSkyscape DevTools MVC framework
+- **Frontend**: HTMX + Alpine.js + DaisyUI v5
+- **Database**: SQLite3 with FTS5 for full-text search
+- **Container Runtime**: Docker 24+
+- **Authentication**: JWT with httpOnly cookies
+- **File Storage**: Local filesystem with optional S3 support
 
-## 🚀 Quick Start
+### Project Structure
+```
+workspace/
+├── controllers/         # MVC Controllers (split by domain)
+│   ├── repos.go        # Repository management
+│   ├── actions.go      # CI/CD actions
+│   ├── issues.go       # Issue tracking
+│   ├── pullrequests.go # Pull request management
+│   ├── workspaces.go   # Development environments
+│   └── integrations.go # External integrations
+├── models/             # Database models and repositories
+│   ├── repository.go   # Git repository model
+│   ├── action.go       # CI/CD action model
+│   ├── action_run.go   # Action execution history
+│   └── workspace.go    # Development environment model
+├── services/           # Business logic and external services
+│   ├── git.go         # Git operations
+│   ├── sandbox.go     # Docker sandbox management
+│   └── workspace.go   # Workspace lifecycle management
+├── views/             # HTML templates with HTMX
+│   ├── layout/        # Base layouts
+│   ├── partials/      # Reusable components
+│   └── *.html         # Page templates
+└── internal/          # Internal packages
+    ├── coding/        # Git server implementation
+    └── search/        # FTS5 search implementation
+```
+
+### Database Schema
+- **repositories**: Git repository metadata
+- **workspaces**: Development environment configurations
+- **actions**: CI/CD workflow definitions
+- **action_runs**: Execution history with metrics
+- **action_artifacts**: Build artifacts with versioning
+- **issues**: Issue tracking
+- **pull_requests**: PR management
+- **users**: User accounts and authentication
+- **permissions**: Role-based access control
+
+## 🚦 Getting Started
 
 ### Prerequisites
-- Go 1.21+
-- Docker
-- Git
+- Go 1.21 or later
+- Docker 24+ with compose support
+- Git 2.40+
+- Make (for build automation)
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd workspace
-   ```
+```bash
+git clone https://github.com/The-Skyscape/workspace.git
+cd workspace
+```
 
 2. **Set environment variables**
-   ```bash
-   export AUTH_SECRET="your-super-secret-jwt-key"
-   export PORT=8080  # Optional, defaults to 5000
-   ```
-
-3. **Run the application**
-   ```bash
-   go run .
-   ```
-
-4. **Visit the application**
-   ```
-   http://localhost:8080
-   ```
-
-### Development Commands
-
 ```bash
-# Run with hot reload
-go run .
-
-# Build for production
-go build -o workspace
-
-# Run tests
-go test ./...
-
-# Update dependencies
-go mod tidy
+export AUTH_SECRET="your-secret-key-here"  # Required for JWT signing
+export PORT=5000                           # Optional, defaults to 5000
 ```
 
-## 📋 Environment Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `AUTH_SECRET` | JWT signing secret | - | ✅ |
-| `PORT` | Application server port | `5000` | ❌ |
-| `THEME` | DaisyUI theme | `corporate` | ❌ |
-| `CONGO_SSL_FULLCHAIN` | SSL certificate path | `/root/fullchain.pem` | ❌ |
-| `CONGO_SSL_PRIVKEY` | SSL private key path | `/root/privkey.pem` | ❌ |
-
-## 🎨 User Interface
-
-### Desktop Experience
-- Clean, GitHub-like interface with comprehensive navigation
-- Advanced file browser with syntax highlighting
-- Responsive grid layouts and professional typography
-- Modal-based workflows for creating issues and pull requests
-
-### Mobile Experience
-- Collapsible hamburger navigation menu
-- Touch-optimized buttons and form controls
-- Responsive tables with hidden columns on small screens
-- Mobile-first design patterns throughout
-
-## 🔒 Security Features
-
-- **Authentication**: Secure JWT-based sessions with httpOnly cookies
-- **Authorization**: Role-based permissions (read/write/admin) for repositories
-- **Password Security**: bcrypt hashing with secure defaults
-- **Path Traversal Protection**: Validated file access within repository boundaries
-- **Input Validation**: Comprehensive server-side validation for all forms
-
-## 🏗 Development Patterns
-
-### Controller Factory Pattern
-```go
-func Repos() (string, *ReposController) {
-    return "repos", &ReposController{}
-}
-```
-
-### Template Integration
-- Controllers accessible as `{{controllerName.Method}}` in templates
-- Built-in helpers: `{{theme}}`, `{{host}}`, `{{auth.CurrentUser}}`
-- HTMX integration with `c.Refresh(w, r)` for dynamic updates
-
-### Permission Checking
-```go
-err := models.CheckRepoAccess(user, repoID, models.RoleWrite)
-if err != nil {
-    return errors.New("insufficient permissions")
-}
-```
-
-## 🔧 Deployment
-
-### Using TheSkyscape launch-app
+3. **Build the application**
 ```bash
-go build -o workspace
-export DIGITAL_OCEAN_API_KEY="your-token"
-# Note: launch-app tool is from the parent devtools repository
-../launch-app --name workspace --domain workspace.example.com --binary ./workspace
+make clean && make
+```
+
+4. **Run locally**
+```bash
+./build/workspace
+```
+
+5. **Access the application**
+```
+http://localhost:5000
 ```
 
 ### Docker Deployment
+
 ```bash
 docker build -t skyscape-workspace .
-docker run -p 8080:8080 -e AUTH_SECRET="your-secret" skyscape-workspace
+docker run -d \
+  -p 5000:5000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v skyscape-data:/data \
+  -e AUTH_SECRET="your-secret-key" \
+  skyscape-workspace
 ```
 
-## 📖 API Reference
+### Production Deployment
 
-The application uses HTMX for dynamic updates rather than traditional REST APIs. All interactions are handled through server-rendered templates with HTMX attributes:
+For production deployments, use the launch-app tool from DevTools:
 
-- `hx-get` - Dynamic content loading
-- `hx-post` - Form submissions
-- `hx-swap` - Content replacement strategies
-- `hx-target` - Element targeting for updates
+```bash
+cd ../devtools && make build
+./build/launch-app deploy \
+  --name skyscape-prod \
+  --domain git.yourdomain.com \
+  --binary ../workspace/build/workspace
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+- `AUTH_SECRET` (required): JWT signing secret
+- `PORT`: Application port (default: 5000)
+- `THEME`: DaisyUI theme (default: corporate)
+- `DATABASE_PATH`: SQLite database location (default: ./workspace.db)
+- `REPOS_PATH`: Git repository storage (default: ./repos)
+- `WORKSPACE_TIMEOUT`: Idle workspace timeout in minutes (default: 30)
+
+### SSL Configuration
+- `CONGO_SSL_FULLCHAIN`: Path to SSL certificate
+- `CONGO_SSL_PRIVKEY`: Path to SSL private key
+
+### Cloud Provider Settings
+- `DIGITAL_OCEAN_API_KEY`: For DigitalOcean deployments
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: For AWS deployments
+- `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY`: For GCP deployments
+
+## 📚 API Documentation
+
+### Authentication
+All API endpoints require authentication via JWT token in httpOnly cookie.
+
+```bash
+# Login
+POST /auth/login
+{
+  "email": "user@example.com",
+  "password": "password"
+}
+
+# Logout
+POST /auth/logout
+```
+
+### Repositories
+```bash
+# List repositories
+GET /api/repos
+
+# Create repository
+POST /api/repos
+{
+  "name": "my-repo",
+  "description": "Repository description",
+  "visibility": "private"
+}
+
+# Get repository
+GET /api/repos/{id}
+
+# Delete repository
+DELETE /api/repos/{id}
+```
+
+### Actions
+```bash
+# List actions for repository
+GET /api/repos/{id}/actions
+
+# Create action
+POST /api/repos/{id}/actions
+{
+  "title": "Build and Test",
+  "type": "manual",
+  "command": "npm test && npm build",
+  "branch": "main",
+  "artifact_paths": "dist/, coverage/"
+}
+
+# Run action
+POST /api/repos/{id}/actions/{actionId}/run
+
+# Get action history
+GET /api/repos/{id}/actions/{actionId}/runs
+```
+
+## 🧪 Testing
+
+### Unit Tests
+```bash
+go test ./...
+```
+
+### Integration Tests
+```bash
+go test -tags=integration ./...
+```
+
+### Load Testing
+```bash
+# Using Apache Bench
+ab -n 1000 -c 10 http://localhost:5000/
+
+# Using hey
+hey -n 1000 -c 10 http://localhost:5000/
+```
 
 ## 🤝 Contributing
 
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+### Code Style
+- Follow Go standard formatting (`go fmt`)
+- Use meaningful variable and function names
+- Add comments for exported functions
+- Write tests for new features
+
 ## 📄 License
 
-This project is built using TheSkyscape DevTools and follows its licensing terms.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
 - Built with [TheSkyscape DevTools](https://github.com/The-Skyscape/devtools)
-- UI components by [DaisyUI](https://daisyui.com/)
-- Dynamic interactions powered by [HTMX](https://htmx.org/)
-- Icons by [Heroicons](https://heroicons.com/)
+- UI powered by [DaisyUI](https://daisyui.com) and [HTMX](https://htmx.org)
+- Icons from [Heroicons](https://heroicons.com)
+- Code highlighting by [Prism.js](https://prismjs.com)
+
+## 📞 Support
+
+- **Documentation**: [docs.skyscape.dev](https://docs.skyscape.dev)
+- **Issues**: [GitHub Issues](https://github.com/The-Skyscape/workspace/issues)
+- **Email**: support@skyscape.dev
+- **Discord**: [Join our community](https://discord.gg/skyscape)
+
+## 🚀 Roadmap
+
+### Q1 2025
+- [ ] Real-time collaboration features
+- [ ] Advanced CI/CD pipeline editor
+- [ ] Kubernetes deployment support
+- [ ] Mobile app for iOS/Android
+
+### Q2 2025
+- [ ] AI-powered code review
+- [ ] Integrated monitoring and logging
+- [ ] Multi-region deployment support
+- [ ] Enterprise SSO integration
+
+### Future
+- [ ] GitOps workflow support
+- [ ] Infrastructure as Code templates
+- [ ] Marketplace for actions and templates
+- [ ] Advanced analytics and insights
 
 ---
 
-**Skyscape Workspace** - Where cloud development meets developer productivity ☁️✨
+**Built with ❤️ by The Skyscape Team**
