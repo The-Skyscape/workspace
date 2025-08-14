@@ -122,10 +122,23 @@ Templates access controller methods directly:
 | `repo-prs.html` | Pull requests | `pullrequests` |
 | `repo-integrations.html` | GitHub integration | `integrations` |
 | `repo-settings.html` | Repository settings | `settings` |
-| `monitoring*.html` | System monitoring views | `monitoring` |
+| `monitoring.html` | System monitoring main view | `monitoring` |
 | `signin.html` | Sign in page | `auth` |
 | `signup.html` | Sign up page | `auth` |
 | `settings.html` | User settings | `settings` |
+
+### Partials (`/views/partials/`)
+All partial views are stored in the partials folder for better organization:
+| File | Purpose | Used By |
+|------|---------|--------|
+| `monitoring-*.html` | Monitoring sub-views (cpu, memory, disk, alerts, containers, stats, error) | `monitoring` |
+| `action-*-partial.html` | Action partials (logs, artifacts) | `actions` |
+| `issues-list-partial.html` | Issues list partial | `issues` |
+| `prs-list-partial.html` | Pull requests list partial | `pullrequests` |
+| `repo-*.html` | Repository partials (breadcrumbs, header, tabs) | `repos` |
+| `error-alert.html`, `success-alert.html` | Alert components | Various |
+| `chat-message.html` | Chat UI component | Assistant |
+| `create-file-modal.html` | File creation modal | File operations |
 
 ## Cross-Controller Communication
 

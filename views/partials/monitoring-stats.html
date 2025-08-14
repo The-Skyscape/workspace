@@ -1,0 +1,64 @@
+{{with .Stats}}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  <!-- CPU Card -->
+  <div class="stat bg-base-100 rounded-lg shadow">
+    <div class="stat-figure text-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+      </svg>
+    </div>
+    <div class="stat-title">CPU Usage</div>
+    <div class="stat-value text-primary">{{printf "%.1f%%" .CPU.UsagePercent}}</div>
+    <div class="stat-desc">{{.CPU.Cores}} cores available</div>
+  </div>
+
+  <!-- Memory Card -->
+  <div class="stat bg-base-100 rounded-lg shadow">
+    <div class="stat-figure text-secondary">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+      </svg>
+    </div>
+    <div class="stat-title">Memory Usage</div>
+    <div class="stat-value text-secondary">{{printf "%.1f%%" .Memory.UsedPercent}}</div>
+    <div class="stat-desc">{{.Memory.Used | formatBytes}} / {{.Memory.Total | formatBytes}}</div>
+  </div>
+
+  <!-- Disk Card -->
+  <div class="stat bg-base-100 rounded-lg shadow">
+    <div class="stat-figure text-accent">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+      </svg>
+    </div>
+    <div class="stat-title">Disk Usage</div>
+    <div class="stat-value text-accent">{{printf "%.1f%%" .Disk.UsedPercent}}</div>
+    <div class="stat-desc">{{.Disk.Free | formatBytes}} free</div>
+  </div>
+
+  <!-- Containers Card -->
+  <div class="stat bg-base-100 rounded-lg shadow">
+    <div class="stat-figure text-info">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+      </svg>
+    </div>
+    <div class="stat-title">Containers</div>
+    <div class="stat-value text-info">{{.Containers.Running}}</div>
+    <div class="stat-desc">{{.Containers.Total}} total containers</div>
+  </div>
+</div>
+{{end}}
+
+{{if .Alerts}}
+<div class="mt-4">
+  {{range .Alerts}}
+  <div class="alert alert-warning mb-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <span>{{.Message}}</span>
+  </div>
+  {{end}}
+</div>
+{{end}}

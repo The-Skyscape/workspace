@@ -48,7 +48,8 @@ Skyscape Workspace is a full-featured development platform that empowers teams t
 - **GitHub Sync**: Bidirectional synchronization with GitHub repositories
 - **OAuth Support**: Login with GitHub, GitLab, or custom OAuth providers
 - **Webhook Support**: Trigger actions from external services
-- **API Access**: RESTful API for automation and integrations
+- **HTMX Integration**: Dynamic UI updates without full page reloads
+- **HATEOAS Design**: Hypermedia-driven application state
 
 ### 📊 **System Monitoring**
 - **Real-time Metrics**: CPU, memory, and disk usage tracking
@@ -123,8 +124,8 @@ workspace/
 ## 🚦 Getting Started
 
 ### Prerequisites
-- Go 1.21 or later
-- Docker 24+ with compose support
+- Go 1.24.5 or later
+- Docker 24+ (for sandbox and coder services)
 - Git 2.40+
 - Make (for build automation)
 
@@ -152,6 +153,8 @@ make clean && make
 ./build/workspace
 ```
 
+Note: The application will create its data directory at `~/.skyscape/` on first run.
+
 5. **Access the application**
 ```
 http://localhost:5000
@@ -164,7 +167,7 @@ docker build -t skyscape-workspace .
 docker run -d \
   -p 5000:5000 \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v skyscape-data:/data \
+  -v ~/.skyscape:/root/.skyscape \
   -e AUTH_SECRET="your-secret-key" \
   skyscape-workspace
 ```
@@ -174,89 +177,101 @@ docker run -d \
 For production deployments, use the launch-app tool from DevTools:
 
 ```bash
+# Build the workspace application
+cd workspace && make clean && make
+
+# Build and use the launch-app tool
 cd ../devtools && make build
+export DIGITAL_OCEAN_API_KEY="your-token"
 ./build/launch-app deploy \
   --name skyscape-prod \
   --domain git.yourdomain.com \
   --binary ../workspace/build/workspace
 ```
 
+This will:
+- Create a DigitalOcean droplet
+- Install Docker and configure the server
+- Deploy your application as a container
+- Set up SSL with Let's Encrypt
+
 ## 🔧 Configuration
 
 ### Environment Variables
-- `AUTH_SECRET` (required): JWT signing secret
+- `AUTH_SECRET` (required): JWT signing secret for authentication
 - `PORT`: Application port (default: 5000)
+- `PREFIX`: URL prefix for the application (default: empty)
 - `THEME`: DaisyUI theme (default: corporate)
-- `DATABASE_PATH`: SQLite database location (default: ./workspace.db)
-- `REPOS_PATH`: Git repository storage (default: ./repos)
-- `WORKSPACE_TIMEOUT`: Idle workspace timeout in minutes (default: 30)
+- `INTERNAL_DATA`: Custom data directory (default: ~/.skyscape)
 
-### SSL Configuration
-- `CONGO_SSL_FULLCHAIN`: Path to SSL certificate
-- `CONGO_SSL_PRIVKEY`: Path to SSL private key
+### Data Storage
+All application data is stored in `~/.skyscape/` by default:
+- **Database**: `~/.skyscape/workspace.db` (SQLite)
+- **Repositories**: `~/.skyscape/repos/`
+- **Artifacts**: Stored as BLOBs in the database
 
-### Cloud Provider Settings
+### SSL Configuration (for launch-app deployments)
+- `SKYSCAPE_SSL_FULLCHAIN`: Path to SSL certificate
+- `SKYSCAPE_SSL_PRIVKEY`: Path to SSL private key
+
+### Cloud Provider Settings (for DevTools launch-app)
 - `DIGITAL_OCEAN_API_KEY`: For DigitalOcean deployments
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: For AWS deployments
-- `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY`: For GCP deployments
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: For AWS deployments (planned)
+- `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY`: For GCP deployments (planned)
 
-## 📚 API Documentation
+## 📚 Application Routes (HATEOAS)
+
+Skyscape follows the HATEOAS (Hypermedia as the Engine of Application State) model using HTMX for dynamic interactions. All routes return HTML responses that drive the application state.
 
 ### Authentication
-All API endpoints require authentication via JWT token in httpOnly cookie.
+All routes require authentication via JWT token in httpOnly cookie.
 
-```bash
-# Login
-POST /auth/login
-{
-  "email": "user@example.com",
-  "password": "password"
-}
-
-# Logout
-POST /auth/logout
+```
+GET  /signin                 # Sign in page
+POST /auth/signin            # Process sign in (returns HTML with redirect)
+GET  /signup                 # Sign up page  
+POST /auth/signup            # Process sign up (returns HTML with redirect)
+POST /auth/signout           # Sign out (returns HTML with redirect)
 ```
 
-### Repositories
-```bash
-# List repositories
-GET /api/repos
-
-# Create repository
-POST /api/repos
-{
-  "name": "my-repo",
-  "description": "Repository description",
-  "visibility": "private"
-}
-
-# Get repository
-GET /api/repos/{id}
-
-# Delete repository
-DELETE /api/repos/{id}
+### Repository Management
+```
+GET  /repos                  # List all repositories
+GET  /repos/{id}             # View repository
+POST /repos/create           # Create new repository (HTMX form submission)
+GET  /repos/{id}/files       # Browse repository files
+GET  /repos/{id}/commits     # View commit history
+GET  /repos/{id}/settings    # Repository settings
+POST /repos/{id}/delete      # Delete repository (HTMX action)
 ```
 
-### Actions
-```bash
-# List actions for repository
-GET /api/repos/{id}/actions
+### CI/CD Actions
+```
+GET  /repos/{id}/actions                    # List repository actions
+POST /repos/{id}/actions/create             # Create new action (HTMX form)
+GET  /repos/{id}/actions/{actionId}         # View action details
+POST /repos/{id}/actions/{actionId}/run     # Run action (HTMX trigger)
+GET  /repos/{id}/actions/{actionId}/logs    # View execution logs
+GET  /repos/{id}/actions/{actionId}/history # View run history
+GET  /repos/{id}/actions/{actionId}/artifacts # Download artifacts
+```
 
-# Create action
-POST /api/repos/{id}/actions
-{
-  "title": "Build and Test",
-  "type": "manual",
-  "command": "npm test && npm build",
-  "branch": "main",
-  "artifact_paths": "dist/, coverage/"
-}
+### Issues & Pull Requests
+```
+GET  /repos/{id}/issues      # List issues
+POST /repos/{id}/issues/create # Create issue (HTMX form)
+GET  /repos/{id}/issues/{issueId} # View issue
+GET  /repos/{id}/prs         # List pull requests
+GET  /repos/{id}/prs/{prId}  # View pull request
+```
 
-# Run action
-POST /api/repos/{id}/actions/{actionId}/run
-
-# Get action history
-GET /api/repos/{id}/actions/{actionId}/runs
+### HTMX Partials
+These routes return HTML fragments for dynamic updates:
+```
+GET  /repos/{id}/actions/{actionId}/logs-partial     # Live log streaming
+GET  /repos/{id}/actions/{actionId}/artifacts-partial # Artifact list updates
+GET  /monitoring/stats                                # Live monitoring stats
+POST /repos/{id}/issues/{issueId}/comments           # Add comment (returns HTML)
 ```
 
 ## 🧪 Testing
@@ -266,40 +281,49 @@ GET /api/repos/{id}/actions/{actionId}/runs
 go test ./...
 ```
 
-### Integration Tests
+### Build Verification
 ```bash
-go test -tags=integration ./...
+make clean && make
 ```
 
-### Load Testing
+### Manual Testing
 ```bash
-# Using Apache Bench
-ab -n 1000 -c 10 http://localhost:5000/
+# Start the application
+export AUTH_SECRET="test-secret"
+./build/workspace
 
-# Using hey
-hey -n 1000 -c 10 http://localhost:5000/
+# Test in browser
+open http://localhost:5000
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions!
 
 ### Development Setup
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Make your changes following the patterns in the codebase
+4. Test your changes: `make clean && make && go test ./...`
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ### Code Style
 - Follow Go standard formatting (`go fmt`)
 - Use meaningful variable and function names
+- Follow existing MVC patterns (see CLAUDE.md for details)
 - Add comments for exported functions
 - Write tests for new features
+- Use HTMX for dynamic UI updates (not REST APIs)
 
-## 📄 License
+### Key Patterns to Follow
+- Controllers use factory functions: `func Name() (string, *Controller)`
+- Models implement `Table() string` method
+- Templates use unique names (stored in partials/ for sub-views)
+- Use `c.Redirect()` not `http.Redirect()` for HTMX compatibility
+- All data stored in `~/.skyscape/` directory
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -310,30 +334,35 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation**: [docs.skyscape.dev](https://docs.skyscape.dev)
+- **Documentation**: See CLAUDE.md for development guidance
 - **Issues**: [GitHub Issues](https://github.com/The-Skyscape/workspace/issues)
-- **Email**: support@skyscape.dev
-- **Discord**: [Join our community](https://discord.gg/skyscape)
+- **Quick Reference**: See QUICK_REFERENCE.md for common tasks
 
 ## 🚀 Roadmap
 
-### Q1 2025
+### Completed Features ✓
+- [x] Git repository hosting with FTS5 search
+- [x] CI/CD Actions with Docker sandboxes
+- [x] Issue and PR tracking
+- [x] GitHub bidirectional sync
+- [x] System monitoring dashboard
+- [x] Artifact collection and versioning
+- [x] Modular controller architecture
+
+### In Progress
+- [ ] Scheduled action triggers
+- [ ] Webhook-based action triggers
+- [ ] Enhanced artifact management UI
+
+### Planned
 - [ ] Real-time collaboration features
 - [ ] Advanced CI/CD pipeline editor
 - [ ] Kubernetes deployment support
-- [ ] Mobile app for iOS/Android
-
-### Q2 2025
 - [ ] AI-powered code review
-- [ ] Integrated monitoring and logging
 - [ ] Multi-region deployment support
 - [ ] Enterprise SSO integration
-
-### Future
 - [ ] GitOps workflow support
-- [ ] Infrastructure as Code templates
 - [ ] Marketplace for actions and templates
-- [ ] Advanced analytics and insights
 
 ---
 
