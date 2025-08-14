@@ -21,7 +21,7 @@
     </div>
     <div class="stat-title">Memory Usage</div>
     <div class="stat-value text-secondary">{{printf "%.1f%%" .Memory.UsedPercent}}</div>
-    <div class="stat-desc">{{.Memory.Used | formatBytes}} / {{.Memory.Total | formatBytes}}</div>
+    <div class="stat-desc">{{monitoring.FormatBytes .Memory.Used}} / {{monitoring.FormatBytes .Memory.Total}}</div>
   </div>
 
   <!-- Disk Card -->
@@ -33,7 +33,7 @@
     </div>
     <div class="stat-title">Disk Usage</div>
     <div class="stat-value text-accent">{{printf "%.1f%%" .Disk.UsedPercent}}</div>
-    <div class="stat-desc">{{.Disk.Free | formatBytes}} free</div>
+    <div class="stat-desc">{{monitoring.FormatBytes .Disk.Free}} free</div>
   </div>
 
   <!-- Containers Card -->

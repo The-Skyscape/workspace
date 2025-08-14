@@ -1,0 +1,58 @@
+<!-- Public Repositories Section -->
+<div class="mb-8">
+  <!-- Centered Header -->
+  <div class="text-center mb-8">
+    <h2 class="text-3xl font-bold mb-2">Open Source Projects</h2>
+    <p class="text-base-content/70">Explore and contribute to public repositories</p>
+  </div>
+
+  {{with home.PublicRepos}}
+  {{if .}}
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {{range .}}
+    <div class="card bg-base-100 shadow-lg border border-base-300 hover:shadow-xl hover:border-primary/30 transition-all">
+      <div class="card-body">
+        <!-- Repository Name -->
+        <h3 class="card-title text-lg mb-2">{{.Name}}</h3>
+
+        <!-- Description -->
+        <p class="text-base-content/70 text-sm mb-4 flex-grow">
+          {{if .Description}}{{.Description}}{{else}}A public repository ready for collaboration{{end}}
+        </p>
+
+        <!-- Metadata -->
+        <div class="text-xs text-base-content/50 mb-4">
+          <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Updated {{.UpdatedAt.Format "Jan 2, 2006"}}</span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card-actions">
+          <a href="{{host}}/public/repos/{{.ID}}" class="btn btn-primary btn-sm btn-block">
+            Browse Repository
+          </a>
+        </div>
+      </div>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <!-- No Public Repositories -->
+  <div class="card bg-base-100 shadow-lg border border-base-300">
+    <div class="card-body">
+      <div class="text-center py-12">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto mb-4 text-base-content/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+        <h3 class="text-xl font-semibold text-base-content/70 mb-2">No public repositories yet</h3>
+        <p class="text-base-content/50">Check back soon for open source projects!</p>
+      </div>
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+</div>

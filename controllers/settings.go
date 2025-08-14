@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	"encoding/json"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -28,12 +29,9 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("GET /settings", app.Serve("settings.html", auth.Required))
 	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, auth.Required))
 	
-	// AI settings endpoints
-	http.Handle("POST /settings/ai/test", app.ProtectFunc(s.testAIProvider, auth.Required))
-	http.Handle("POST /settings/vectordb/test", app.ProtectFunc(s.testVectorDB, auth.Required))
-	
-	// Feature toggles
-	http.Handle("POST /settings/features", app.ProtectFunc(s.updateFeatures, auth.Required))
+	// Profile settings
+	http.Handle("GET /settings/profile", app.Serve("settings-profile.html", auth.Required))
+	http.Handle("POST /settings/profile", app.ProtectFunc(s.updateProfile, auth.Required))
 }
 
 func (s *SettingsController) Handle(req *http.Request) application.Controller {
@@ -67,84 +65,67 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Parse form values
-	updates := map[string]interface{}{}
-
-	// AI Provider Settings
-	if apiKey := r.FormValue("anthropic_api_key"); apiKey != "" {
-		updates["anthropic_api_key"] = apiKey
-	}
-	if apiKey := r.FormValue("openai_api_key"); apiKey != "" {
-		updates["openai_api_key"] = apiKey
-	}
-	if host := r.FormValue("ollama_host"); host != "" {
-		updates["ollama_host"] = host
+	// Get current settings
+	settings, err := models.GetSettings()
+	if err != nil {
+		s.Render(w, r, "error-message.html", map[string]interface{}{
+			"Message": "Failed to load settings: " + err.Error(),
+		})
+		return
 	}
 
-	// Default AI Settings
-	if provider := r.FormValue("default_provider"); provider != "" {
-		updates["default_provider"] = provider
+	// Update from form values directly (HATEOAS pattern)
+	settings.AppName = r.FormValue("app_name")
+	settings.AppDescription = r.FormValue("app_description")
+	settings.DefaultTheme = r.FormValue("default_theme")
+	
+	// Parse numeric values
+	if size := r.FormValue("max_repo_size_mb"); size != "" {
+		if val, err := strconv.ParseInt(size, 10, 64); err == nil {
+			settings.MaxRepoSize = val
+		}
 	}
-	if model := r.FormValue("default_model"); model != "" {
-		updates["default_model"] = model
+	if workspaces := r.FormValue("max_workspaces"); workspaces != "" {
+		if val, err := strconv.Atoi(workspaces); err == nil {
+			settings.MaxWorkspaces = val
+		}
 	}
-	if temp := r.FormValue("temperature"); temp != "" {
-		var temperature float64
-		json.Unmarshal([]byte(temp), &temperature)
-		updates["temperature"] = temperature
-	}
-	if tokens := r.FormValue("max_tokens"); tokens != "" {
-		var maxTokens int
-		json.Unmarshal([]byte(tokens), &maxTokens)
-		updates["max_tokens"] = maxTokens
-	}
-
-	// Vector Database Settings
-	if provider := r.FormValue("vectordb_provider"); provider != "" {
-		updates["vectordb_provider"] = provider
-	}
-	if host := r.FormValue("chroma_host"); host != "" {
-		updates["chroma_host"] = host
-	}
-	if apiKey := r.FormValue("pinecone_api_key"); apiKey != "" {
-		updates["pinecone_api_key"] = apiKey
-	}
-	if env := r.FormValue("pinecone_environment"); env != "" {
-		updates["pinecone_environment"] = env
-	}
-	if host := r.FormValue("weaviate_host"); host != "" {
-		updates["weaviate_host"] = host
-	}
-	if apiKey := r.FormValue("weaviate_api_key"); apiKey != "" {
-		updates["weaviate_api_key"] = apiKey
+	
+	// Security Settings (checkboxes)
+	settings.AllowPublicRepos = r.FormValue("allow_public_repos") == "true"
+	settings.AllowSignup = r.FormValue("allow_signup") == "true"
+	settings.RequireEmailVerify = r.FormValue("require_email_verify") == "true"
+	
+	if timeout := r.FormValue("session_timeout_hours"); timeout != "" {
+		if val, err := strconv.Atoi(timeout); err == nil {
+			settings.SessionTimeout = val
+		}
 	}
 
-	// Rate Limiting
-	if rpm := r.FormValue("ai_requests_per_minute"); rpm != "" {
-		var requestsPerMin int
-		json.Unmarshal([]byte(rpm), &requestsPerMin)
-		updates["ai_requests_per_minute"] = requestsPerMin
-	}
-	if rpd := r.FormValue("ai_requests_per_day"); rpd != "" {
-		var requestsPerDay int
-		json.Unmarshal([]byte(rpd), &requestsPerDay)
-		updates["ai_requests_per_day"] = requestsPerDay
-	}
-
-	// Caching
+	// Performance Settings
 	if ttl := r.FormValue("cache_ttl_minutes"); ttl != "" {
-		var cacheTTL int
-		json.Unmarshal([]byte(ttl), &cacheTTL)
-		updates["cache_ttl_minutes"] = cacheTTL
+		if val, err := strconv.Atoi(ttl); err == nil {
+			settings.CacheTTLMinutes = val
+		}
 	}
 	if size := r.FormValue("max_cache_size_mb"); size != "" {
-		var cacheSize int64
-		json.Unmarshal([]byte(size), &cacheSize)
-		updates["max_cache_size"] = cacheSize
+		if val, err := strconv.ParseInt(size, 10, 64); err == nil {
+			settings.MaxCacheSize = val
+		}
 	}
+	settings.EnableGitCache = r.FormValue("enable_git_cache") == "true"
 
-	// Update settings
-	_, err = models.UpdateSettings(updates, user.Email)
+	// GitHub Integration
+	settings.GitHubEnabled = r.FormValue("github_enabled") == "true"
+	settings.GitHubClientID = r.FormValue("github_client_id")
+	settings.GitHubClientSecret = r.FormValue("github_client_secret")
+
+	// Update metadata
+	settings.LastUpdatedBy = user.Email
+	settings.LastUpdatedAt = time.Now()
+
+	// Save to database
+	err = models.GlobalSettings.Update(settings)
 	if err != nil {
 		s.Render(w, r, "error-message.html", map[string]interface{}{
 			"Message": "Failed to update settings: " + err.Error(),
@@ -160,8 +141,14 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	s.Redirect(w, r, "/settings")
 }
 
-// updateFeatures handles feature toggle updates
-func (s *SettingsController) updateFeatures(w http.ResponseWriter, r *http.Request) {
+
+// GetProfile returns the admin user's profile for settings page
+func (s *SettingsController) GetProfile() (*models.Profile, error) {
+	return models.GetAdminProfile()
+}
+
+// updateProfile handles profile settings form submission
+func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Request) {
 	auth := s.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -171,125 +158,31 @@ func (s *SettingsController) updateFeatures(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Parse form values
 	updates := map[string]interface{}{
-		"enable_ai_agent":        r.FormValue("enable_ai_agent") == "true",
-		"enable_code_analysis":   r.FormValue("enable_code_analysis") == "true",
-		"enable_auto_summary":    r.FormValue("enable_auto_summary") == "true",
-		"enable_semantic_search": r.FormValue("enable_semantic_search") == "true",
-		"require_admin_for_ai":   r.FormValue("require_admin_for_ai") == "true",
+		"bio":        r.FormValue("bio"),
+		"title":      r.FormValue("title"),
+		"website":    r.FormValue("website"),
+		"github":     r.FormValue("github"),
+		"twitter":    r.FormValue("twitter"),
+		"linkedin":   r.FormValue("linkedin"),
+		"show_email": r.FormValue("show_email") == "true",
+		"show_stats": r.FormValue("show_stats") == "true",
 	}
 
-	_, err = models.UpdateSettings(updates, user.Email)
+	// Update profile
+	_, err = models.UpdateAdminProfile(updates)
 	if err != nil {
 		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to update features: " + err.Error(),
+			"Message": "Failed to update profile: " + err.Error(),
 		})
 		return
 	}
 
-	s.Refresh(w, r)
-}
+	// Log activity
+	models.LogActivity("profile_updated", "Updated public profile", 
+		"Administrator updated public profile settings", user.ID, "", "profile", "")
 
-// testAIProvider tests the configured AI provider
-func (s *SettingsController) testAIProvider(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Unauthorized"))
-		return
-	}
-
-	settings, err := models.GetSettings()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Failed to get settings"))
-		return
-	}
-
-	// Test based on provider
-	provider := r.FormValue("provider")
-	if provider == "" {
-		provider = settings.DefaultProvider
-	}
-
-	var testResult string
-	switch provider {
-	case "anthropic":
-		if settings.AnthropicAPIKey == "" {
-			testResult = "Error: Anthropic API key not configured"
-		} else {
-			// In real implementation, would test the API
-			testResult = "Success: Anthropic API key is configured"
-		}
-	case "openai":
-		if settings.OpenAIAPIKey == "" {
-			testResult = "Error: OpenAI API key not configured"
-		} else {
-			testResult = "Success: OpenAI API key is configured"
-		}
-	case "ollama":
-		if settings.OllamaHost == "" {
-			testResult = "Error: Ollama host not configured"
-		} else {
-			testResult = "Success: Ollama host is configured at " + settings.OllamaHost
-		}
-	default:
-		testResult = "Error: Unknown provider"
-	}
-
-	w.Write([]byte(testResult))
-}
-
-// testVectorDB tests the configured vector database
-func (s *SettingsController) testVectorDB(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Unauthorized"))
-		return
-	}
-
-	settings, err := models.GetSettings()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Failed to get settings"))
-		return
-	}
-
-	var testResult string
-	switch settings.VectorDBProvider {
-	case "chroma":
-		if settings.ChromaHost == "" {
-			testResult = "Error: Chroma host not configured"
-		} else {
-			testResult = "Success: Chroma is configured at " + settings.ChromaHost
-		}
-	case "pinecone":
-		if settings.PineconeAPIKey == "" || settings.PineconeEnvironment == "" {
-			testResult = "Error: Pinecone credentials not configured"
-		} else {
-			testResult = "Success: Pinecone is configured"
-		}
-	case "weaviate":
-		if settings.WeaviateHost == "" {
-			testResult = "Error: Weaviate host not configured"
-		} else {
-			testResult = "Success: Weaviate is configured at " + settings.WeaviateHost
-		}
-	default:
-		testResult = "Error: No vector database configured"
-	}
-
-	w.Write([]byte(testResult))
-}
-
-// HasAIEnabled checks if AI features are enabled for display
-func (s *SettingsController) HasAIEnabled() bool {
-	settings, err := models.GetSettings()
-	if err != nil {
-		return false
-	}
-	return settings.IsAIEnabled()
+	// Redirect back to profile settings page
+	s.Redirect(w, r, "/settings/profile")
 }

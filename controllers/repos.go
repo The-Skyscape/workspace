@@ -41,8 +41,8 @@ func (c *ReposController) Setup(app *application.App) {
 	auth := app.Use("auth").(*authentication.Controller)
 
 	// Repository browsing/reading
-	http.Handle("GET /repos", app.Serve("repos.html", auth.Required))
-	http.Handle("GET /repos/{id}", app.Serve("repo-files.html", auth.Required))
+	http.Handle("GET /repos", app.Serve("repos-list.html", auth.Required))
+	http.Handle("GET /repos/{id}", app.Serve("repo-view.html", auth.Required))
 	http.Handle("GET /repos/{id}/activity", app.Serve("repo-activity.html", auth.Required))
 	http.Handle("GET /repos/{id}/files", app.Serve("repo-files.html", auth.Required))
 	http.Handle("GET /repos/{id}/files/{path...}", app.Serve("repo-file-view.html", auth.Required))

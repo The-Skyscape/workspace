@@ -4,8 +4,8 @@
 <div class="navbar bg-base-100 border-b border-base-300">
   <div class="container mx-auto max-w-7xl px-4">
     <div class="flex-1">
-      <h1 class="text-2xl font-bold">Global Settings</h1>
-      <p class="text-base-content/70">Configure AI providers, features, and system settings</p>
+      <h1 class="text-2xl font-bold">System Settings</h1>
+      <p class="text-base-content/70">Configure your Skyscape instance</p>
     </div>
   </div>
 </div>
@@ -13,449 +13,396 @@
 <!-- Settings Container -->
 <div class="container mx-auto px-4 py-6 max-w-7xl">
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    {{template "settings-nav.html"}}
 
-    <!-- Sidebar Navigation -->
-    <div class="lg:col-span-1">
-      <div class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body p-4">
-          <ul class="menu menu-compact">
-            <li>
-              <a href="#ai-providers" class="active">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                AI Providers
-              </a>
-            </li>
-            <li>
-              <a href="#vector-database">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                </svg>
-                Vector Database
-              </a>
-            </li>
-            <li>
-              <a href="#features">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-                Features
-              </a>
-            </li>
-            <li>
-              <a href="#rate-limits">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Rate Limits
-              </a>
-            </li>
-            <li>
-              <a href="#caching">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                </svg>
-                Caching
-              </a>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Settings Content -->
-    <div class="lg:col-span-2 space-y-6">
-      {{with $settings := settings.GetSanitizedSettings}}
-      
-      <!-- AI Providers Section -->
-      <div id="ai-providers" class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body">
-          <h2 class="card-title mb-4">AI Provider Configuration</h2>
+    <!-- Main Content -->
+    <div class="lg:col-span-2">
+      {{with settings.GetSettings}}
+      <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-6">
+        
+        <!-- System Configuration -->
+        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6">
+          <legend class="fieldset-legend flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+            System Configuration
+          </legend>
           
-          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-6">
-            
-            <!-- Anthropic -->
-            <div class="border border-base-300 rounded-lg p-4">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <span class="text-lg font-bold">A</span>
-                </div>
-                <div class="flex-1">
-                  <h3 class="font-semibold">Anthropic Claude</h3>
-                  <p class="text-sm text-base-content/70">
-                    {{if $settings.has_anthropic}}
-                    <span class="text-success">✓ Configured</span>
-                    {{else}}
-                    <span class="text-warning">Not configured</span>
-                    {{end}}
-                  </p>
-                </div>
-              </div>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">API Key</span>
-                  <span class="label-text-alt text-xs">
-                    <a href="https://console.anthropic.com/api" target="_blank" class="link link-primary">Get API Key</a>
-                  </span>
-                </div>
-                <input type="password" name="anthropic_api_key" class="input input-bordered w-full" 
-                       placeholder="sk-ant-api03-..." />
-              </label>
-            </div>
-
-            <!-- OpenAI -->
-            <div class="border border-base-300 rounded-lg p-4">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
-                  <span class="text-lg font-bold">O</span>
-                </div>
-                <div class="flex-1">
-                  <h3 class="font-semibold">OpenAI GPT</h3>
-                  <p class="text-sm text-base-content/70">
-                    {{if $settings.has_openai}}
-                    <span class="text-success">✓ Configured</span>
-                    {{else}}
-                    <span class="text-warning">Not configured</span>
-                    {{end}}
-                  </p>
-                </div>
-              </div>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">API Key</span>
-                  <span class="label-text-alt text-xs">
-                    <a href="https://platform.openai.com/api-keys" target="_blank" class="link link-primary">Get API Key</a>
-                  </span>
-                </div>
-                <input type="password" name="openai_api_key" class="input input-bordered w-full" 
-                       placeholder="sk-..." />
-              </label>
-            </div>
-
-            <!-- Ollama -->
-            <div class="border border-base-300 rounded-lg p-4">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-lg bg-info/20 flex items-center justify-center">
-                  <span class="text-lg font-bold">O</span>
-                </div>
-                <div class="flex-1">
-                  <h3 class="font-semibold">Ollama (Local)</h3>
-                  <p class="text-sm text-base-content/70">
-                    {{if $settings.has_ollama}}
-                    <span class="text-success">✓ Configured</span>
-                    {{else}}
-                    <span class="text-warning">Not configured</span>
-                    {{end}}
-                  </p>
-                </div>
-              </div>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Host URL</span>
-                  <span class="label-text-alt text-xs">Default: http://localhost:11434</span>
-                </div>
-                <input type="url" name="ollama_host" class="input input-bordered w-full" 
-                       value="{{$settings.ollama_host}}"
-                       placeholder="http://localhost:11434" />
-              </label>
-            </div>
-
-            <!-- Default Settings -->
-            <div class="divider">Default AI Settings</div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Default Provider</span>
-                </div>
-                <select name="default_provider" class="select select-bordered w-full">
-                  <option value="anthropic" {{if eq $settings.default_provider "anthropic"}}selected{{end}}>Anthropic</option>
-                  <option value="openai" {{if eq $settings.default_provider "openai"}}selected{{end}}>OpenAI</option>
-                  <option value="ollama" {{if eq $settings.default_provider "ollama"}}selected{{end}}>Ollama</option>
-                </select>
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Default Model</span>
-                </div>
-                <input type="text" name="default_model" class="input input-bordered w-full" 
-                       value="{{$settings.default_model}}"
-                       placeholder="claude-3-opus-20240229" />
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Temperature</span>
-                  <span class="label-text-alt text-xs">0.0 - 1.0</span>
-                </div>
-                <input type="number" name="temperature" class="input input-bordered w-full" 
-                       value="{{$settings.temperature}}"
-                       min="0" max="1" step="0.1" />
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Max Tokens</span>
-                </div>
-                <input type="number" name="max_tokens" class="input input-bordered w-full" 
-                       value="{{$settings.max_tokens}}"
-                       min="100" max="100000" />
-              </label>
-            </div>
-
-            <div class="card-actions justify-end">
-              <button type="button" class="btn btn-outline"
-                      hx-post="{{host}}/settings/ai/test"
-                      hx-target="#ai-test-result">
-                Test Connection
-              </button>
-              <button type="submit" class="btn btn-primary">Save AI Settings</button>
-            </div>
-            
-            <div id="ai-test-result" class="text-sm"></div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Vector Database Section -->
-      <div id="vector-database" class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body">
-          <h2 class="card-title mb-4">Vector Database Configuration</h2>
-          
-          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-4">
-            
+          <div class="flex flex-col gap-4">
             <label class="form-control w-full">
               <div class="label">
-                <span class="label-text text-sm font-medium">Vector Database Provider</span>
+                <span class="label-text text-sm font-medium flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                  </svg>
+                  Application Name
+                </span>
+                <div class="tooltip tooltip-left" data-tip="The name displayed throughout the UI">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
-              <select name="vectordb_provider" class="select select-bordered w-full">
-                <option value="" {{if eq $settings.vectordb_provider ""}}selected{{end}}>None</option>
-                <option value="chroma" {{if eq $settings.vectordb_provider "chroma"}}selected{{end}}>ChromaDB</option>
-                <option value="pinecone" {{if eq $settings.vectordb_provider "pinecone"}}selected{{end}}>Pinecone</option>
-                <option value="weaviate" {{if eq $settings.vectordb_provider "weaviate"}}selected{{end}}>Weaviate</option>
+              <input type="text" name="app_name" value="{{.AppName}}" 
+                     class="input input-bordered w-full" 
+                     placeholder="Skyscape" />
+            </label>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                  </svg>
+                  Application Description
+                </span>
+                <div class="tooltip tooltip-left" data-tip="Brief description shown on public pages">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <input type="text" name="app_description" value="{{.AppDescription}}" 
+                     class="input input-bordered w-full" 
+                     placeholder="Self-hosted developer platform" />
+            </label>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                  UI Theme
+                </span>
+                <div class="tooltip tooltip-left" data-tip="DaisyUI theme for the interface">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <select name="default_theme" class="select select-bordered w-full">
+                <option value="light" {{if eq .DefaultTheme "light"}}selected{{end}}>🌞 Light</option>
+                <option value="dark" {{if eq .DefaultTheme "dark"}}selected{{end}}>🌙 Dark</option>
+                <option value="corporate" {{if eq .DefaultTheme "corporate"}}selected{{end}}>💼 Corporate</option>
+                <option value="business" {{if eq .DefaultTheme "business"}}selected{{end}}>🏢 Business</option>
+                <option value="emerald" {{if eq .DefaultTheme "emerald"}}selected{{end}}>💚 Emerald</option>
+                <option value="lofi" {{if eq .DefaultTheme "lofi"}}selected{{end}}>📻 Lo-Fi</option>
+                <option value="cyberpunk" {{if eq .DefaultTheme "cyberpunk"}}selected{{end}}>🤖 Cyberpunk</option>
+                <option value="valentine" {{if eq .DefaultTheme "valentine"}}selected{{end}}>💝 Valentine</option>
               </select>
             </label>
 
-            <!-- ChromaDB Settings -->
-            <div class="border border-base-300 rounded-lg p-4">
-              <h3 class="font-semibold mb-3">ChromaDB Settings</h3>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Host URL</span>
-                </div>
-                <input type="url" name="chroma_host" class="input input-bordered w-full" 
-                       value="{{$settings.chroma_host}}"
-                       placeholder="http://localhost:8000" />
-              </label>
-            </div>
-
-            <!-- Pinecone Settings -->
-            <div class="border border-base-300 rounded-lg p-4">
-              <h3 class="font-semibold mb-3">Pinecone Settings</h3>
-              <label class="form-control w-full mb-2">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">API Key</span>
-                </div>
-                <input type="password" name="pinecone_api_key" class="input input-bordered w-full" 
-                       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-              </label>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Environment</span>
-                </div>
-                <input type="text" name="pinecone_environment" class="input input-bordered w-full" 
-                       value="{{$settings.pinecone_environment}}"
-                       placeholder="us-west1-gcp" />
-              </label>
-            </div>
-
-            <!-- Weaviate Settings -->
-            <div class="border border-base-300 rounded-lg p-4">
-              <h3 class="font-semibold mb-3">Weaviate Settings</h3>
-              <label class="form-control w-full mb-2">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">Host URL</span>
-                </div>
-                <input type="url" name="weaviate_host" class="input input-bordered w-full" 
-                       value="{{$settings.weaviate_host}}"
-                       placeholder="http://localhost:8080" />
-              </label>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-sm font-medium">API Key (Optional)</span>
-                </div>
-                <input type="password" name="weaviate_api_key" class="input input-bordered w-full" 
-                       placeholder="Optional API key" />
-              </label>
-            </div>
-
-            <div class="card-actions justify-end">
-              <button type="button" class="btn btn-outline"
-                      hx-post="{{host}}/settings/vectordb/test"
-                      hx-target="#vectordb-test-result">
-                Test Connection
-              </button>
-              <button type="submit" class="btn btn-primary">Save Database Settings</button>
-            </div>
-            
-            <div id="vectordb-test-result" class="text-sm"></div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Features Section -->
-      <div id="features" class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body">
-          <h2 class="card-title mb-4">Feature Toggles</h2>
-          
-          <form hx-post="{{host}}/settings/features" hx-swap="outerHTML" class="space-y-4">
-            
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <div>
-                  <span class="label-text font-medium">Enable AI Agent</span>
-                  <p class="text-sm text-base-content/70">Allow AI agents to assist with code and answer questions</p>
-                </div>
-                <input type="checkbox" name="enable_ai_agent" value="true" 
-                       class="checkbox checkbox-primary" {{if $settings.enable_ai_agent}}checked{{end}} />
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <div>
-                  <span class="label-text font-medium">Enable Code Analysis</span>
-                  <p class="text-sm text-base-content/70">Analyze code for improvements and potential issues</p>
-                </div>
-                <input type="checkbox" name="enable_code_analysis" value="true" 
-                       class="checkbox checkbox-primary" {{if $settings.enable_code_analysis}}checked{{end}} />
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <div>
-                  <span class="label-text font-medium">Enable Auto Summary</span>
-                  <p class="text-sm text-base-content/70">Automatically generate summaries for repositories and PRs</p>
-                </div>
-                <input type="checkbox" name="enable_auto_summary" value="true" 
-                       class="checkbox checkbox-primary" {{if $settings.enable_auto_summary}}checked{{end}} />
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <div>
-                  <span class="label-text font-medium">Enable Semantic Search</span>
-                  <p class="text-sm text-base-content/70">Use AI-powered semantic search for code and issues</p>
-                </div>
-                <input type="checkbox" name="enable_semantic_search" value="true" 
-                       class="checkbox checkbox-primary" {{if $settings.enable_semantic_search}}checked{{end}} />
-              </label>
-            </div>
-
-            <div class="divider">Security</div>
-
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <div>
-                  <span class="label-text font-medium">Require Admin for AI</span>
-                  <p class="text-sm text-base-content/70">Only administrators can use AI features</p>
-                </div>
-                <input type="checkbox" name="require_admin_for_ai" value="true" 
-                       class="checkbox checkbox-primary" {{if $settings.require_admin_for_ai}}checked{{end}} />
-              </label>
-            </div>
-
-            <div class="card-actions justify-end">
-              <button type="submit" class="btn btn-primary">Save Features</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Rate Limits Section -->
-      <div id="rate-limits" class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body">
-          <h2 class="card-title mb-4">Rate Limiting</h2>
-          
-          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-4">
-            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="form-control w-full">
                 <div class="label">
-                  <span class="label-text text-sm font-medium">Requests per Minute</span>
+                  <span class="label-text text-sm font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                    Max Repository Size
+                  </span>
+                  <span class="label-text-alt text-xs">MB</span>
                 </div>
-                <input type="number" name="ai_requests_per_minute" class="input input-bordered w-full" 
-                       value="{{$settings.ai_requests_per_minute}}"
-                       min="1" max="1000" />
+                <input type="number" name="max_repo_size_mb" value="{{.MaxRepoSize}}" 
+                       class="input input-bordered w-full" 
+                       min="1" max="10240" />
+                <div class="label">
+                  <span class="label-text-alt text-xs">Limit per repository (1-10240 MB)</span>
+                </div>
               </label>
 
               <label class="form-control w-full">
                 <div class="label">
-                  <span class="label-text text-sm font-medium">Requests per Day</span>
+                  <span class="label-text text-sm font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Max Workspaces
+                  </span>
+                  <span class="label-text-alt text-xs">Per User</span>
                 </div>
-                <input type="number" name="ai_requests_per_day" class="input input-bordered w-full" 
-                       value="{{$settings.ai_requests_per_day}}"
-                       min="1" max="100000" />
+                <input type="number" name="max_workspaces" value="{{.MaxWorkspaces}}" 
+                       class="input input-bordered w-full" 
+                       min="1" max="100" />
+                <div class="label">
+                  <span class="label-text-alt text-xs">Concurrent workspaces per user</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Security Settings -->
+        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6">
+          <legend class="fieldset-legend flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            Security Settings
+          </legend>
+          
+          <div class="flex flex-col gap-4">
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-4">
+                <input type="checkbox" name="allow_public_repos" value="true" 
+                       class="checkbox checkbox-primary" 
+                       {{if .AllowPublicRepos}}checked{{end}} />
+                <div class="flex-1">
+                  <span class="label-text font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Allow Public Repositories
+                  </span>
+                  <span class="label-text-alt text-xs">Users can create repositories visible to everyone</span>
+                </div>
               </label>
             </div>
 
-            <div class="card-actions justify-end">
-              <button type="submit" class="btn btn-primary">Save Rate Limits</button>
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-4">
+                <input type="checkbox" name="allow_signup" value="true" 
+                       class="checkbox checkbox-primary" 
+                       {{if .AllowSignup}}checked{{end}} />
+                <div class="flex-1">
+                  <span class="label-text font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Allow New Signups
+                  </span>
+                  <span class="label-text-alt text-xs">New users can create accounts</span>
+                </div>
+              </label>
             </div>
-          </form>
-        </div>
-      </div>
 
-      <!-- Caching Section -->
-      <div id="caching" class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body">
-          <h2 class="card-title mb-4">Cache Configuration</h2>
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-4">
+                <input type="checkbox" name="require_email_verify" value="true" 
+                       class="checkbox checkbox-primary" 
+                       {{if .RequireEmailVerify}}checked{{end}} />
+                <div class="flex-1">
+                  <span class="label-text font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Require Email Verification
+                  </span>
+                  <span class="label-text-alt text-xs">Users must verify email before access</span>
+                </div>
+              </label>
+            </div>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Session Timeout
+                </span>
+                <div class="tooltip tooltip-left" data-tip="How long users stay logged in">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div class="join w-full">
+                <input type="number" name="session_timeout_hours" value="{{.SessionTimeout}}" 
+                       class="input input-bordered join-item flex-1" 
+                       min="1" max="720" />
+                <span class="btn btn-disabled join-item">Hours</span>
+              </div>
+              <div class="label">
+                <span class="label-text-alt text-xs">Automatic logout after inactivity (1-720 hours)</span>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Performance Settings -->
+        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6">
+          <legend class="fieldset-legend flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Performance Settings
+          </legend>
           
-          <form hx-post="{{host}}/settings" hx-target="body" hx-swap="outerHTML" class="space-y-4">
-            
+          <div class="flex flex-col gap-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="form-control w-full">
                 <div class="label">
-                  <span class="label-text text-sm font-medium">Cache TTL (minutes)</span>
+                  <span class="label-text text-sm font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Cache TTL
+                  </span>
+                  <div class="tooltip tooltip-left" data-tip="How long to keep cached data">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
                 </div>
-                <input type="number" name="cache_ttl_minutes" class="input input-bordered w-full" 
-                       value="{{$settings.cache_ttl_minutes}}"
-                       min="1" max="1440" />
+                <div class="join w-full">
+                  <input type="number" name="cache_ttl_minutes" value="{{.CacheTTLMinutes}}" 
+                         class="input input-bordered join-item flex-1" 
+                         min="1" max="1440" />
+                  <span class="btn btn-disabled join-item">Min</span>
+                </div>
               </label>
 
               <label class="form-control w-full">
                 <div class="label">
-                  <span class="label-text text-sm font-medium">Max Cache Size (MB)</span>
+                  <span class="label-text text-sm font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                    </svg>
+                    Max Cache Size
+                  </span>
+                  <div class="tooltip tooltip-left" data-tip="Maximum cache storage">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
                 </div>
-                <input type="number" name="max_cache_size_mb" class="input input-bordered w-full" 
-                       value="{{$settings.max_cache_size_mb}}"
-                       min="1" max="10000" />
+                <div class="join w-full">
+                  <input type="number" name="max_cache_size_mb" value="{{.MaxCacheSize}}" 
+                         class="input input-bordered join-item flex-1" 
+                         min="1" max="10000" />
+                  <span class="btn btn-disabled join-item">MB</span>
+                </div>
               </label>
             </div>
 
-            <div class="card-actions justify-end">
-              <button type="submit" class="btn btn-primary">Save Cache Settings</button>
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-4">
+                <input type="checkbox" name="enable_git_cache" value="true" 
+                       class="checkbox checkbox-primary" 
+                       {{if .EnableGitCache}}checked{{end}} />
+                <div class="flex-1">
+                  <span class="label-text font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Enable Git Caching
+                  </span>
+                  <span class="label-text-alt text-xs">Cache Git operations for better performance</span>
+                </div>
+              </label>
             </div>
-          </form>
-        </div>
-      </div>
+          </div>
+        </fieldset>
 
-      <!-- Status Info -->
-      <div class="card bg-base-200 border border-base-300">
-        <div class="card-body">
-          <div class="text-sm text-base-content/70">
-            <p>Last updated: {{$settings.last_updated_at}}</p>
-            {{if $settings.last_updated_by}}
-            <p>Updated by: {{$settings.last_updated_by}}</p>
+        <!-- GitHub Integration -->
+        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6">
+          <legend class="fieldset-legend flex items-center gap-2">
+            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            GitHub Integration
+          </legend>
+          
+          <div class="flex flex-col gap-4">
+            <div class="form-control">
+              <label class="label cursor-pointer justify-start gap-4">
+                <input type="checkbox" name="github_enabled" value="true" 
+                       class="checkbox checkbox-primary" 
+                       {{if .GitHubEnabled}}checked{{end}} />
+                <div class="flex-1">
+                  <span class="label-text font-medium">Enable GitHub Integration</span>
+                  <span class="label-text-alt text-xs">Allow users to connect GitHub repositories</span>
+                </div>
+              </label>
+            </div>
+
+            <div class="divider my-2">OAuth Configuration</div>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">OAuth Client ID</span>
+                <a href="https://github.com/settings/developers" target="_blank" class="link link-primary text-xs">
+                  Create OAuth App →
+                </a>
+              </div>
+              <input type="text" name="github_client_id" value="{{.GitHubClientID}}" 
+                     class="input input-bordered w-full font-mono" 
+                     placeholder="Iv1.a1b2c3d4e5f6g7h8" />
+            </label>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">OAuth Client Secret</span>
+                <span class="label-text-alt text-xs text-warning">Keep this secret!</span>
+              </div>
+              <input type="password" name="github_client_secret" value="{{.GitHubClientSecret}}" 
+                     class="input input-bordered w-full font-mono" 
+                     placeholder="••••••••••••••••••••••••••••••••" />
+            </label>
+
+            {{if .GitHubClientID}}
+            <div class="alert alert-success">
+              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>GitHub OAuth is configured. Users can sync repositories.</span>
+            </div>
+            {{else}}
+            <div class="alert alert-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <div>
+                <p class="font-semibold">Setup Instructions:</p>
+                <ol class="text-sm mt-1 ml-4 list-decimal">
+                  <li>Go to GitHub Settings → Developer settings → OAuth Apps</li>
+                  <li>Click "New OAuth App"</li>
+                  <li>Set callback URL to: <code class="text-xs">{{host}}/auth/github/callback</code></li>
+                  <li>Copy the Client ID and Secret here</li>
+                </ol>
+              </div>
+            </div>
             {{end}}
           </div>
-        </div>
-      </div>
+        </fieldset>
 
+        <!-- Save Button -->
+        <div class="card bg-base-100 shadow-lg border border-base-300">
+          <div class="card-body">
+            <div class="flex justify-between items-center">
+              <div class="text-sm text-base-content/70">
+                {{if .LastUpdatedBy}}
+                <p class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Last updated by {{.LastUpdatedBy}}
+                </p>
+                <p class="flex items-center gap-2 mt-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {{.LastUpdatedAt.Format "Jan 2, 2006 at 3:04 PM"}}
+                </p>
+                {{end}}
+              </div>
+              <button type="submit" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+      {{else}}
+      <div class="alert alert-error">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Unable to load settings</span>
+      </div>
       {{end}}
     </div>
   </div>

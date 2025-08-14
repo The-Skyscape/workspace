@@ -1,0 +1,77 @@
+<!-- Authenticated User Dashboard -->
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold">Dashboard</h1>
+    <p class="text-base-content/70 mt-2">Welcome back, {{auth.CurrentUser.Name}}!</p>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Repositories Section -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="card bg-base-100 shadow-lg border border-base-300">
+        <div class="card-body">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="card-title">My Repositories</h2>
+            <a href="{{host}}/repos" class="link link-primary text-sm" hx-boost="true">View all →</a>
+          </div>
+          {{template "home-repo-list.html" .}}
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+      {{template "home-quick-actions.html" .}}
+      {{template "home-recent-activity.html" .}}
+    </div>
+  </div>
+</div>
+
+<!-- Create Repository Modal -->
+<dialog id="create_repo_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="text-2xl font-bold mb-6">Create New Repository</h3>
+    <form hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+      <!-- Repository Name Input -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Repository Name</span>
+          <span class="label-text-alt text-xs">Required</span>
+        </div>
+        <input type="text" name="name" class="input input-bordered w-full"
+               placeholder="my-awesome-project"
+               pattern="[a-zA-Z0-9][a-zA-Z0-9-_]{0,38}[a-zA-Z0-9]"
+               title="Repository name must be 2-40 characters, start and end with alphanumeric, and can contain hyphens and underscores"
+               required />
+      </label>
+
+      <!-- Visibility Select -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Visibility</span>
+          <span class="label-text-alt text-xs">Who can see this repository</span>
+        </div>
+        <select name="visibility" class="select select-bordered w-full">
+          <option value="private" selected>Private - Only you can access</option>
+          <option value="public">Public - Anyone can view</option>
+        </select>
+      </label>
+
+      <!-- Modal Actions -->
+      <div class="modal-action mt-4">
+        <button type="submit" class="btn btn-primary">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Create Repository
+        </button>
+        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>

@@ -29,6 +29,9 @@ var (
 	
 	// Global settings
 	GlobalSettings = database.Manage(DB, new(Settings))
+	
+	// User profiles
+	Profiles = database.Manage(DB, new(Profile))
 )
 
 func init() {

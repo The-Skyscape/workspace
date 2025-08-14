@@ -68,20 +68,47 @@ func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 	return models.Repositories.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
 }
 
-// DeveloperProfile returns developer information for the homepage
-func (c *HomeController) DeveloperProfile() map[string]interface{} {
-	// Developer profile configuration
-	return map[string]interface{}{
-		"name":        "Developer",
-		"title":       "Full Stack Developer & AI Enthusiast",
-		"bio":         "Building innovative solutions with AI-powered tools and modern web technologies",
-		"avatar":      "/public/developer-avatar.jpg",
-		"location":    "Remote",
-		"company":     "Independent",
-		"website":     "https://skyscape.dev",
-		"github":      "github.com/developer",
-		"twitter":     "@developer",
+// AdminProfile returns the admin user's profile information for the homepage
+func (c *HomeController) AdminProfile() map[string]interface{} {
+	// Get the admin profile
+	profile, err := models.GetAdminProfile()
+	if err != nil {
+		// Return default values if no profile exists
+		return map[string]interface{}{
+			"name":   "Skyscape Admin",
+			"email":  "admin@skyscape.dev",
+			"avatar": "https://ui-avatars.com/api/?name=Skyscape+Admin&size=200&background=3b82f6&color=white",
+		}
 	}
+	
+	// Get the admin user
+	users, err := models.Auth.Users.Search("ORDER BY ID ASC LIMIT 1")
+	if err != nil || len(users) == 0 {
+		return map[string]interface{}{
+			"name":   "Skyscape Admin",
+			"email":  "admin@skyscape.dev",
+			"avatar": "https://ui-avatars.com/api/?name=Skyscape+Admin&size=200&background=3b82f6&color=white",
+		}
+	}
+	
+	admin := users[0]
+	
+	// Combine user and profile data
+	result := map[string]interface{}{
+		"name":       admin.Name,
+		"email":      admin.Email,
+		"avatar":     admin.Avatar,
+		"bio":        profile.Bio,
+		"title":      profile.Title,
+		"website":    profile.Website,
+		"github":     profile.GitHub,
+		"twitter":    profile.Twitter,
+		"linkedin":   profile.LinkedIn,
+		"show_email": profile.ShowEmail,
+		"show_stats": profile.ShowStats,
+	}
+	
+	return result
 }
 
 // PublicRepoStats returns statistics about public repositories
