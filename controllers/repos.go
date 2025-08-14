@@ -42,6 +42,7 @@ func (c *ReposController) Setup(app *application.App) {
 
 	// Repository browsing/reading
 	http.Handle("GET /repos", app.Serve("repos-list.html", auth.Required))
+	http.Handle("GET /repos/search", app.ProtectFunc(c.searchRepositories, auth.Required))
 	http.Handle("GET /repos/{id}", app.Serve("repo-view.html", auth.Required))
 	http.Handle("GET /repos/{id}/activity", app.Serve("repo-activity.html", auth.Required))
 	http.Handle("GET /repos/{id}/files", app.Serve("repo-files.html", auth.Required))
@@ -53,6 +54,7 @@ func (c *ReposController) Setup(app *application.App) {
 
 	// Repository management
 	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepository, auth.Required))
+	http.Handle("POST /repos/import", app.ProtectFunc(c.importRepository, auth.Required))
 	http.Handle("POST /repos/{id}/settings/update", app.ProtectFunc(c.updateRepository, auth.Required))
 	http.Handle("POST /repos/{id}/delete", app.ProtectFunc(c.deleteRepository, auth.Required))
 	http.Handle("POST /repos/{id}/clone", app.ProtectFunc(c.openInIDE, auth.Required))
@@ -1275,4 +1277,143 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 			<a href="/coder/?folder=/home/coder/project/%s" target="_blank" class="btn btn-sm btn-primary">Open IDE</a>
 		</div>
 	`, action, repo.Name, url.QueryEscape(repo.Name))
+}
+
+// importRepository imports a repository from GitHub
+func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Request) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		return
+	}
+
+	// Get form data
+	githubURL := strings.TrimSpace(r.FormValue("github_url"))
+	name := strings.TrimSpace(r.FormValue("name"))
+	visibility := r.FormValue("visibility")
+	setupIntegration := r.FormValue("setup_integration") == "on"
+
+	// Parse GitHub URL
+	if !strings.HasPrefix(githubURL, "https://github.com/") {
+		c.Render(w, r, "error-message.html", errors.New("invalid GitHub URL"))
+		return
+	}
+
+	// Extract repo name from URL if not provided
+	urlParts := strings.Split(strings.TrimPrefix(githubURL, "https://github.com/"), "/")
+	if len(urlParts) < 2 {
+		c.Render(w, r, "error-message.html", errors.New("invalid GitHub repository URL"))
+		return
+	}
+	
+	if name == "" {
+		name = strings.TrimSuffix(urlParts[1], ".git")
+	}
+
+	// Validate repository name (basic validation)
+	if len(name) < 2 || len(name) > 40 {
+		c.Render(w, r, "error-message.html", errors.New("repository name must be 2-40 characters"))
+		return
+	}
+
+	// Create repository in database
+	repo := &models.Repository{
+		Name:        name,
+		Description: fmt.Sprintf("Imported from %s", githubURL),
+		UserID:      user.ID,
+		Visibility:  visibility,
+	}
+
+	repo, err = models.Repositories.Insert(repo)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
+		return
+	}
+
+	// Clone the GitHub repository
+	repoPath := repo.Path()
+	cmd := exec.Command("git", "clone", githubURL, repoPath)
+	if err := cmd.Run(); err != nil {
+		// Clean up on failure
+		models.Repositories.Delete(repo)
+		c.Render(w, r, "error-message.html", errors.New("failed to clone repository: "+err.Error()))
+		return
+	}
+
+	// Set up GitHub integration if requested
+	if setupIntegration {
+		// Add GitHub as remote for future integration
+		cmd = exec.Command("git", "remote", "add", "github", githubURL)
+		cmd.Dir = repoPath
+		cmd.Run() // Ignore error if remote already exists
+		
+		// TODO: Store integration settings when Integration model is available
+	}
+
+	// Log activity
+	models.LogActivity("repo_imported", fmt.Sprintf("Imported repository %s from GitHub", name),
+		"Repository imported from GitHub", user.ID, repo.ID, "import", "")
+
+	// Redirect to the new repository
+	c.Redirect(w, r, fmt.Sprintf("/repos/%s", repo.ID))
+}
+
+// searchRepositories handles HTMX search requests for repositories
+func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Request) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.Render(w, r, "repos-list-partial.html", nil)
+		return
+	}
+
+	// Get search query
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	filter := r.URL.Query().Get("filter") // all, public, private
+
+	// Get user's repositories
+	repos, err := c.SearchUserRepositories(user, query, filter)
+	if err != nil {
+		c.Render(w, r, "error-message.html", err)
+		return
+	}
+
+	// Render partial for HTMX
+	c.Render(w, r, "repos-list-partial.html", repos)
+}
+
+// SearchUserRepositories searches for repositories by name or description
+func (c *ReposController) SearchUserRepositories(user *authentication.User, query, filter string) ([]*models.Repository, error) {
+	// Get all user repositories
+	userRepos, err := models.ListUserRepositories(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var filtered []*models.Repository
+	queryLower := strings.ToLower(query)
+
+	for _, repo := range userRepos {
+		// Apply visibility filter
+		if filter != "" && filter != "all" {
+			if filter != repo.Visibility {
+				continue
+			}
+		}
+
+		// If no query, include all (after filter)
+		if query == "" {
+			filtered = append(filtered, repo)
+			continue
+		}
+
+		// Search in name and description
+		if strings.Contains(strings.ToLower(repo.Name), queryLower) ||
+			strings.Contains(strings.ToLower(repo.Description), queryLower) {
+			filtered = append(filtered, repo)
+		}
+	}
+
+	return filtered, nil
 }

@@ -1,0 +1,167 @@
+<!-- Shared Create Repository Modal -->
+<dialog id="create_repo_modal" class="modal">
+  <div class="modal-box max-w-2xl">
+    <h3 class="text-2xl font-bold mb-6">New Repository</h3>
+    
+    <!-- Tabs -->
+    <div class="tabs tabs-boxed mb-6">
+      <input type="radio" name="create_mode" value="create" class="hidden" id="tab-create" checked />
+      <label for="tab-create" class="tab" onclick="document.getElementById('tab-create').checked=true; document.getElementById('create-form').classList.remove('hidden'); document.getElementById('import-form').classList.add('hidden');">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create New
+      </label>
+      
+      <input type="radio" name="create_mode" value="import" class="hidden" id="tab-import" />
+      <label for="tab-import" class="tab" onclick="document.getElementById('tab-import').checked=true; document.getElementById('import-form').classList.remove('hidden'); document.getElementById('create-form').classList.add('hidden');">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+        </svg>
+        Import from GitHub
+      </label>
+    </div>
+
+    <!-- Create New Form -->
+    <form id="create-form" hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-4">
+      <!-- Repository Name -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Repository Name</span>
+          <span class="label-text-alt text-xs">Required</span>
+        </div>
+        <input type="text" name="name" class="input input-bordered w-full"
+               placeholder="my-awesome-project"
+               pattern="[a-zA-Z0-9][a-zA-Z0-9-_]{0,38}[a-zA-Z0-9]"
+               title="Repository name must be 2-40 characters, start and end with alphanumeric, and can contain hyphens and underscores"
+               required />
+        <div class="label">
+          <span class="label-text-alt text-xs">Use only letters, numbers, hyphens, and underscores</span>
+        </div>
+      </label>
+
+      <!-- Description -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Description</span>
+          <span class="label-text-alt text-xs">Optional</span>
+        </div>
+        <textarea name="description" class="textarea textarea-bordered w-full"
+                  placeholder="A brief description of your project"
+                  rows="3"></textarea>
+      </label>
+
+      <!-- Visibility -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Visibility</span>
+        </div>
+        <select name="visibility" class="select select-bordered w-full">
+          <option value="private" selected>
+            🔒 Private - Only you and collaborators can access
+          </option>
+          <option value="public">
+            🌍 Public - Anyone can view this repository
+          </option>
+        </select>
+      </label>
+
+      <!-- Initialize with README -->
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text">Initialize with README file</span>
+          <input type="checkbox" name="init_readme" checked="checked" class="checkbox checkbox-primary" />
+        </label>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="modal-action">
+        <button type="submit" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Create Repository
+        </button>
+        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
+      </div>
+    </form>
+
+    <!-- Import from GitHub Form -->
+    <form id="import-form" hx-post="{{host}}/repos/import" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-4 hidden">
+      <!-- GitHub URL -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">GitHub Repository URL</span>
+          <span class="label-text-alt text-xs">Required</span>
+        </div>
+        <input type="url" name="github_url" class="input input-bordered w-full"
+               placeholder="https://github.com/username/repository"
+               pattern="https://github\.com/[^/]+/[^/]+"
+               title="Enter a valid GitHub repository URL"
+               required />
+        <div class="label">
+          <span class="label-text-alt text-xs">Enter the full GitHub repository URL</span>
+        </div>
+      </label>
+
+      <!-- Repository Name (override) -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Local Repository Name</span>
+          <span class="label-text-alt text-xs">Optional - defaults to GitHub name</span>
+        </div>
+        <input type="text" name="name" class="input input-bordered w-full"
+               placeholder="Leave blank to use GitHub repository name"
+               pattern="[a-zA-Z0-9][a-zA-Z0-9-_]{0,38}[a-zA-Z0-9]?" />
+      </label>
+
+      <!-- Visibility -->
+      <label class="form-control w-full">
+        <div class="label">
+          <span class="label-text text-sm font-medium">Visibility</span>
+        </div>
+        <select name="visibility" class="select select-bordered w-full">
+          <option value="private" selected>
+            🔒 Private - Only you and collaborators can access
+          </option>
+          <option value="public">
+            🌍 Public - Anyone can view this repository
+          </option>
+        </select>
+      </label>
+
+      <!-- Setup Integration -->
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text">Set up GitHub integration for automatic sync</span>
+          <input type="checkbox" name="setup_integration" checked="checked" class="checkbox checkbox-primary" />
+        </label>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="modal-action">
+        <button type="submit" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
+          Import Repository
+        </button>
+        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+  // Set initial tab state
+  document.addEventListener('DOMContentLoaded', function() {
+    const createTab = document.getElementById('tab-create');
+    if (createTab && createTab.checked) {
+      document.getElementById('create-form')?.classList.remove('hidden');
+      document.getElementById('import-form')?.classList.add('hidden');
+    }
+  });
+</script>

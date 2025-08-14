@@ -1,0 +1,99 @@
+{{template "layout/start"}}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold">Activity History</h1>
+    <p class="text-base-content/70 mt-2">Track all your workspace activities and repository events</p>
+  </div>
+
+  <!-- Activities List -->
+  <div class="space-y-4">
+    {{range home.AllActivities}}
+    <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md hover:border-primary/20 transition-all">
+      <div class="card-body p-4">
+        <div class="flex items-center gap-3">
+          <div class="avatar placeholder avatar-placeholder flex-shrink-0">
+            <div class="{{if eq .Type "repo_created"}}bg-primary text-primary-content{{else if eq .Type "workspace_launched"}}bg-info text-info-content{{else if eq .Type "action_created"}}bg-secondary text-secondary-content{{else if eq .Type "issue_created"}}bg-warning text-warning-content{{else if eq .Type "pr_created"}}bg-success text-success-content{{else}}bg-neutral text-neutral-content{{end}} rounded w-14 h-14">
+              <span class="text-lg font-bold">
+                {{if eq .Type "repo_created"}}R
+                {{else if eq .Type "workspace_launched"}}W
+                {{else if eq .Type "action_created"}}A
+                {{else if eq .Type "issue_created"}}I
+                {{else if eq .Type "pr_created"}}P
+                {{else}}•
+                {{end}}
+              </span>
+            </div>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <h3 class="font-semibold text-lg">{{.Title}}</h3>
+                  {{if eq .Type "repo_created"}}
+                  <div class="badge badge-primary badge-sm">New Repo</div>
+                  {{else if eq .Type "workspace_launched"}}
+                  <div class="badge badge-info badge-sm">Workspace</div>
+                  {{else if eq .Type "action_created"}}
+                  <div class="badge badge-secondary badge-sm">Action</div>
+                  {{else if eq .Type "issue_created"}}
+                  <div class="badge badge-warning badge-sm">Issue</div>
+                  {{else if eq .Type "pr_created"}}
+                  <div class="badge badge-success badge-sm">Pull Request</div>
+                  {{else}}
+                  <div class="badge badge-neutral badge-sm">{{.Type}}</div>
+                  {{end}}
+                </div>
+                {{if .Description}}
+                <p class="text-base-content/70 text-sm mt-1">{{.Description}}</p>
+                {{else}}
+                <p class="text-base-content/70 text-sm mt-1">Activity recorded in your workspace</p>
+                {{end}}
+                <div class="flex items-center gap-4 mt-2 text-xs text-base-content/50">
+                  <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{.CreatedAt.Format "Jan 2, 2006 at 3:04 PM"}}</span>
+                  </div>
+                  {{if .RepoID}}
+                  <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span>Repository #{{.RepoID}}</span>
+                  </div>
+                  {{end}}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {{else}}
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+      <div class="card-body">
+        <div class="text-center py-12 text-base-content/50">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p class="text-lg">No activities yet</p>
+          <p class="text-sm mt-2">Your workspace activities will appear here</p>
+        </div>
+      </div>
+    </div>
+    {{end}}
+  </div>
+
+  <!-- Back to Dashboard -->
+  <div class="mt-6 text-center">
+    <a href="{{host}}/" class="btn btn-ghost" hx-boost="true">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      </svg>
+      Back to Dashboard
+    </a>
+  </div>
+</div>
+{{template "layout/end"}}

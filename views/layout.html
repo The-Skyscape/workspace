@@ -6,7 +6,7 @@
     {{template "app-deps" .}}
     <link href="{{host}}/public/custom.css" rel="stylesheet" type="text/css" />
 </head>
-<body class="h-full flex flex-col">
+<body class="h-full flex flex-col bg-base-100 dark:bg-base-200">
     <!-- Responsive Navbar -->
     <div class="navbar bg-base-100 shadow-lg sticky top-0 z-50">
         <div class="navbar-start">
@@ -24,7 +24,7 @@
                     {{if auth.CurrentUser.IsAdmin}}
                     <li class="menu-title"><span>Admin</span></li>
                     <li><a href="{{host}}/sandboxes" {{if path_eq "sandboxes"}}class="active"{{end}}>Sandboxes</a></li>
-                    <li><a href="{{host}}/monitoring" {{if path_eq "monitoring"}}class="active"{{end}}>Monitoring</a></li>
+                    <li><a href="{{host}}/settings/monitoring" {{if path_eq "settings" "monitoring"}}class="active"{{end}}>Monitoring</a></li>
                     <li><a href="{{host}}/settings" {{if path_eq "settings"}}class="active"{{end}}>Settings</a></li>
                     {{end}}
                 </ul>
@@ -63,7 +63,7 @@
                         {{if auth.CurrentUser.IsAdmin}}
                         <li class="menu-title"><span>Admin</span></li>
                         <li><a href="{{host}}/sandboxes" {{if path_eq "sandboxes"}}class="active"{{end}}>Sandboxes</a></li>
-                        <li><a href="{{host}}/monitoring" {{if path_eq "monitoring"}}class="active"{{end}}>Monitoring</a></li>
+                        <li><a href="{{host}}/settings/monitoring" {{if path_eq "settings" "monitoring"}}class="active"{{end}}>Monitoring</a></li>
                         <li><a href="{{host}}/settings" {{if path_eq "settings"}}class="active"{{end}}>Settings</a></li>
                         <div class="divider my-0"></div>
                         {{end}}
@@ -71,7 +71,7 @@
                     </ul>
                 </div>
             {{else}}
-                <div class="flex gap-2">
+                <div class="flex gap-2" hx-boost="true">
                     {{if eq path "/signin"}}
                         <a href="{{host}}/signup" class="btn btn-outline btn-sm lg:btn-md">Sign Up</a>
                     {{else if eq path "/signup"}}

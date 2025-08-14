@@ -1,77 +1,78 @@
 <!-- Authenticated User Dashboard -->
 <div class="container mx-auto px-4 py-6 max-w-7xl">
-  <!-- Header -->
-  <div class="mb-6">
-    <h1 class="text-3xl font-bold">Dashboard</h1>
-    <p class="text-base-content/70 mt-2">Welcome back, {{auth.CurrentUser.Name}}!</p>
-  </div>
-
-  <!-- Main Content Grid -->
+  <!-- Two Column Layout -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Repositories Section -->
+    
+    <!-- Left Column: Header + Repositories -->
     <div class="lg:col-span-2 space-y-6">
-      <div class="card bg-base-100 shadow-lg border border-base-300">
-        <div class="card-body">
+      <!-- Header -->
+      <div>
+        <h1 class="text-3xl font-bold">Dashboard</h1>
+        <p class="text-base-content/70 mt-2">Welcome back, {{auth.CurrentUser.Name}}!</p>
+      </div>
+      
+      <!-- My Repositories Card -->
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body" hx-boost="true">
           <div class="flex items-center justify-between mb-4">
             <h2 class="card-title">My Repositories</h2>
-            <a href="{{host}}/repos" class="link link-primary text-sm" hx-boost="true">View all →</a>
+            <a href="{{host}}/repos" class="btn btn-ghost btn-sm text-info">
+              View all
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
           </div>
           {{template "home-repo-list.html" .}}
         </div>
       </div>
     </div>
 
-    <!-- Sidebar -->
+    <!-- Right Column: Quick Actions + Recent Activity -->
     <div class="space-y-6">
-      {{template "home-quick-actions.html" .}}
+      {{if auth.CurrentUser.IsAdmin}}
+      <!-- Quick Actions Card (Admin Only) -->
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body" hx-boost="true">
+          <h3 class="card-title text-lg">Quick Actions</h3>
+          <div class="flex flex-col gap-2">
+            <button class="btn btn-primary" onclick="create_repo_modal.showModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              New Repository
+            </button>
+            <a href="{{host}}/coder/?folder=/home/coder" target="_blank" class="btn btn-outline">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              Open Coder IDE
+            </a>
+            
+            <div class="divider my-2"></div>
+            
+            <a href="{{host}}/settings/profile" class="btn btn-outline btn-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Public Profile
+            </a>
+            <a href="{{host}}/settings/monitoring" class="btn btn-outline btn-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              System Monitoring
+            </a>
+          </div>
+        </div>
+      </div>
+      {{end}}
+      
+      <!-- Recent Activity (visible to all) -->
       {{template "home-recent-activity.html" .}}
     </div>
   </div>
 </div>
 
-<!-- Create Repository Modal -->
-<dialog id="create_repo_modal" class="modal">
-  <div class="modal-box">
-    <h3 class="text-2xl font-bold mb-6">Create New Repository</h3>
-    <form hx-post="{{host}}/repos/create" hx-target="#main-content" hx-swap="outerHTML" class="flex flex-col gap-2">
-      <!-- Repository Name Input -->
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">Repository Name</span>
-          <span class="label-text-alt text-xs">Required</span>
-        </div>
-        <input type="text" name="name" class="input input-bordered w-full"
-               placeholder="my-awesome-project"
-               pattern="[a-zA-Z0-9][a-zA-Z0-9-_]{0,38}[a-zA-Z0-9]"
-               title="Repository name must be 2-40 characters, start and end with alphanumeric, and can contain hyphens and underscores"
-               required />
-      </label>
-
-      <!-- Visibility Select -->
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">Visibility</span>
-          <span class="label-text-alt text-xs">Who can see this repository</span>
-        </div>
-        <select name="visibility" class="select select-bordered w-full">
-          <option value="private" selected>Private - Only you can access</option>
-          <option value="public">Public - Anyone can view</option>
-        </select>
-      </label>
-
-      <!-- Modal Actions -->
-      <div class="modal-action mt-4">
-        <button type="submit" class="btn btn-primary">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-          </svg>
-          Create Repository
-        </button>
-        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
-      </div>
-    </form>
-  </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>close</button>
-  </form>
-</dialog>
+<!-- Include Shared Create Repository Modal -->
+{{template "create-repo-modal.html" .}}

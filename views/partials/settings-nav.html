@@ -22,6 +22,17 @@
             Public Profile
           </a>
         </li>
+        {{if auth.CurrentUser.IsAdmin}}
+        <li {{if path_eq "settings" "monitoring" }}class="bordered" {{end}}>
+          <a href="{{host}}/settings/monitoring"
+             {{if path_eq "settings" "monitoring" }}class="active bg-primary text-primary-content" {{end}}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            System Monitoring
+          </a>
+        </li>
+        {{end}}
       </ul>
     </div>
   </div>
@@ -54,6 +65,21 @@
           <p class="font-semibold text-info">Profile Preview</p>
           <p class="text-base-content/70 mt-1">Your profile is visible on the homepage when users aren't signed in.</p>
           <a href="{{host}}/" target="_blank" class="link link-primary text-xs mt-2 inline-block">View Public Homepage →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{else if path_eq "settings" "monitoring"}}
+  <!-- Monitoring Info Card -->
+  <div class="card bg-info/10 border border-info/20 mt-4">
+    <div class="card-body p-4">
+      <div class="flex gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-info shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <div class="text-sm">
+          <p class="font-semibold text-info">Real-time Monitoring</p>
+          <p class="text-base-content/70 mt-1">Monitor CPU, memory, disk usage, and Docker containers. Data refreshes automatically every 2-5 seconds.</p>
         </div>
       </div>
     </div>

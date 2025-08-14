@@ -22,9 +22,12 @@ type HomeController struct {
 func (c *HomeController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
+	auth := app.Use("auth").(*authentication.Controller)
+	
 	http.Handle("GET /{$}", app.ProtectFunc(c.homePage, nil))
 	http.Handle("GET /signin", app.ProtectFunc(c.signinPage, nil))
 	http.Handle("GET /signup", app.ProtectFunc(c.signupPage, nil))
+	http.Handle("GET /activities", app.Serve("activities.html", auth.Required))
 }
 
 // Handle is called when each request is handled
@@ -136,8 +139,33 @@ func (c *HomeController) RecentActivity() ([]*models.Activity, error) {
 		return nil, nil
 	}
 
-	// Get recent activities for the current user
-	return models.Activities.Search("WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 10", user.ID)
+	// Get recent activities for the current user (limited to 5 for dashboard)
+	return models.Activities.Search("WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 5", user.ID)
+}
+
+// AllActivities returns all activities for the activities page
+func (c *HomeController) AllActivities() ([]*models.Activity, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all activities for the current user (limited to 100 for performance)
+	return models.Activities.Search("WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 100", user.ID)
+}
+
+// ActiveWorkspaces returns the count of active workspaces (admin only)
+func (c *HomeController) ActiveWorkspaces() int {
+	// This is a placeholder - implement actual workspace counting
+	return 0
+}
+
+// RecentActionsCount returns the count of recent CI/CD actions (admin only)
+func (c *HomeController) RecentActionsCount() int {
+	// Count actions from the last 24 hours
+	actions, _ := models.ActionRuns.Search("WHERE CreatedAt > datetime('now', '-1 day')")
+	return len(actions)
 }
 
 // PublicActivity returns recent public activities for the homepage

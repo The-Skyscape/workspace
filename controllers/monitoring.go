@@ -32,8 +32,8 @@ func (m *MonitoringController) Setup(app *application.App) {
 	// Start collecting statistics on startup
 	m.collector.Start()
 
-	// Live monitoring dashboard
-	http.Handle("GET /monitoring", app.Serve("monitoring.html", auth.Required))
+	// Live monitoring dashboard (now part of settings)
+	http.Handle("GET /settings/monitoring", app.Serve("settings-monitoring.html", auth.Required))
 	
 	// API endpoints for live updates
 	http.Handle("GET /monitoring/stats", app.ProtectFunc(m.getCurrentStats, auth.Required))

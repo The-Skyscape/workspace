@@ -1,142 +1,88 @@
 {{template "layout/start"}}
-<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0 mb-8">
-  <div>
-    <h1 class="text-2xl sm:text-3xl font-bold">Repositories</h1>
-    <p class="text-base-content/70">Manage your Git repositories and code projects</p>
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold">Repositories</h1>
+      <p class="text-base-content/70 mt-2">Manage your Git repositories and code projects</p>
+    </div>
+    {{if auth.CurrentUser.IsAdmin}}
+    <button class="btn btn-primary mt-4 sm:mt-0" onclick="create_repo_modal.showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+      New Repository
+    </button>
+    {{end}}
   </div>
-  <button class="btn btn-primary btn-sm sm:btn-md" onclick="create_repo_modal.showModal()">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-    </svg>
-    <span class="hidden sm:inline">New Repository</span>
-    <span class="sm:hidden">New Repo</span>
-  </button>
-</div>
 
-{{range home.UserRepos}}
-<div class="card bg-base-100 shadow-lg border border-base-300 mb-4 hover:shadow-xl hover:border-primary/30 transition-all">
-  <div class="card-body">
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-      <div class="flex items-center space-x-3 min-w-0 flex-1">
-        <div class="avatar placeholder avatar-placeholder flex-shrink-0">
-          <div class="bg-primary text-primary-content rounded w-10 h-10 sm:w-12 sm:h-12">
-            <span class="text-xs sm:text-sm font-bold">{{printf "%.2s" .Name}}</span>
-          </div>
-        </div>
-        <div class="min-w-0 flex-1">
-          <h2 class="card-title text-lg sm:text-xl truncate">
-            <a href="{{host}}/repos/{{.ID}}" class="link link-hover" hx-boost="true">{{.Name}}</a>
-          </h2>
-          <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0 text-sm text-base-content/70">
-            <div class="flex items-center space-x-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span>{{.Visibility}}</span>
-            </div>
-            <div class="flex items-center space-x-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span class="hidden sm:inline">Updated {{.UpdatedAt.Format "Jan 2, 2006"}}</span>
-              <span class="sm:hidden">{{.UpdatedAt.Format "Jan 2"}}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-start lg:justify-end space-x-2 lg:space-x-2">
-        <a href="{{host}}/repos/{{.ID}}" class="btn btn-ghost btn-sm lg:btn-sm" hx-boost="true">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-          <span class="hidden sm:inline">View</span>
-        </a>
-        <div class="dropdown dropdown-end">
-          <button class="btn btn-ghost btn-sm" tabindex="0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+  <!-- Search and Filters -->
+  <div class="card bg-base-100 shadow-sm border border-base-300 mb-6">
+    <div class="card-body p-4">
+      <div class="flex flex-col lg:flex-row gap-4">
+        <!-- Search Input -->
+        <div class="flex-1">
+          <div class="relative">
+            <input type="text" 
+                   id="repo-search" 
+                   placeholder="Search repositories..." 
+                   class="input input-bordered w-full pl-10"
+                   hx-get="{{host}}/repos/search"
+                   hx-trigger="keyup changed delay:300ms, search"
+                   hx-target="#repos-list"
+                   hx-include="#visibility-filter"
+                   name="q">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
-          <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-48" hx-boost="true">
-            <li><a href="{{host}}/repos/{{.ID}}">View Repository</a></li>
-            <li><a href="{{host}}/repos/{{.ID}}/issues">Issues</a></li>
-            <li><a href="{{host}}/repos/{{.ID}}/prs">Pull Requests</a></li>
-            <li><a href="{{host}}/repos/{{.ID}}/actions">Actions</a></li>
-            <li class="menu-title">Danger Zone</li>
-            <li><a class="text-error">Delete Repository</a></li>
-          </ul>
+            <button class="btn btn-ghost btn-sm absolute right-1 top-1/2 transform -translate-y-1/2" 
+                    onclick="document.getElementById('repo-search').value=''; htmx.trigger('#repo-search', 'search')">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="tabs tabs-boxed">
+          <input type="radio" name="filter" id="visibility-filter" value="all" class="hidden" checked
+                 hx-get="{{host}}/repos/search"
+                 hx-trigger="change"
+                 hx-target="#repos-list"
+                 hx-include="#repo-search">
+          <label for="filter-all" class="tab tab-active" onclick="document.querySelector('[name=filter][value=all]').checked=true; htmx.trigger('[name=filter][value=all]', 'change')">
+            All
+          </label>
+          
+          <input type="radio" name="filter" value="public" class="hidden"
+                 hx-get="{{host}}/repos/search"
+                 hx-trigger="change"
+                 hx-target="#repos-list"
+                 hx-include="#repo-search">
+          <label for="filter-public" class="tab" onclick="document.querySelector('[name=filter][value=public]').checked=true; htmx.trigger('[name=filter][value=public]', 'change')">
+            Public
+          </label>
+          
+          <input type="radio" name="filter" value="private" class="hidden"
+                 hx-get="{{host}}/repos/search"
+                 hx-trigger="change"
+                 hx-target="#repos-list"
+                 hx-include="#repo-search">
+          <label for="filter-private" class="tab" onclick="document.querySelector('[name=filter][value=private]').checked=true; htmx.trigger('[name=filter][value=private]', 'change')">
+            Private
+          </label>
         </div>
       </div>
     </div>
   </div>
-</div>
-{{else}}
-<div class="text-center py-16">
-  <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-6 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-  <h2 class="text-2xl font-bold mb-4">No repositories yet</h2>
-  <p class="text-base-content/70 mb-6">Create your first repository to start coding with Skyscape Workspace</p>
-  <button class="btn btn-primary btn-lg" onclick="create_repo_modal.showModal()">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-    </svg>
-    Create Your First Repository
-  </button>
-</div>
-{{end}}
 
-<!-- Create Repository Modal -->
-<dialog id="create_repo_modal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg mb-4">Create New Repository</h3>
-    <form hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Repository Name</span>
-          </label>
-          <input type="text" name="name" placeholder="my-awesome-project" class="input input-bordered" required>
-          <label class="label">
-            <span class="label-text-alt">Use only letters, numbers, and hyphens</span>
-          </label>
-        </div>
-
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Description</span>
-          </label>
-          <textarea name="description" placeholder="A brief description of your project" class="textarea textarea-bordered"></textarea>
-        </div>
-
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">Visibility</span>
-          </label>
-          <select name="visibility" class="select select-bordered">
-            <option value="private">Private - Only you can see this repository</option>
-            <option value="public">Public - Anyone can see this repository</option>
-          </select>
-        </div>
-
-        <div class="form-control">
-          <label class="cursor-pointer label">
-            <span class="label-text">Initialize with README</span>
-            <input type="checkbox" name="init_readme" checked="checked" class="checkbox">
-          </label>
-        </div>
-
-        <div class="modal-action">
-          <button type="submit" class="btn btn-primary">Create Repository</button>
-          <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
-        </div>
-      </div>
-    </form>
+  <!-- Repository List -->
+  <div id="repos-list">
+    {{template "repos-list-partial.html" home.UserRepos}}
   </div>
-  <form method="dialog" class="modal-backdrop">
-    <button>close</button>
-  </form>
-</dialog>
+</div>
+
+<!-- Include Shared Create Repository Modal -->
+{{template "create-repo-modal.html" .}}
 {{template "layout/end"}}
