@@ -65,7 +65,9 @@
     <div class="card-body">
       <h2 class="card-title">Docker Containers</h2>
       <div id="containers-table" hx-get="{{host}}/monitoring/partial/containers" hx-trigger="every 3s" hx-swap="innerHTML">
-        {{template "monitoring-containers.html" .}}
+        {{with monitoring.GetCurrentStats}}
+        {{template "monitoring-containers.html" .Containers}}
+        {{end}}
       </div>
     </div>
   </div>

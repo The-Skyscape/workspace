@@ -1,5 +1,4 @@
-{{with monitoring.GetCurrentStats}}
-{{if .Containers}}
+{{if .}}
 <div class="overflow-x-auto">
   <table class="table table-zebra table-sm">
     <thead>
@@ -13,7 +12,7 @@
       </tr>
     </thead>
     <tbody>
-      {{range .Containers}}
+      {{range .}}
       <tr>
         <td class="font-mono text-xs">{{.Name}}</td>
         <td>
@@ -49,5 +48,4 @@
   </svg>
   <p>No Docker containers running</p>
 </div>
-{{end}}
 {{end}}

@@ -18,6 +18,16 @@
 
     <!-- Main Content -->
     <div class="lg:col-span-2">
+      {{if not auth.CurrentUser.IsAdmin}}
+      <!-- Read-only notice for non-admins -->
+      <div class="alert alert-info mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>This is a read-only view. Contact an administrator to update your profile.</span>
+      </div>
+      {{end}}
+      
       {{with settings.GetProfile}}
       <div class="space-y-6">
         
@@ -49,9 +59,17 @@
                 <input type="text" name="title" value="{{.Title}}" 
                        class="grow" 
                        placeholder="Full Stack Developer, DevOps Engineer, etc."
+                       {{if auth.CurrentUser.IsAdmin}}
+                       {{if auth.CurrentUser.IsAdmin}}
                        hx-post="{{host}}/settings/profile"
                        hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none" />
+                       hx-swap="none"
+                       {{else}}
+                       disabled
+                       {{end}}
+                       {{else}}
+                       disabled
+                       {{end}} />
               </label>
               <div class="text-xs text-base-content/60 mt-1">Displayed below your name on the public profile</div>
             </div>
@@ -109,9 +127,13 @@
                 <input type="url" name="website" value="{{.Website}}" 
                        class="grow font-mono" 
                        placeholder="https://yourwebsite.com"
+                       {{if auth.CurrentUser.IsAdmin}}
                        hx-post="{{host}}/settings/profile"
                        hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none" />
+                       hx-swap="none"
+                       {{else}}
+                       disabled
+                       {{end}} />
               </label>
             </div>
 
@@ -129,9 +151,13 @@
                 <input type="text" name="github" value="{{.GitHub}}" 
                        class="grow font-mono" 
                        placeholder="yourusername"
+                       {{if auth.CurrentUser.IsAdmin}}
                        hx-post="{{host}}/settings/profile"
                        hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none" />
+                       hx-swap="none"
+                       {{else}}
+                       disabled
+                       {{end}} />
               </label>
             </div>
 
@@ -149,9 +175,13 @@
                 <input type="text" name="twitter" value="{{.Twitter}}" 
                        class="grow font-mono" 
                        placeholder="yourhandle"
+                       {{if auth.CurrentUser.IsAdmin}}
                        hx-post="{{host}}/settings/profile"
                        hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none" />
+                       hx-swap="none"
+                       {{else}}
+                       disabled
+                       {{end}} />
               </label>
             </div>
 
@@ -169,9 +199,13 @@
                 <input type="text" name="linkedin" value="{{.LinkedIn}}" 
                        class="grow font-mono" 
                        placeholder="yourprofile"
+                       {{if auth.CurrentUser.IsAdmin}}
                        hx-post="{{host}}/settings/profile"
                        hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none" />
+                       hx-swap="none"
+                       {{else}}
+                       disabled
+                       {{end}} />
               </label>
             </div>
           </div>
@@ -230,6 +264,7 @@
           </div>
         </fieldset>
 
+        {{if auth.CurrentUser.IsAdmin}}
         <!-- Auto-save Info -->
         <div class="text-sm text-base-content/60 flex items-center gap-2 justify-end">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -237,6 +272,7 @@
           </svg>
           Profile settings auto-save as you type
         </div>
+        {{end}}
       </div>
       {{else}}
       <div class="alert alert-error">

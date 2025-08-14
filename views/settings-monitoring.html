@@ -75,8 +75,65 @@
       <div class="card bg-base-100 shadow-sm border border-base-300 mb-6">
         <div class="card-body">
           <h2 class="card-title">Docker Containers</h2>
-          <div id="containers-table" hx-get="{{host}}/monitoring/partial/containers" hx-trigger="every 3s" hx-swap="innerHTML">
-            {{template "monitoring-containers.html" .}}
+          <div id="containers-table" hx-get="{{host}}/monitoring/partial/containers" hx-trigger="every 5s" hx-swap="innerHTML">
+            {{with monitoring.GetContainers}}
+            {{if .}}
+            <div class="overflow-x-auto">
+              <table class="table table-zebra table-sm">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>CPU</th>
+                    <th>Memory</th>
+                    <th>Network I/O</th>
+                    <th>Block I/O</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{range .}}
+                  <tr>
+                    <td class="font-mono text-xs">{{.Name}}</td>
+                    <td>
+                      {{if eq .Status "running"}}
+                      <span class="badge badge-success badge-sm">Running</span>
+                      {{else if eq .Status "exited"}}
+                      <span class="badge badge-error badge-sm">Exited</span>
+                      {{else}}
+                      <span class="badge badge-warning badge-sm">{{.Status}}</span>
+                      {{end}}
+                    </td>
+                    <td class="font-mono text-xs">
+                      <span class="{{if gt .CPUPercent 80.0}}text-error{{else if gt .CPUPercent 50.0}}text-warning{{end}}">
+                        {{printf "%.1f%%" .CPUPercent}}
+                      </span>
+                    </td>
+                    <td class="font-mono text-xs">
+                      <span class="{{if gt .MemPercent 90.0}}text-error{{else if gt .MemPercent 70.0}}text-warning{{end}}">
+                        {{monitoring.FormatBytes .MemUsage}} ({{printf "%.1f%%" .MemPercent}})
+                      </span>
+                    </td>
+                    <td class="font-mono text-xs">{{.NetIO}}</td>
+                    <td class="font-mono text-xs">{{.BlockIO}}</td>
+                  </tr>
+                  {{end}}
+                </tbody>
+              </table>
+            </div>
+            {{else}}
+            <div class="text-center py-8 text-base-content/50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              <p>No Docker containers running</p>
+            </div>
+            {{end}}
+            {{else}}
+            <div class="text-center py-8 text-base-content/50">
+              <span class="loading loading-spinner loading-lg"></span>
+              <p class="text-sm mt-2">Loading container data...</p>
+            </div>
+            {{end}}
           </div>
         </div>
       </div>

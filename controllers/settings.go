@@ -31,14 +31,27 @@ func (s *SettingsController) Setup(app *application.App) {
 		app.SetTheme(settings.DefaultTheme)
 	}
 
+	// Create admin-only access check that redirects to profile
+	adminRequired := func(app *application.App, r *http.Request) string {
+		user, _, err := auth.Authenticate(r)
+		if err != nil {
+			return "/signin"
+		}
+		if !user.IsAdmin {
+			// Non-admins get redirected to profile page
+			return "/settings/profile"
+		}
+		return ""
+	}
+
 	// Settings pages (admin only)
-	http.Handle("GET /settings", app.Serve("settings.html", auth.Required))
-	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, auth.Required))
-	http.Handle("POST /settings/theme", app.ProtectFunc(s.updateTheme, auth.Required))
+	http.Handle("GET /settings", app.Serve("settings.html", adminRequired))
+	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, adminRequired))
+	http.Handle("POST /settings/theme", app.ProtectFunc(s.updateTheme, adminRequired))
 	
-	// Profile settings
+	// Profile settings - GET is for all authenticated users, POST is admin only
 	http.Handle("GET /settings/profile", app.Serve("settings-profile.html", auth.Required))
-	http.Handle("POST /settings/profile", app.ProtectFunc(s.updateProfile, auth.Required))
+	http.Handle("POST /settings/profile", app.ProtectFunc(s.updateProfile, adminRequired))
 }
 
 func (s *SettingsController) Handle(req *http.Request) application.Controller {

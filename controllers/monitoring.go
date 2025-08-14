@@ -1,9 +1,14 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"os/exec"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -15,12 +20,20 @@ import (
 type MonitoringController struct {
 	application.BaseController
 	collector *monitoring.Collector
+	
+	// Container monitoring state
+	containers             []monitoring.ContainerStats
+	containersMu           sync.RWMutex
+	containerUpdateInterval time.Duration
+	stopContainerMonitor   chan struct{}
 }
 
 // Monitoring is the factory function for the monitoring controller
 func Monitoring() (string, *MonitoringController) {
 	return "monitoring", &MonitoringController{
-		collector: monitoring.NewCollector(true, 100), // Include containers, keep 100 history items
+		collector:               monitoring.NewCollector(false, 100), // Don't include containers in main collector
+		containerUpdateInterval: 15 * time.Second,
+		stopContainerMonitor:    make(chan struct{}),
 	}
 }
 
@@ -31,9 +44,25 @@ func (m *MonitoringController) Setup(app *application.App) {
 
 	// Start collecting statistics on startup
 	m.collector.Start()
+	
+	// Start background container monitoring
+	m.startContainerMonitor()
 
-	// Live monitoring dashboard (now part of settings)
-	http.Handle("GET /settings/monitoring", app.Serve("settings-monitoring.html", auth.Required))
+	// Create admin-only access check that redirects to profile
+	adminRequired := func(app *application.App, r *http.Request) string {
+		user, _, err := auth.Authenticate(r)
+		if err != nil {
+			return "/signin"
+		}
+		if !user.IsAdmin {
+			// Non-admins get redirected to profile page
+			return "/settings/profile"
+		}
+		return ""
+	}
+
+	// Live monitoring dashboard (now part of settings, admin only)
+	http.Handle("GET /settings/monitoring", app.Serve("settings-monitoring.html", adminRequired))
 	
 	// API endpoints for live updates
 	http.Handle("GET /monitoring/stats", app.ProtectFunc(m.getCurrentStats, auth.Required))
@@ -187,15 +216,10 @@ func (m *MonitoringController) getDiskPartial(w http.ResponseWriter, r *http.Req
 
 // getContainersPartial returns container stats as HTML partial
 func (m *MonitoringController) getContainersPartial(w http.ResponseWriter, r *http.Request) {
-	stats, err := m.collector.GetCurrent()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	m.Render(w, r, "monitoring-containers.html", map[string]interface{}{
-		"Containers": stats.Containers,
-	})
+	// Use cached container data for instant response
+	containers := m.GetContainers()
+	
+	m.Render(w, r, "monitoring-containers.html", containers)
 }
 
 // getAlertsPartial returns alerts as HTML partial
@@ -215,4 +239,145 @@ func (m *MonitoringController) FormatBytes(bytes uint64) string {
 // FormatPercent formats percentage for display
 func (m *MonitoringController) FormatPercent(percent float64) string {
 	return monitoring.FormatPercent(percent)
+}
+
+// GetContainers returns cached container stats for templates
+func (m *MonitoringController) GetContainers() []monitoring.ContainerStats {
+	m.containersMu.RLock()
+	defer m.containersMu.RUnlock()
+	
+	// Return a copy to avoid race conditions
+	result := make([]monitoring.ContainerStats, len(m.containers))
+	copy(result, m.containers)
+	return result
+}
+
+// startContainerMonitor starts the background container monitoring goroutine
+func (m *MonitoringController) startContainerMonitor() {
+	go func() {
+		// Initial update
+		m.updateContainers()
+		
+		ticker := time.NewTicker(m.containerUpdateInterval)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				m.updateContainers()
+			case <-m.stopContainerMonitor:
+				return
+			}
+		}
+	}()
+}
+
+// updateContainers fetches Docker container stats and updates cached state
+func (m *MonitoringController) updateContainers() {
+	// Check if Docker is available
+	if _, err := exec.LookPath("docker"); err != nil {
+		log.Println("Docker not found, skipping container monitoring")
+		return
+	}
+	
+	// Use longer timeout for Docker operations
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	// Get container stats using docker stats
+	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream", "--format",
+		"{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}")
+	
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Failed to get Docker stats: %v", err)
+		return
+	}
+	
+	var containers []monitoring.ContainerStats
+	lines := strings.Split(string(output), "\n")
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		parts := strings.Split(line, "|")
+		if len(parts) < 7 {
+			continue
+		}
+		
+		// Parse CPU percentage
+		cpuStr := strings.TrimSuffix(parts[2], "%")
+		cpuPercent, _ := strconv.ParseFloat(cpuStr, 64)
+		
+		// Parse memory percentage
+		memStr := strings.TrimSuffix(parts[4], "%")
+		memPercent, _ := strconv.ParseFloat(memStr, 64)
+		
+		// Parse memory usage (extract bytes from string like "1.5GiB / 2GiB")
+		memUsageParts := strings.Split(parts[3], " / ")
+		memUsage := uint64(0)
+		if len(memUsageParts) > 0 {
+			memUsage = parseMemoryString(memUsageParts[0])
+		}
+		
+		// Determine status (simplified - in real implementation would use docker ps)
+		status := "running"
+		
+		container := monitoring.ContainerStats{
+			ID:         parts[0][:12], // First 12 chars of container ID
+			Name:       parts[1],
+			Status:     status,
+			CPUPercent: cpuPercent,
+			MemUsage:   memUsage,
+			MemPercent: memPercent,
+			NetIO:      parts[5],
+			BlockIO:    parts[6],
+		}
+		
+		containers = append(containers, container)
+	}
+	
+	// Update cached state
+	m.containersMu.Lock()
+	m.containers = containers
+	m.containersMu.Unlock()
+	
+	log.Printf("Updated container stats: %d containers found", len(containers))
+}
+
+// parseMemoryString converts memory strings like "1.5GiB" to bytes
+func parseMemoryString(s string) uint64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	
+	// Remove unit and parse number
+	var value float64
+	var unit string
+	
+	for i, r := range s {
+		if (r < '0' || r > '9') && r != '.' {
+			value, _ = strconv.ParseFloat(s[:i], 64)
+			unit = s[i:]
+			break
+		}
+	}
+	
+	// Convert to bytes based on unit
+	switch strings.ToLower(strings.TrimSpace(unit)) {
+	case "b":
+		return uint64(value)
+	case "kib", "kb":
+		return uint64(value * 1024)
+	case "mib", "mb":
+		return uint64(value * 1024 * 1024)
+	case "gib", "gb":
+		return uint64(value * 1024 * 1024 * 1024)
+	default:
+		return uint64(value)
+	}
 }
