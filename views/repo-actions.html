@@ -6,18 +6,21 @@
 
 {{template "repo-tabs.html" .}}
 
-<div class="flex items-center justify-between mb-6">
-  <h2 class="text-2xl font-bold">Automated Actions</h2>
-  <button class="btn btn-primary" onclick="create_action_modal.showModal()">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-    Create Action
-  </button>
-</div>
+<!-- Actions Container -->
+<div class="container mx-auto px-4 py-6 max-w-5xl">
+  
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">Automated Actions</h2>
+    <button class="btn btn-primary" onclick="create_action_modal.showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      Create Action
+    </button>
+  </div>
 
-<!-- Actions List -->
-{{with repos.RepoActions}}
+  <!-- Actions List -->
+{{with actions.RepoActions}}
 {{if .}}
 <div class="space-y-4">
   {{range .}}
@@ -26,7 +29,7 @@
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <div class="flex items-center space-x-3 mb-2">
-            <h3 class="font-semibold text-lg">{{.Title}}</h3>
+            <a href="{{host}}/repos/{{$repo.ID}}/actions/{{.ID}}" class="font-semibold text-lg hover:text-primary transition-colors">{{.Title}}</a>
             <div class="badge badge-outline">{{.Type}}</div>
             {{if eq .Status "active"}}
             <div class="badge badge-success">Active</div>
@@ -61,7 +64,7 @@
           </div>
         </div>
         <div class="flex items-center space-x-2">
-          <button class="btn btn-ghost btn-sm">Edit</button>
+          <a href="{{host}}/repos/{{$repo.ID}}/actions/{{.ID}}" class="btn btn-outline btn-sm">View</a>
           {{if eq .Type "manual"}}
           <button class="btn btn-primary btn-sm"
                   hx-post="{{host}}/repos/{{$repo.ID}}/actions/{{.ID}}/run"
@@ -82,7 +85,8 @@
               </svg>
             </button>
             <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-              <li><a onclick="action_logs_modal_{{.ID}}.showModal()">View Logs</a></li>
+              <li><a href="{{host}}/repos/{{$repo.ID}}/actions/{{.ID}}">View Details</a></li>
+              <li><a>Edit Action</a></li>
               <li><a>{{if eq .Status "active"}}Disable{{else}}Enable{{end}}</a></li>
               <li class="menu-title">Danger Zone</li>
               <li><a class="text-error">Delete Action</a></li>
@@ -117,6 +121,18 @@
             <div class="stat-value text-sm">{{.LastRun.Format "Jan 2, 3:04 PM"}}</div>
           </div>
           {{end}}
+          {{if .SandboxName}}
+          <div class="stat">
+            <div class="stat-title">Sandbox</div>
+            <div class="stat-value text-sm">{{.SandboxName}}</div>
+          </div>
+          {{end}}
+          {{if and .ExitCode (ne .ExitCode 0)}}
+          <div class="stat">
+            <div class="stat-title">Exit Code</div>
+            <div class="stat-value text-sm text-error">{{.ExitCode}}</div>
+          </div>
+          {{end}}
         </div>
         
         <!-- Script -->
@@ -143,6 +159,16 @@
           <span>No execution output available yet.</span>
         </div>
         {{end}}
+        
+        <!-- Artifacts -->
+        <div class="card bg-base-200 shadow" hx-get="{{host}}/repos/{{$repo.ID}}/actions/{{.ID}}/artifacts" hx-trigger="load">
+          <div class="card-body">
+            <h4 class="card-title text-base">Artifacts</h4>
+            <div class="text-sm text-base-content/70">
+              <div class="loading loading-spinner loading-sm"></div> Loading artifacts...
+            </div>
+          </div>
+        </div>
       </div>
       
       <div class="modal-action">
@@ -167,91 +193,106 @@
 </div>
 {{end}}
 {{end}}
+</div>
 
 <!-- Create Action Modal -->
 <dialog id="create_action_modal" class="modal">
-  <div class="modal-box w-11/12">
-    <h3 class="font-bold text-lg mb-4">Create Automated Action</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/actions/create" hx-target="body" hx-swap="outerHTML">
-      <div class="space-y-6">
-        <!-- Basic Information -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">Basic Information</legend>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <input type="text" name="title" placeholder="Deploy to staging" class="input input-bordered" required>
-              <p class="label">Action Name <span class="text-error">*</span></p>
-            </div>
-            <div>
-              <select name="type" class="select select-bordered" required>
-                <option value="">Select trigger type</option>
-                <option value="on_push">On Push to Branch</option>
-                <option value="on_pr">On Pull Request</option>
-                <option value="on_issue">On Issue Created</option>
-                <option value="scheduled">Scheduled (Cron)</option>
-                <option value="manual">Manual Run Only</option>
-              </select>
-              <p class="label">Trigger Type <span class="text-error">*</span></p>
-            </div>
+  <div class="modal-box w-11/12 max-w-4xl">
+    <h3 class="font-bold text-lg mb-4">Create Action</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/actions/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-4">
+      
+      <!-- Basic Information -->
+      <div class="flex flex-col gap-2">
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Action Name</span>
+            <span class="label-text-alt text-xs text-error">Required</span>
           </div>
-          <div>
-            <input type="text" name="description" placeholder="Brief description of what this action does" class="input input-bordered">
-            <p class="label">Description (optional)</p>
+          <input type="text" name="title" class="input input-bordered w-full" 
+                 placeholder="Deploy to staging" required />
+        </label>
+
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Description</span>
+            <span class="label-text-alt text-xs">Optional</span>
           </div>
-        </fieldset>
+          <input type="text" name="description" class="input input-bordered w-full" 
+                 placeholder="Brief description of what this action does" />
+        </label>
+      </div>
 
-        <!-- Trigger Configuration -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">Trigger Configuration</legend>
-          <textarea name="trigger" class="textarea textarea-bordered h-20" placeholder='{"branch": "main", "paths": ["src/**"]}'></textarea>
-          <p class="label">JSON configuration for trigger conditions (optional)</p>
-        </fieldset>
+      <!-- Simplified Configuration -->
+      <div class="flex flex-col gap-2">
+        <input type="hidden" name="type" value="manual" />
+        
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Branch to Run On</span>
+            <span class="label-text-alt text-xs text-error">Required</span>
+          </div>
+          <select name="branch" class="select select-bordered w-full" required>
+            {{range actions.RepoBranches}}
+            <option value="{{.Name}}" {{if .IsDefault}}selected{{end}}>{{.Name}}{{if .IsDefault}} (default){{end}}</option>
+            {{end}}
+          </select>
+          <div class="label">
+            <span class="label-text-alt text-xs">Select which branch the action will run on</span>
+          </div>
+        </label>
 
-        <!-- Script Commands -->
-        <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box">
-          <legend class="fieldset-legend">Script Commands</legend>
-          <textarea name="script" class="textarea textarea-bordered h-32" placeholder="#!/bin/bash
-echo 'Starting build...'
-npm test
-npm run build" required></textarea>
-          <p class="label">Bash script or commands to execute when triggered <span class="text-error">*</span></p>
-        </fieldset>
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Command to Execute</span>
+            <span class="label-text-alt text-xs text-error">Required</span>
+          </div>
+          <textarea name="command" class="textarea textarea-bordered h-24 w-full font-mono text-sm" 
+                    placeholder="npm test
+npm run build
+echo 'Deploy complete!'" required></textarea>
+          <div class="label">
+            <span class="label-text-alt text-xs">Enter commands to run (one per line)</span>
+          </div>
+        </label>
 
-        <!-- Examples Dropdown -->
-        <div class="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" /> 
-          <div class="collapse-title text-sm font-medium">💡 Action Examples</div>
-          <div class="collapse-content text-xs">
-            <div class="space-y-2">
-              <div class="card bg-base-100 p-3">
-                <div class="font-medium">Build & Test on Push</div>
-                <div class="text-base-content/70 mb-2">Type: on_push, Trigger: {"branch": "main"}</div>
-                <pre class="text-xs">#!/bin/bash
-npm install
-npm test
-npm run build</pre>
-              </div>
-              <div class="card bg-base-100 p-3">
-                <div class="font-medium">Auto-merge approved PRs</div>
-                <div class="text-base-content/70 mb-2">Type: on_pr, Trigger: {"status": "approved"}</div>
-                <pre class="text-xs">#!/bin/bash
-gh pr merge $PR_NUMBER --squash</pre>
-              </div>
-              <div class="card bg-base-100 p-3">
-                <div class="font-medium">Daily backup</div>
-                <div class="text-base-content/70 mb-2">Type: scheduled, Trigger: {"cron": "0 2 * * *"}</div>
-                <pre class="text-xs">#!/bin/bash
-tar -czf backup-$(date +%Y%m%d).tar.gz .
-aws s3 cp backup-*.tar.gz s3://backup-bucket/</pre>
-              </div>
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Artifacts to Collect</span>
+            <span class="label-text-alt text-xs">Optional</span>
+          </div>
+          <input type="text" name="artifact_paths" class="input input-bordered w-full" 
+                 placeholder="build.log, dist.tar.gz, test-results.xml" />
+          <div class="label">
+            <span class="label-text-alt text-xs">Comma-separated list of files to save after execution</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Quick Examples -->
+      <div class="collapse collapse-arrow bg-base-200">
+        <input type="checkbox" /> 
+        <div class="collapse-title text-sm font-medium">Examples</div>
+        <div class="collapse-content">
+          <div class="flex flex-col gap-2 text-sm">
+            <div class="card bg-base-100 p-3">
+              <div class="font-medium mb-1">Build & Test</div>
+              <code class="text-xs">npm install && npm test && npm run build</code>
+            </div>
+            <div class="card bg-base-100 p-3">
+              <div class="font-medium mb-1">Python Tests</div>
+              <code class="text-xs">python -m pytest tests/ --cov=src</code>
+            </div>
+            <div class="card bg-base-100 p-3">
+              <div class="font-medium mb-1">Go Build</div>
+              <code class="text-xs">go test ./... && go build -o app</code>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="modal-action">
-          <button type="submit" class="btn btn-primary">Create Action</button>
-          <button type="button" class="btn" onclick="create_action_modal.close()">Cancel</button>
-        </div>
+      <div class="modal-action">
+        <button type="submit" class="btn btn-primary">Create Action</button>
+        <button type="button" class="btn" onclick="create_action_modal.close()">Cancel</button>
       </div>
     </form>
   </div>

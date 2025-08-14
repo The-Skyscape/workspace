@@ -1,0 +1,57 @@
+{{with $action := actions.CurrentAction}}
+{{if .Output}}
+<pre class="bg-base-300 p-6 rounded-lg overflow-x-auto text-base font-mono min-h-[400px] max-h-[600px] overflow-y-auto"><code>{{.Output}}</code></pre>
+
+{{if and .ExitCode (ne .ExitCode 0)}}
+<div class="alert alert-error mt-6 shadow-lg">
+  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  <div>
+    <h3 class="font-bold text-lg">Action Failed</h3>
+    <div class="text-base">Exit code: {{.ExitCode}}</div>
+  </div>
+</div>
+{{else if eq .Status "completed"}}
+<div class="alert alert-success mt-6 shadow-lg">
+  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  <div>
+    <h3 class="font-bold text-lg">Action Completed Successfully</h3>
+    <div class="text-base">All commands executed without errors</div>
+  </div>
+</div>
+{{end}}
+
+{{else if eq .Status "running"}}
+<div class="flex flex-col items-center justify-center py-16">
+  <div class="loading loading-ring loading-lg text-primary mb-6"></div>
+  <h3 class="text-xl font-semibold mb-2">Action is Running</h3>
+  <p class="text-base text-base-content/60">Logs will appear here as they are generated</p>
+  <p class="text-sm text-base-content/50 mt-2">This page will automatically refresh every 2 seconds</p>
+</div>
+
+{{else}}
+<div class="alert shadow-lg">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-7 h-7">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+  </svg>
+  <div>
+    <h3 class="font-bold text-lg">No Logs Available</h3>
+    <div class="text-base">Run the action to generate execution logs</div>
+  </div>
+</div>
+{{end}}
+
+{{else}}
+<div class="alert alert-error shadow-lg">
+  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  <div>
+    <h3 class="font-bold text-lg">Error</h3>
+    <div class="text-base">Action not found</div>
+  </div>
+</div>
+{{end}}

@@ -23,6 +23,7 @@
                     <li><a href="{{host}}/repos" {{if path_eq "repos"}}class="active"{{end}}>Repositories</a></li>
                     {{if auth.CurrentUser.IsAdmin}}
                     <li class="menu-title"><span>Admin</span></li>
+                    <li><a href="{{host}}/sandboxes" {{if path_eq "sandboxes"}}class="active"{{end}}>Sandboxes</a></li>
                     <li><a href="{{host}}/monitoring" {{if path_eq "monitoring"}}class="active"{{end}}>Monitoring</a></li>
                     <li><a href="{{host}}/settings" {{if path_eq "settings"}}class="active"{{end}}>Settings</a></li>
                     {{end}}
@@ -61,6 +62,7 @@
                         <li><span class="text-sm opacity-70 px-4 py-2">{{auth.CurrentUser.Name}}</span></li>
                         {{if auth.CurrentUser.IsAdmin}}
                         <li class="menu-title"><span>Admin</span></li>
+                        <li><a href="{{host}}/sandboxes" {{if path_eq "sandboxes"}}class="active"{{end}}>Sandboxes</a></li>
                         <li><a href="{{host}}/monitoring" {{if path_eq "monitoring"}}class="active"{{end}}>Monitoring</a></li>
                         <li><a href="{{host}}/settings" {{if path_eq "settings"}}class="active"{{end}}>Settings</a></li>
                         <div class="divider my-0"></div>

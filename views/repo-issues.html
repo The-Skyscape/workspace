@@ -50,7 +50,7 @@
 
   <!-- Issues List Container -->
   <div id="issues-list">
-    {{$issues := repos.RepoIssues}}
+    {{$issues := issues.RepoIssues}}
     {{if $issues}}
   <div class="space-y-4">
     {{range $issues}}
@@ -122,12 +122,12 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
       </svg>
-      {{if repos.SearchQuery}}
-        <p class="text-lg text-base-content/70">No issues found matching "{{repos.SearchQuery}}"</p>
-        {{if not repos.IncludeClosed}}
+      {{if issues.SearchQuery}}
+        <p class="text-lg text-base-content/70">No issues found matching "{{issues.SearchQuery}}"</p>
+        {{if not issues.IncludeClosed}}
         <p class="text-sm text-base-content/50 mt-2">Try including closed issues in your search</p>
         {{end}}
-      {{else if not repos.IncludeClosed}}
+      {{else if not issues.IncludeClosed}}
         <p class="text-lg text-base-content/70">No open issues</p>
         <p class="text-sm text-base-content/50 mt-2">All issues have been resolved!</p>
       {{else}}

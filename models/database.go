@@ -18,12 +18,14 @@ var (
 	AccessTokens = database.Manage(DB, new(AccessToken))
 
 	// Application-specific collections
-	Issues       = database.Manage(DB, new(Issue))
-	PullRequests = database.Manage(DB, new(PullRequest))
-	Comments     = database.Manage(DB, new(Comment))
-	Permissions  = database.Manage(DB, new(Permission))
-	Actions      = database.Manage(DB, new(Action))
-	Activities   = database.Manage(DB, new(Activity))
+	Issues          = database.Manage(DB, new(Issue))
+	PullRequests    = database.Manage(DB, new(PullRequest))
+	Comments        = database.Manage(DB, new(Comment))
+	Permissions     = database.Manage(DB, new(Permission))
+	Actions         = database.Manage(DB, new(Action))
+	ActionRuns      = database.Manage(DB, new(ActionRun))
+	ActionArtifacts = database.Manage(DB, new(ActionArtifact))
+	Activities      = database.Manage(DB, new(Activity))
 	
 	// Global settings
 	GlobalSettings = database.Manage(DB, new(Settings))

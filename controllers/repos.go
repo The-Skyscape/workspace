@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
 	"workspace/models"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -24,264 +25,222 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 )
 
-// Repos is a factory function with the prefix and instance
+// Repos controller prefix
 func Repos() (string, *ReposController) {
 	return "repos", &ReposController{}
 }
 
-// ReposController handles repository management
+// ReposController handles repository-related operations
 type ReposController struct {
 	application.BaseController
 }
 
-// Setup is called when the application is started
+// Setup registers routes
 func (c *ReposController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-
 	auth := app.Use("auth").(*authentication.Controller)
-	http.Handle("GET /repos", app.Serve("repos-list.html", auth.Required))
-	http.Handle("GET /repos/{id}", app.Serve("repo-view.html", auth.Required))
-	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", auth.Required))
-	http.Handle("GET /repos/{id}/prs", app.Serve("repo-prs.html", auth.Required))
-	http.Handle("GET /repos/{id}/actions", app.Serve("repo-actions.html", auth.Required))
-	http.Handle("GET /repos/{id}/integrations", app.Serve("repo-integrations.html", auth.Required))
-	http.Handle("GET /repos/{id}/settings", app.Serve("repo-settings.html", auth.Required))
+
+	// Repository browsing/reading
+	http.Handle("GET /repos", app.Serve("repos.html", auth.Required))
+	http.Handle("GET /repos/{id}", app.Serve("repo-files.html", auth.Required))
+	http.Handle("GET /repos/{id}/activity", app.Serve("repo-activity.html", auth.Required))
 	http.Handle("GET /repos/{id}/files", app.Serve("repo-files.html", auth.Required))
-	http.Handle("GET /repos/{id}/files/{path...}", app.ProtectFunc(c.fileView, auth.Required))
+	http.Handle("GET /repos/{id}/files/{path...}", app.Serve("repo-file-view.html", auth.Required))
 	http.Handle("GET /repos/{id}/edit/{path...}", app.Serve("repo-file-edit.html", auth.Required))
 	http.Handle("GET /repos/{id}/commits", app.Serve("repo-commits.html", auth.Required))
 	http.Handle("GET /repos/{id}/commits/{hash}/diff", app.Serve("repo-commit-diff.html", auth.Required))
-	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", auth.Required))
-	http.Handle("GET /repos/{id}/activity", app.Serve("repo-activity.html", auth.Required))
-	// Search functionality removed - not needed
+	http.Handle("GET /repos/{id}/settings", app.Serve("repo-settings.html", auth.Required))
 
-	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepo, auth.Required))
-	http.Handle("POST /repos/{id}/update", app.ProtectFunc(c.updateRepository, auth.Required))
+	// Repository management
+	http.Handle("POST /repos/create", app.ProtectFunc(c.createRepository, auth.Required))
+	http.Handle("POST /repos/{id}/settings/update", app.ProtectFunc(c.updateRepository, auth.Required))
 	http.Handle("POST /repos/{id}/delete", app.ProtectFunc(c.deleteRepository, auth.Required))
-	http.Handle("POST /repos/{id}/github/setup", app.ProtectFunc(c.setupGitHub, auth.Required))
-	http.Handle("POST /repos/{id}/github/sync", app.ProtectFunc(c.syncGitHub, auth.Required))
-	http.Handle("POST /repos/{id}/github/disconnect", app.ProtectFunc(c.disconnectGitHub, auth.Required))
-	http.Handle("POST /repos/{id}/actions/create", app.ProtectFunc(c.createAction, auth.Required))
-	http.Handle("POST /repos/{id}/actions/{actionID}/run", app.ProtectFunc(c.runAction, auth.Required))
-	http.Handle("GET /repos/{id}/issues/search", app.ProtectFunc(c.searchIssues, auth.Required))
-	http.Handle("GET /repos/{id}/prs/search", app.ProtectFunc(c.searchPRs, auth.Required))
-	http.Handle("POST /repos/{id}/issues/create", app.ProtectFunc(c.createIssue, auth.Required))
-	http.Handle("POST /repos/{id}/issues/{issueID}/edit", app.ProtectFunc(c.editIssue, auth.Required))
-	http.Handle("POST /repos/{id}/issues/{issueID}/close", app.ProtectFunc(c.closeIssue, auth.Required))
-	http.Handle("POST /repos/{id}/issues/{issueID}/reopen", app.ProtectFunc(c.reopenIssue, auth.Required))
-	http.Handle("POST /repos/{id}/issues/{issueID}/comment", app.ProtectFunc(c.createIssueComment, auth.Required))
-	http.Handle("DELETE /repos/{id}/issues/{issueID}", app.ProtectFunc(c.deleteIssue, auth.Required))
-	http.Handle("POST /repos/{id}/prs/create", app.ProtectFunc(c.createPR, auth.Required))
-	http.Handle("POST /repos/{id}/prs/{prID}/merge", app.ProtectFunc(c.mergePR, auth.Required))
-	http.Handle("POST /repos/{id}/prs/{prID}/close", app.ProtectFunc(c.closePR, auth.Required))
-	http.Handle("POST /repos/{id}/prs/{prID}/comment", app.ProtectFunc(c.createPRComment, auth.Required))
-	http.Handle("POST /repos/{id}/permissions", app.ProtectFunc(c.grantPermission, auth.Required))
-	http.Handle("DELETE /repos/{id}/permissions/{userID}", app.ProtectFunc(c.revokePermission, auth.Required))
+	http.Handle("POST /repos/{id}/clone", app.ProtectFunc(c.openInIDE, auth.Required))
+
+	// Permissions
+	http.Handle("POST /repos/{id}/settings/permissions/grant", app.ProtectFunc(c.grantPermission, auth.Required))
+	http.Handle("POST /repos/{id}/settings/permissions/{userID}/revoke", app.ProtectFunc(c.revokePermission, auth.Required))
+
+	// File operations
 	http.Handle("POST /repos/{id}/files/save", app.ProtectFunc(c.saveFile, auth.Required))
 	http.Handle("POST /repos/{id}/files/create", app.ProtectFunc(c.createFile, auth.Required))
-	http.Handle("DELETE /repos/{id}/files/{path...}", app.ProtectFunc(c.deleteFile, auth.Required))
-	http.Handle("POST /repos/{id}/open-ide", app.ProtectFunc(c.openInIDE, auth.Required))
+	http.Handle("POST /repos/{id}/files/delete/{path...}", app.ProtectFunc(c.deleteFile, auth.Required))
 
+	// Git server
 	http.Handle("/repo/", http.StripPrefix("/repo/", models.GitServer(auth)))
 }
 
-// Handle is called when each request is handled
-func (c *ReposController) Handle(req *http.Request) application.Controller {
+// Handle returns a new controller instance for the request
+func (c ReposController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
-// CurrentRepo returns the repository from the URL path
+// Helper methods for repo-tabs partial to access other controllers
+
+// RepoIssues returns issues for the current repository (delegates to IssuesController)
+func (c *ReposController) RepoIssues() ([]*models.Issue, error) {
+	issuesController := c.Use("issues").(*IssuesController)
+	return issuesController.RepoIssues()
+}
+
+// RepoPullRequests returns pull requests for the current repository (delegates to PullRequestsController)
+func (c *ReposController) RepoPullRequests() ([]*models.PullRequest, error) {
+	prsController := c.Use("prs").(*PullRequestsController)
+	return prsController.RepoPullRequests()
+}
+
+// RepoActions returns actions for the current repository (delegates to ActionsController)
+func (c *ReposController) RepoActions() ([]*models.Action, error) {
+	actionsController := c.Use("actions").(*ActionsController)
+	return actionsController.RepoActions()
+}
+
+// FileInfo represents a file or directory in the repository
+type FileInfo struct {
+	Name     string
+	Path     string
+	IsDir    bool
+	Size     int64
+	ModTime  time.Time
+	Content  string
+	Language string
+	IsBinary bool
+}
+
+// SearchResult represents a search result within repository files
+type SearchResult struct {
+	File     string
+	Path     string
+	LineNum  int
+	Line     string
+	Context  []string
+	Language string
+}
+
+// UserRepos returns the repositories for the current user
+func (c *ReposController) UserRepos() ([]*models.Repository, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get repositories for user
+	repos, err := models.Repositories.Search("WHERE UserID = ? OR Visibility = ?", user.ID, "public")
+	if err != nil {
+		return nil, err
+	}
+
+	// Also get repos where user has permissions
+	permissions, err := models.Permissions.Search("WHERE UserID = ?", user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add repos from permissions
+	for _, perm := range permissions {
+		repo, err := models.Repositories.Get(perm.RepoID)
+		if err == nil {
+			// Check if repo is already in list
+			found := false
+			for _, r := range repos {
+				if r.ID == repo.ID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				repos = append(repos, repo)
+			}
+		}
+	}
+
+	return repos, nil
+}
+
+// CurrentRepo returns the repository for the current request
 func (c *ReposController) CurrentRepo() (*models.Repository, error) {
 	return c.getCurrentRepoFromRequest(c.Request)
 }
 
-// getCurrentRepoFromRequest returns the repository from a specific request with permission checking
+// getCurrentRepoFromRequest returns the repository for the given request
 func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Repository, error) {
-	id := r.PathValue("id")
-	if id == "" {
-		return nil, errors.New("repository ID not found")
+	repoID := r.PathValue("id")
+	if repoID == "" {
+		return nil, errors.New("repository ID required")
 	}
 
-	repo, err := models.Repositories.Get(id)
+	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("repository not found")
 	}
 
 	// Check permissions
 	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
+	if user, _, err := auth.Authenticate(r); err == nil {
+		// Allow owner or users with any permission
+		if repo.UserID != user.ID && repo.Visibility != "public" {
+			err = models.CheckRepoAccess(user, repoID, models.RoleRead)
+			if err != nil {
+				return nil, errors.New("access denied")
+			}
+		}
+	} else if repo.Visibility != "public" {
+		// Not authenticated and repo is private
 		return nil, errors.New("authentication required")
 	}
-
-	// Handle repositories without UserID (legacy repositories)
-	if repo.UserID == "" {
-		// Assign ownership to the current user for legacy repositories
-		repo.UserID = user.ID
-		models.Repositories.Update(repo)
-	}
-
-	// Always grant the repository owner admin permissions if they don't have any
-	if repo.UserID == user.ID {
-		models.GrantPermission(user.ID, id, models.RoleAdmin)
-	}
-
-	// Check repository access permissions
-	err = models.CheckRepoAccess(user, id, models.RoleRead)
-	if err != nil {
-		return nil, errors.New("access denied: " + err.Error())
-	}
-
-	// Repository state is determined dynamically by IsEmpty() method
-	// No need to track state separately
 
 	return repo, nil
 }
 
-// SearchQuery returns the current search query from request
-func (c *ReposController) SearchQuery() string {
-	if c.Request == nil {
-		return ""
-	}
-	return strings.TrimSpace(c.Request.URL.Query().Get("search"))
-}
-
-// IncludeClosed returns whether closed issues are included from request
-func (c *ReposController) IncludeClosed() bool {
-	if c.Request == nil {
-		return false
-	}
-	return c.Request.URL.Query().Get("includeClosed") == "true"
-}
-
-// RepoIssues returns issues for the current repository
-func (c *ReposController) RepoIssues() ([]*models.Issue, error) {
-	repo, err := c.CurrentRepo()
+// createRepository handles repository creation
+func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Request) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		return nil, err
+		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		return
 	}
 
-	// Get query parameters from request
-	searchQuery := c.SearchQuery()
-	includeClosed := c.IncludeClosed()
-
-	// Build base query
-	query := "WHERE RepoID = ?"
-	args := []interface{}{repo.ID}
-
-	// Add status filter if not including closed
-	if !includeClosed {
-		query += " AND Status = ?"
-		args = append(args, "open")
+	// Validate required fields
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		c.Render(w, r, "error-message.html", errors.New("repository name required"))
+		return
 	}
 
-	// Add search filter if we have a search query
-	if searchQuery != "" {
-		searchPattern := "%" + searchQuery + "%"
-		query += " AND (Title LIKE ? OR Body LIKE ? OR Tags LIKE ?)"
-		args = append(args, searchPattern, searchPattern, searchPattern)
+	// Create repository with standard fields
+	repo := &models.Repository{
+		Name:        name,
+		Description: strings.TrimSpace(r.FormValue("description")),
+		Visibility:  r.FormValue("visibility"),
+		UserID:      user.ID,
 	}
 
-	query += " ORDER BY CreatedAt DESC"
-
-	return models.Issues.Search(query, args...)
-}
-
-// GetIssueComments returns comments for a specific issue
-func (c *ReposController) GetIssueComments(issueID string) ([]*models.Comment, error) {
-	// Check if user has access to the repository
-	repo, err := c.CurrentRepo()
+	// Insert into database
+	repo, err = models.Repositories.Insert(repo)
 	if err != nil {
-		return nil, err
+		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
+		return
 	}
 
-	// Verify the issue belongs to this repository
-	issue, err := models.Issues.Get(issueID)
-	if err != nil || issue.RepoID != repo.ID {
-		return nil, errors.New("issue not found")
-	}
+	// Git repository will be auto-created by gitkit when first accessed
 
-	return models.GetIssueComments(issueID)
-}
-
-// SearchPRQuery returns the current PR search query from request
-func (c *ReposController) SearchPRQuery() string {
-	if c.Request == nil {
-		return ""
-	}
-	return strings.TrimSpace(c.Request.URL.Query().Get("search"))
-}
-
-// IncludeMerged returns whether merged/closed PRs are included from request
-func (c *ReposController) IncludeMerged() bool {
-	if c.Request == nil {
-		return false
-	}
-	return c.Request.URL.Query().Get("includeMerged") == "true"
-}
-
-// RepoPullRequests returns pull requests for the current repository
-func (c *ReposController) RepoPullRequests() ([]*models.PullRequest, error) {
-	repo, err := c.CurrentRepo()
+	// Grant owner admin permission
+	err = models.GrantPermission(user.ID, repo.ID, models.RoleAdmin)
 	if err != nil {
-		return nil, err
+		log.Printf("Warning: Failed to grant admin permission to owner: %v", err)
 	}
 
-	// Get query parameters from request
-	searchQuery := c.SearchPRQuery()
-	includeMerged := c.IncludeMerged()
+	// Log activity
+	models.LogActivity("repo_created", "Created repository: "+repo.Name, "New repository initialized", user.ID, repo.ID, "repository", "")
 
-	// Build base query
-	query := "WHERE RepoID = ?"
-	args := []interface{}{repo.ID}
-
-	// Add status filter if not including merged/closed
-	if !includeMerged {
-		query += " AND Status = ?"
-		args = append(args, "open")
-	}
-
-	// Add search filter if we have a search query
-	if searchQuery != "" {
-		searchPattern := "%" + searchQuery + "%"
-		query += " AND (Title LIKE ? OR Body LIKE ?)"
-		args = append(args, searchPattern, searchPattern)
-	}
-
-	query += " ORDER BY CreatedAt DESC"
-
-	return models.PullRequests.Search(query, args...)
+	// Redirect to new repository
+	c.Redirect(w, r, "/repos/"+repo.ID)
 }
 
-// GetPRComments returns comments for a specific pull request
-func (c *ReposController) GetPRComments(prID string) ([]*models.Comment, error) {
-	// Check if user has access to the repository
-	repo, err := c.CurrentRepo()
-	if err != nil {
-		return nil, err
-	}
-
-	// Verify the PR belongs to this repository
-	pr, err := models.PullRequests.Get(prID)
-	if err != nil || pr.RepoID != repo.ID {
-		return nil, errors.New("pull request not found")
-	}
-
-	return models.GetPRComments(prID)
-}
-
-// RepoActions returns AI actions for the current repository
-func (c *ReposController) RepoActions() ([]*models.Action, error) {
-	repo, err := c.CurrentRepo()
-	if err != nil {
-		return nil, err
-	}
-
-	return models.Actions.Search("WHERE RepoID = ? ORDER BY CreatedAt DESC", repo.ID)
-}
-
-// updateRepository handles repository updates
+// updateRepository handles repository settings updates
 func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Request) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
@@ -296,14 +255,14 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check if user has admin access to the repository
+	// Check admin permissions for updates
 	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("admin access required"))
+		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
 		return
 	}
 
-	// Get the repository
+	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("repository not found"))
@@ -311,13 +270,13 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Update fields
-	description := strings.TrimSpace(r.FormValue("description"))
-	visibility := r.FormValue("visibility")
-
-	repo.Description = description
-	if visibility == "public" || visibility == "private" {
-		repo.Visibility = visibility
+	if name := strings.TrimSpace(r.FormValue("name")); name != "" {
+		repo.Name = name
 	}
+	if desc := strings.TrimSpace(r.FormValue("description")); desc != "" {
+		repo.Description = desc
+	}
+	repo.Visibility = r.FormValue("visibility")
 
 	// Save changes
 	err = models.Repositories.Update(repo)
@@ -326,8 +285,12 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Redirect to integrations page
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
+	// Log activity
+	models.LogActivity("repo_updated", "Updated repository settings",
+		"Repository configuration changed", user.ID, repo.ID, "repository", "")
+
+	// Refresh the page
+	c.Refresh(w, r)
 }
 
 // deleteRepository handles repository deletion
@@ -345,16 +308,23 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check if user owns the repository
-	repo, err := models.Repositories.Get(repoID)
-	if err != nil || repo.UserID != user.ID {
-		c.Render(w, r, "error-message.html", errors.New("you can only delete your own repositories"))
+	// Check admin permissions for deletion
+	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
 		return
 	}
 
-	// Delete the repository directory
+	// Get repository for deletion
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("repository not found"))
+		return
+	}
+
+	// Delete repository directory
 	if err := os.RemoveAll(repo.Path()); err != nil {
-		log.Printf("Failed to delete repository directory: %v", err)
+		log.Printf("Warning: Failed to delete repository directory: %v", err)
 	}
 
 	// Delete from database
@@ -364,491 +334,12 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Delete associated permissions
-	models.DeleteRepoPermissions(repoID)
+	// Log activity
+	models.LogActivity("repo_deleted", "Deleted repository: "+repo.Name,
+		"Repository permanently removed", user.ID, repo.ID, "repository", "")
 
 	// Redirect to repositories list
 	c.Redirect(w, r, "/repos")
-}
-
-// setupGitHub handles GitHub integration setup
-func (c *ReposController) setupGitHub(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check if user has admin access
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("admin access required"))
-		return
-	}
-
-	// Get form values
-	githubURL := strings.TrimSpace(r.FormValue("github_url"))
-	githubToken := strings.TrimSpace(r.FormValue("github_token"))
-	syncDirection := r.FormValue("sync_direction")
-	autoSync := r.FormValue("auto_sync") == "true"
-
-	if githubURL == "" || githubToken == "" {
-		c.Render(w, r, "error-message.html", errors.New("GitHub URL and token are required"))
-		return
-	}
-
-	// Get the repository
-	repo, err := models.Repositories.Get(repoID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("repository not found"))
-		return
-	}
-
-	// Parse GitHub URL to add authentication
-	parsedURL, err := url.Parse(githubURL)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("invalid GitHub URL"))
-		return
-	}
-
-	// Add token authentication to URL for HTTPS
-	var authenticatedURL string
-	if parsedURL.Scheme == "https" {
-		parsedURL.User = url.User(githubToken)
-		authenticatedURL = parsedURL.String()
-	} else {
-		// For SSH URLs, use as-is
-		authenticatedURL = githubURL
-	}
-
-	// Update GitHub settings
-	repo.GitHubURL = githubURL // Store original URL without token
-	repo.GitHubToken = githubToken // TODO: Encrypt this
-	repo.SyncDirection = syncDirection
-	repo.AutoSync = autoSync
-
-	// Configure git remote with authenticated URL
-	cmd := exec.Command("git", "remote", "add", "github", authenticatedURL)
-	cmd.Dir = repo.Path()
-	if err := cmd.Run(); err != nil {
-		// Try to set the URL if remote already exists
-		cmd = exec.Command("git", "remote", "set-url", "github", authenticatedURL)
-		cmd.Dir = repo.Path()
-		if err := cmd.Run(); err != nil {
-			c.Render(w, r, "error-message.html", fmt.Errorf("failed to configure GitHub remote: %v", err))
-			return
-		}
-	}
-
-	// Save changes
-	err = models.Repositories.Update(repo)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to save GitHub settings"))
-		return
-	}
-
-	// Redirect to integrations page
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
-}
-
-// syncGitHub handles manual GitHub sync
-func (c *ReposController) syncGitHub(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check if user has write access
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("write access required"))
-		return
-	}
-
-	// Get the repository
-	repo, err := models.Repositories.Get(repoID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("repository not found"))
-		return
-	}
-
-	if repo.GitHubURL == "" {
-		c.Render(w, r, "error-message.html", errors.New("GitHub not configured"))
-		return
-	}
-
-	// Parse GitHub URL to add authentication
-	parsedURL, err := url.Parse(repo.GitHubURL)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("invalid GitHub URL"))
-		return
-	}
-
-	// Add token authentication to URL for HTTPS
-	var authenticatedURL string
-	if parsedURL.Scheme == "https" && repo.GitHubToken != "" {
-		parsedURL.User = url.User(repo.GitHubToken)
-		authenticatedURL = parsedURL.String()
-	} else {
-		// For SSH URLs or no token, use as-is
-		authenticatedURL = repo.GitHubURL
-	}
-
-	// Update remote with authenticated URL
-	cmd := exec.Command("git", "remote", "set-url", "github", authenticatedURL)
-	cmd.Dir = repo.Path()
-	cmd.Run() // Ignore error if remote doesn't exist yet
-
-	// Since this is a bare repository, we need to use fetch/push with refspecs
-	// Get the default branch from the bare repo
-	stdout, _, err := repo.Git("symbolic-ref", "HEAD")
-	branch := "master" // default fallback
-	if err == nil && stdout != nil {
-		ref := strings.TrimSpace(stdout.String())
-		if strings.HasPrefix(ref, "refs/heads/") {
-			branch = strings.TrimPrefix(ref, "refs/heads/")
-		}
-	}
-
-	// Perform sync based on direction
-	var syncErr error
-	var errorDetails string
-
-	switch repo.SyncDirection {
-	case "push":
-		// Push from bare repository to GitHub
-		cmd := exec.Command("git", "push", "github", fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
-		cmd.Dir = repo.Path()
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			syncErr = err
-			errorDetails = string(output)
-		}
-	case "pull":
-		// Fetch from GitHub to bare repository
-		cmd := exec.Command("git", "fetch", "github", fmt.Sprintf("+refs/heads/%s:refs/heads/%s", branch, branch))
-		cmd.Dir = repo.Path()
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			syncErr = err
-			errorDetails = string(output)
-		}
-	case "both":
-		// Fetch then push
-		cmd := exec.Command("git", "fetch", "github", fmt.Sprintf("+refs/heads/%s:refs/heads/%s", branch, branch))
-		cmd.Dir = repo.Path()
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			log.Printf("Fetch failed: %v - %s", err, string(output))
-			errorDetails = string(output)
-		}
-		
-		cmd = exec.Command("git", "push", "github", fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
-		cmd.Dir = repo.Path()
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			syncErr = err
-			if errorDetails != "" {
-				errorDetails += "\n\n"
-			}
-			errorDetails += string(output)
-		}
-	default:
-		// Default to push if no direction specified
-		cmd := exec.Command("git", "push", "github", fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
-		cmd.Dir = repo.Path()
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			syncErr = err
-			errorDetails = string(output)
-		}
-	}
-
-	if syncErr != nil {
-		errMsg := fmt.Sprintf("sync failed: %v", syncErr)
-		if errorDetails != "" {
-			errMsg = fmt.Sprintf("sync failed: %s", errorDetails)
-		}
-		c.Render(w, r, "error-message.html", errors.New(errMsg))
-		return
-	}
-
-	// Update last sync time
-	repo.LastSyncAt = time.Now()
-	models.Repositories.Update(repo)
-
-	// Redirect to integrations page
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
-}
-
-// disconnectGitHub handles GitHub disconnection
-func (c *ReposController) disconnectGitHub(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check if user has admin access
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("admin access required"))
-		return
-	}
-
-	// Get the repository
-	repo, err := models.Repositories.Get(repoID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("repository not found"))
-		return
-	}
-
-	// Remove git remote
-	cmd := exec.Command("git", "remote", "remove", "github")
-	cmd.Dir = repo.Path()
-	cmd.Run() // Ignore error if remote doesn't exist
-
-	// Clear GitHub settings
-	repo.GitHubURL = ""
-	repo.GitHubToken = ""
-	repo.SyncDirection = ""
-	repo.AutoSync = false
-
-	// Save changes
-	err = models.Repositories.Update(repo)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to disconnect GitHub"))
-		return
-	}
-
-	// Redirect to integrations page
-	c.Redirect(w, r, fmt.Sprintf("/repos/%s/integrations", repoID))
-}
-
-// createRepo handles repository creation
-func (c *ReposController) createRepo(w http.ResponseWriter, r *http.Request) {
-	// Authenticate user
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	// Validate required fields
-	name := strings.TrimSpace(r.FormValue("name"))
-	if name == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository name is required"))
-		return
-	}
-
-	// Extract optional fields with defaults
-	description := strings.TrimSpace(r.FormValue("description"))
-	visibility := r.FormValue("visibility")
-	if visibility == "" {
-		visibility = "private"
-	}
-
-	// Create the repository using the new API
-	repo, err := models.CreateRepository(name, description, visibility, user.ID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
-		return
-	}
-
-	// Grant admin permissions to creator for explicit permission tracking
-	if err = models.GrantPermission(user.ID, repo.ID, models.RoleAdmin); err != nil {
-		// Log warning but don't fail - UserID ownership is primary mechanism
-		log.Printf("Warning: failed to grant admin permission for repo %s to user %s: %v", repo.ID, user.ID, err)
-	}
-
-	// Redirect to the new repository
-	c.Redirect(w, r, "/repos/"+repo.ID)
-}
-
-// createAction handles automated action creation
-func (c *ReposController) createAction(w http.ResponseWriter, r *http.Request) {
-	// Authenticate user
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check if repository exists and user has access
-	_, err = c.getCurrentRepoFromRequest(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Validate required fields
-	title := strings.TrimSpace(r.FormValue("title"))
-	actionType := strings.TrimSpace(r.FormValue("type"))
-	script := strings.TrimSpace(r.FormValue("script"))
-
-	if title == "" || actionType == "" || script == "" {
-		c.Render(w, r, "error-message.html", errors.New("title, type, and script are required"))
-		return
-	}
-
-	// Validate action type
-	validTypes := map[string]bool{
-		"on_push":   true,
-		"on_pr":     true,
-		"on_issue":  true,
-		"scheduled": true,
-		"manual":    true,
-	}
-	if !validTypes[actionType] {
-		c.Render(w, r, "error-message.html", errors.New("invalid action type"))
-		return
-	}
-
-	// Extract optional fields
-	description := strings.TrimSpace(r.FormValue("description"))
-	trigger := strings.TrimSpace(r.FormValue("trigger"))
-
-	// Create the action
-	action := &models.Action{
-		Type:        actionType,
-		Title:       title,
-		Description: description,
-		Trigger:     trigger,
-		Script:      script,
-		Status:      "active",
-		RepoID:      repoID,
-		UserID:      user.ID,
-	}
-
-	// Save the action
-	_, err = models.Actions.Insert(action)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create action: "+err.Error()))
-		return
-	}
-
-	// Log the action creation activity
-	models.LogActivity("action_created", "Created action: "+action.Title,
-		"New "+action.Type+" action created", user.ID, repoID, "action", action.ID)
-
-	// Refresh the page to show the new action
-	c.Refresh(w, r)
-}
-
-// runAction handles manual execution of an action
-func (c *ReposController) runAction(w http.ResponseWriter, r *http.Request) {
-	// Authenticate user
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	actionID := r.PathValue("actionID")
-
-	if repoID == "" || actionID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
-		return
-	}
-
-	// Check if repository exists and user has access
-	_, err = c.getCurrentRepoFromRequest(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Get the action
-	action, err := models.Actions.Get(actionID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("action not found"))
-		return
-	}
-
-	// Verify action belongs to this repository
-	if action.RepoID != repoID {
-		c.Render(w, r, "error-message.html", errors.New("action not found in this repository"))
-		return
-	}
-
-	// Execute the action
-	err = action.ExecuteManually()
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to execute action: "+err.Error()))
-		return
-	}
-
-	// Log the action execution activity
-	models.LogActivity("action_executed", "Executed action: "+action.Title,
-		"Manual execution triggered", user.ID, repoID, "action", action.ID)
-
-	// Refresh the page to show updated status
-	c.Refresh(w, r)
-}
-
-// AllRepos returns all repositories the current user has access to
-func (c *ReposController) AllRepos() ([]*models.Repository, error) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get all repositories with access
-	return models.GetUserAccessibleRepos(user.ID)
-}
-
-// RepoPermissions returns permissions for the current repository
-func (c *ReposController) RepoPermissions() ([]*models.Permission, error) {
-	repo, err := c.CurrentRepo()
-	if err != nil {
-		return nil, err
-	}
-
-	// Check admin permissions to view repository permissions
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, err
-	}
-	err = models.CheckRepoAccess(user, repo.ID, models.RoleAdmin)
-	if err != nil {
-		return nil, err
-	}
-
-	return models.Permissions.Search("WHERE RepoID = ?", repo.ID)
 }
 
 // grantPermission handles granting permissions to users
@@ -935,35 +426,6 @@ func (c *ReposController) revokePermission(w http.ResponseWriter, r *http.Reques
 		"User access revoked", user.ID, repoID, "permission", targetUserID)
 
 	c.Refresh(w, r)
-}
-
-// fileView handles the file view page with proper error handling
-func (c *ReposController) fileView(w http.ResponseWriter, r *http.Request) {
-	// Try to render the template
-	// If CurrentFile returns an error, it will be caught and we can show a nice error page
-	c.Render(w, r, "repo-file-view.html", nil)
-}
-
-// FileInfo represents a file or directory in the repository
-type FileInfo struct {
-	Name     string
-	Path     string
-	IsDir    bool
-	Size     int64
-	ModTime  time.Time
-	Content  string
-	Language string
-	IsBinary bool
-}
-
-// SearchResult represents a search result within repository files
-type SearchResult struct {
-	File     string
-	Path     string
-	LineNum  int
-	Line     string
-	Context  []string
-	Language string
 }
 
 // RepoFiles returns files in the repository directory
@@ -1164,26 +626,6 @@ func (c *ReposController) RepoBranches() ([]*models.Branch, error) {
 	return repo.GetBranches()
 }
 
-// RepoPRDiff returns the diff for a pull request
-func (c *ReposController) RepoPRDiff() (*models.PRDiff, error) {
-	prID := c.Request.PathValue("prID")
-	if prID == "" {
-		return nil, errors.New("pull request ID required")
-	}
-
-	pr, err := models.PullRequests.Get(prID)
-	if err != nil {
-		return nil, err
-	}
-
-	repo, err := c.CurrentRepo()
-	if err != nil {
-		return nil, err
-	}
-
-	return repo.GetPRDiff(pr.BaseBranch, pr.CompareBranch)
-}
-
 // RepoCommitDiff returns the diff for a specific commit
 func (c *ReposController) RepoCommitDiff() (*models.Diff, error) {
 	commit := c.Request.PathValue("commit")
@@ -1212,26 +654,6 @@ func (c *ReposController) RepoCommitDiffContent() (string, error) {
 	}
 
 	return repo.GetCommitDiffContent(commit)
-}
-
-// RepoPRDiffContent returns the full diff content for a pull request
-func (c *ReposController) RepoPRDiffContent() (string, error) {
-	prID := c.Request.PathValue("prID")
-	if prID == "" {
-		return "", errors.New("pull request ID required")
-	}
-
-	pr, err := models.PullRequests.Get(prID)
-	if err != nil {
-		return "", err
-	}
-
-	repo, err := c.CurrentRepo()
-	if err != nil {
-		return "", err
-	}
-
-	return repo.GetPRDiffContent(pr.BaseBranch, pr.CompareBranch)
 }
 
 // RepoLanguageStats returns language statistics for the repository
@@ -1415,7 +837,6 @@ func (c *ReposController) HasFiles() bool {
 	return err == nil && len(nodes) > 0
 }
 
-// RepoReadme detects and returns README content for the repository
 // RepoIsEmpty checks if the current repository has no commits
 func (c *ReposController) RepoIsEmpty() bool {
 	repo, err := c.CurrentRepo()
@@ -1567,584 +988,6 @@ func getLanguageFromExtension(ext string) string {
 		return lang
 	}
 	return "text"
-}
-
-// createIssue handles issue creation
-// searchIssues handles issue search requests with HTMX
-func (c *ReposController) searchIssues(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Render just the issues list partial - query params are read from request in template methods
-	c.App.Render(w, r, "issues-list-partial.html", nil)
-}
-
-// searchPRs handles PR search requests with HTMX
-func (c *ReposController) searchPRs(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Render just the PRs list partial - query params are read from request in template methods
-	c.App.Render(w, r, "prs-list-partial.html", nil)
-}
-
-func (c *ReposController) createIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access
-	_, err = c.getCurrentRepoFromRequest(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Validate required fields
-	title := strings.TrimSpace(r.FormValue("title"))
-	body := strings.TrimSpace(r.FormValue("body"))
-	tags := strings.TrimSpace(r.FormValue("tags"))
-
-	if title == "" {
-		c.Render(w, r, "error-message.html", errors.New("issue title is required"))
-		return
-	}
-
-	// Create the issue
-	issue := &models.Issue{
-		Title:      title,
-		Body:       body,
-		Tags:       tags,
-		Status:     "open",
-		RepoID:     repoID,
-		AssigneeID: user.ID,
-	}
-
-	_, err = models.Issues.Insert(issue)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create issue: "+err.Error()))
-		return
-	}
-
-	// Log activity
-	models.LogActivity("issue_created", "Created issue: "+issue.Title,
-		"New issue opened", user.ID, repoID, "issue", issue.ID)
-
-	// Trigger actions for issue creation event
-	eventData := map[string]string{
-		"ISSUE_ID":     issue.ID,
-		"ISSUE_TITLE":  issue.Title,
-		"ISSUE_STATUS": issue.Status,
-		"AUTHOR_ID":    user.ID,
-	}
-	go models.TriggerActionsByEvent("on_issue", repoID, eventData)
-
-	// Refresh to show new issue
-	c.Refresh(w, r)
-}
-
-// closeIssue handles closing an issue
-func (c *ReposController) closeIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	repoID := r.PathValue("id")
-	issueID := r.PathValue("issueID")
-
-	if repoID == "" || issueID == "" {
-		http.Error(w, "repository ID and issue ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Get and update issue
-	issue, err := models.Issues.Get(issueID)
-	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
-		return
-	}
-
-	issue.Status = "closed"
-	err = models.Issues.Update(issue)
-	if err != nil {
-		http.Error(w, "failed to close issue", http.StatusInternalServerError)
-		return
-	}
-
-	// Log activity
-	models.LogActivity("issue_closed", "Closed issue: "+issue.Title,
-		"Issue marked as closed", user.ID, repoID, "issue", issue.ID)
-
-	c.Refresh(w, r)
-}
-
-// reopenIssue handles reopening an issue
-func (c *ReposController) reopenIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	repoID := r.PathValue("id")
-	issueID := r.PathValue("issueID")
-
-	if repoID == "" || issueID == "" {
-		http.Error(w, "repository ID and issue ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Get and update issue
-	issue, err := models.Issues.Get(issueID)
-	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
-		return
-	}
-
-	issue.Status = "open"
-	err = models.Issues.Update(issue)
-	if err != nil {
-		http.Error(w, "failed to reopen issue", http.StatusInternalServerError)
-		return
-	}
-
-	// Log activity
-	models.LogActivity("issue_reopened", "Reopened issue: "+issue.Title,
-		"Issue marked as open", user.ID, repoID, "issue", issue.ID)
-
-	c.Refresh(w, r)
-}
-
-// editIssue handles editing an issue
-func (c *ReposController) editIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	issueID := r.PathValue("issueID")
-
-	if repoID == "" || issueID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and issue ID required"))
-		return
-	}
-
-	// Check repository write access
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
-	// Get the issue
-	issue, err := models.Issues.Get(issueID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("issue not found"))
-		return
-	}
-
-	// Update fields
-	title := strings.TrimSpace(r.FormValue("title"))
-	body := strings.TrimSpace(r.FormValue("body"))
-	tags := strings.TrimSpace(r.FormValue("tags"))
-	assigneeID := strings.TrimSpace(r.FormValue("assignee_id"))
-
-	if title != "" {
-		issue.Title = title
-	}
-	issue.Body = body
-	issue.Tags = tags
-	issue.AssigneeID = assigneeID
-
-	// Save changes
-	err = models.Issues.Update(issue)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to update issue"))
-		return
-	}
-
-	// Log activity
-	models.LogActivity("issue_updated", "Updated issue: "+issue.Title,
-		"Issue details modified", user.ID, repoID, "issue", issue.ID)
-
-	c.Refresh(w, r)
-}
-
-// deleteIssue handles deleting an issue
-func (c *ReposController) deleteIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	repoID := r.PathValue("id")
-	issueID := r.PathValue("issueID")
-
-	if repoID == "" || issueID == "" {
-		http.Error(w, "repository ID and issue ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Check repository admin access
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		http.Error(w, "insufficient permissions", http.StatusForbidden)
-		return
-	}
-
-	// Get the issue for logging
-	issue, err := models.Issues.Get(issueID)
-	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
-		return
-	}
-
-	// Delete the issue
-	err = models.Issues.Delete(issue)
-	if err != nil {
-		http.Error(w, "failed to delete issue", http.StatusInternalServerError)
-		return
-	}
-
-	// Log activity
-	models.LogActivity("issue_deleted", "Deleted issue: "+issue.Title,
-		"Issue permanently removed", user.ID, repoID, "issue", issue.ID)
-
-	c.Refresh(w, r)
-}
-
-// createIssueComment handles adding a comment to an issue
-func (c *ReposController) createIssueComment(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	issueID := r.PathValue("issueID")
-	body := strings.TrimSpace(r.FormValue("body"))
-
-	if repoID == "" || issueID == "" || body == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID, issue ID, and comment body required"))
-		return
-	}
-
-	// Check repository read access (anyone who can read can comment)
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
-	// Verify issue exists
-	issue, err := models.Issues.Get(issueID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("issue not found"))
-		return
-	}
-
-	// Create comment
-	_, err = models.CreateIssueComment(issueID, repoID, user.ID, body)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create comment"))
-		return
-	}
-
-	// Log activity
-	models.LogActivity("comment_created", "Commented on issue: "+issue.Title,
-		"New comment added", user.ID, repoID, "issue_comment", issueID)
-
-	c.Refresh(w, r)
-}
-
-// createPR handles pull request creation
-func (c *ReposController) createPR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access
-	_, err = c.getCurrentRepoFromRequest(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Validate required fields
-	title := strings.TrimSpace(r.FormValue("title"))
-	body := strings.TrimSpace(r.FormValue("body"))
-	baseBranch := strings.TrimSpace(r.FormValue("base_branch"))
-	compareBranch := strings.TrimSpace(r.FormValue("compare_branch"))
-
-	if title == "" || baseBranch == "" || compareBranch == "" {
-		c.Render(w, r, "error-message.html", errors.New("title, base branch, and compare branch are required"))
-		return
-	}
-
-	// Create the pull request
-	pr := &models.PullRequest{
-		Title:         title,
-		Body:          body,
-		RepoID:        repoID,
-		AuthorID:      user.ID,
-		BaseBranch:    baseBranch,
-		CompareBranch: compareBranch,
-		Status:        "open",
-	}
-
-	_, err = models.PullRequests.Insert(pr)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create pull request: "+err.Error()))
-		return
-	}
-
-	// Log activity
-	models.LogActivity("pr_created", "Created pull request: "+pr.Title,
-		"New pull request opened", user.ID, repoID, "pull_request", pr.ID)
-
-	// Trigger actions for PR creation event
-	eventData := map[string]string{
-		"PR_ID":          pr.ID,
-		"PR_TITLE":       pr.Title,
-		"PR_STATUS":      pr.Status,
-		"BASE_BRANCH":    pr.BaseBranch,
-		"COMPARE_BRANCH": pr.CompareBranch,
-		"AUTHOR_ID":      user.ID,
-	}
-	go models.TriggerActionsByEvent("on_pr", repoID, eventData)
-
-	// Redirect to PRs page
-	c.Redirect(w, r, "/repos/"+repoID+"/prs")
-}
-
-// mergePR handles merging a pull request
-func (c *ReposController) mergePR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	repoID := r.PathValue("id")
-	prID := r.PathValue("prID")
-
-	if repoID == "" || prID == "" {
-		http.Error(w, "repository ID and PR ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Get PR and repository
-	pr, err := models.PullRequests.Get(prID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("pull request not found"))
-		return
-	}
-
-	// Check if PR is still open
-	if pr.Status != "open" {
-		c.Render(w, r, "error-message.html", errors.New("pull request is not open"))
-		return
-	}
-
-	// Get repository
-	repo, err := c.getCurrentRepoFromRequest(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
-		return
-	}
-
-	// Check if branches can be merged
-	canMerge, err := repo.CanMergeBranch(pr.CompareBranch, pr.BaseBranch)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to check merge compatibility: "+err.Error()))
-		return
-	}
-
-	if !canMerge {
-		c.Render(w, r, "error-message.html", errors.New("merge conflicts detected - cannot auto-merge"))
-		return
-	}
-
-	// Perform the actual git merge
-	mergeMessage := fmt.Sprintf("Merge pull request #%s: %s", prID, pr.Title)
-	err = repo.MergeBranch(pr.CompareBranch, pr.BaseBranch, mergeMessage, user.Name, user.Email)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to merge branches: "+err.Error()))
-		return
-	}
-
-	// Update PR status
-	pr.Status = "merged"
-	err = models.PullRequests.Update(pr)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to update pull request status"))
-		return
-	}
-
-	// Log activity
-	models.LogActivity("pr_merged", "Merged pull request: "+pr.Title,
-		"Pull request merged", user.ID, repoID, "pull_request", pr.ID)
-
-	// Trigger actions for push event (merge is essentially a push to base branch)
-	eventData := map[string]string{
-		"BRANCH":         pr.BaseBranch,
-		"PR_ID":          pr.ID,
-		"PR_TITLE":       pr.Title,
-		"COMPARE_BRANCH": pr.CompareBranch,
-		"AUTHOR_ID":      user.ID,
-		"EVENT_TYPE":     "merge",
-	}
-	go models.TriggerActionsByEvent("on_push", repoID, eventData)
-
-	c.Refresh(w, r)
-}
-
-// closePR handles closing a pull request
-func (c *ReposController) closePR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	repoID := r.PathValue("id")
-	prID := r.PathValue("prID")
-
-	if repoID == "" || prID == "" {
-		http.Error(w, "repository ID and PR ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Get and update PR
-	pr, err := models.PullRequests.Get(prID)
-	if err != nil {
-		http.Error(w, "pull request not found", http.StatusNotFound)
-		return
-	}
-
-	pr.Status = "closed"
-	err = models.PullRequests.Update(pr)
-	if err != nil {
-		http.Error(w, "failed to close pull request", http.StatusInternalServerError)
-		return
-	}
-
-	// Log activity
-	models.LogActivity("pr_closed", "Closed pull request: "+pr.Title,
-		"Pull request closed", user.ID, repoID, "pull_request", pr.ID)
-
-	c.Refresh(w, r)
-}
-
-// createPRComment handles adding a comment to a pull request
-func (c *ReposController) createPRComment(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
-		return
-	}
-
-	repoID := r.PathValue("id")
-	prID := r.PathValue("prID")
-	body := strings.TrimSpace(r.FormValue("body"))
-
-	if repoID == "" || prID == "" || body == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID, PR ID, and comment body required"))
-		return
-	}
-
-	// Check repository read access (anyone who can read can comment)
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
-	// Verify PR exists
-	pr, err := models.PullRequests.Get(prID)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("pull request not found"))
-		return
-	}
-
-	// Create comment
-	_, err = models.CreatePRComment(prID, repoID, user.ID, body)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create comment"))
-		return
-	}
-
-	// Log activity
-	models.LogActivity("comment_created", "Commented on PR: "+pr.Title,
-		"New comment added", user.ID, repoID, "pr_comment", prID)
-
-	c.Refresh(w, r)
 }
 
 // saveFile handles saving file content via web editor

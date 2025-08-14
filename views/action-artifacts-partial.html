@@ -1,0 +1,103 @@
+{{with $repo := repos.CurrentRepo}}
+{{with $action := actions.CurrentAction}}
+{{with $artifacts := actions.ActionArtifacts}}
+{{if $artifacts}}
+<div class="overflow-x-auto">
+  <table class="table table-lg">
+    <thead>
+      <tr class="text-base">
+        <th>File Name</th>
+        <th>Size</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range $artifacts}}
+      <tr class="hover">
+        <td>
+          <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span class="font-semibold text-base">{{.FileName}}</span>
+          </div>
+        </td>
+        <td>
+          <span class="text-base font-medium">{{actions.FormatFileSize .Size}}</span>
+        </td>
+        <td>
+          <span class="text-base">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</span>
+        </td>
+        <td>
+          <a href="{{host}}/repos/{{$repo.ID}}/actions/{{$action.ID}}/artifacts/{{.ID}}/download" 
+             class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+            Download
+          </a>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="divider my-8"></div>
+
+<div class="flex justify-between items-center">
+  <div class="text-lg text-base-content/70">
+    <span class="font-semibold">{{len $artifacts}}</span> artifact{{if ne (len $artifacts) 1}}s{{end}} collected
+  </div>
+  {{if gt (len $artifacts) 1}}
+  <button class="btn btn-outline btn-lg" disabled>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+    </svg>
+    Download All as ZIP
+    <div class="badge badge-ghost ml-2">Coming Soon</div>
+  </button>
+  {{end}}
+</div>
+
+{{else}}
+<div class="flex flex-col items-center justify-center py-16">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mb-6 text-base-content/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+  </svg>
+  <h3 class="text-xl font-semibold mb-3">No Artifacts Collected</h3>
+  {{if $action.ArtifactPaths}}
+  <p class="text-base text-base-content/60 mb-2">Configured paths: <span class="font-mono">{{$action.ArtifactPaths}}</span></p>
+  <p class="text-sm text-base-content/50">Artifacts will be collected after the next successful run</p>
+  {{else}}
+  <p class="text-base text-base-content/60">No artifact paths configured for this action</p>
+  <p class="text-sm text-base-content/50 mt-2">Edit the action to specify which files to collect</p>
+  {{end}}
+</div>
+{{end}}
+
+{{else}}
+<div class="alert alert-error shadow-lg">
+  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  <div>
+    <h3 class="font-bold text-lg">Error Loading Artifacts</h3>
+    <div class="text-base">Unable to retrieve artifact information</div>
+  </div>
+</div>
+{{end}}
+
+{{else}}
+<div class="alert alert-error shadow-lg">
+  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-7 w-7" fill="none" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  <div>
+    <h3 class="font-bold text-lg">Action Not Found</h3>
+    <div class="text-base">The requested action could not be loaded</div>
+  </div>
+</div>
+{{end}}
+{{end}}
