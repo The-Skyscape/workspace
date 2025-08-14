@@ -21,12 +21,13 @@ Skyscape Workspace is a full-featured development platform that empowers teams t
 - **Code Search**: Fast, regex-based search with SQLite FTS5
 - **Commit History**: Visual commit log with diff viewing
 
-### 🖥️ **Development Environments**
-- **Instant Workspaces**: One-click VS Code in the browser
+### 🖥️ **Development Environments (Coder Service)**
+- **VS Code in Browser**: Full-featured code-server IDE
+- **Per-Repository Workspaces**: Isolated development environments
 - **Persistent Storage**: Your work is saved between sessions
-- **Docker Integration**: Full Docker access within workspaces
-- **Custom Images**: Support for project-specific development containers
-- **Resource Management**: Automatic cleanup of idle workspaces
+- **Docker Integration**: Full Docker access within environments
+- **Global Coder Service**: Centralized VS Code service management
+- **Authenticated Access**: Secure workspace access via /coder/{workspace-id}/
 
 ### 🤖 **CI/CD Actions System**
 - **Docker Sandboxes**: Isolated execution environments for each action
@@ -49,6 +50,12 @@ Skyscape Workspace is a full-featured development platform that empowers teams t
 - **Webhook Support**: Trigger actions from external services
 - **API Access**: RESTful API for automation and integrations
 
+### 📊 **System Monitoring**
+- **Real-time Metrics**: CPU, memory, and disk usage tracking
+- **Container Management**: Docker container status and control
+- **Alert System**: Resource threshold notifications
+- **Admin Dashboard**: Comprehensive system overview
+
 ## 🏗️ Architecture
 
 ### Technology Stack
@@ -68,35 +75,50 @@ workspace/
 │   ├── issues.go       # Issue tracking
 │   ├── pullrequests.go # Pull request management
 │   ├── workspaces.go   # Development environments
-│   └── integrations.go # External integrations
+│   ├── integrations.go # External integrations
+│   ├── monitoring.go   # System monitoring
+│   ├── settings.go     # Settings management
+│   ├── home.go         # Dashboard
+│   └── public.go       # Public access
 ├── models/             # Database models and repositories
 │   ├── repository.go   # Git repository model
 │   ├── action.go       # CI/CD action model
 │   ├── action_run.go   # Action execution history
-│   └── workspace.go    # Development environment model
+│   ├── action_artifact.go # Build artifacts
+│   ├── issue.go        # Issue tracking
+│   ├── pullrequest.go  # Pull requests
+│   ├── comment.go      # Comments
+│   ├── coder.go        # Coder service handler
+│   ├── coding.go       # Git operations
+│   ├── file_search.go  # FTS5 search
+│   └── permission.go   # Access control
 ├── services/           # Business logic and external services
-│   ├── git.go         # Git operations
 │   ├── sandbox.go     # Docker sandbox management
-│   └── workspace.go   # Workspace lifecycle management
+│   └── coder.go       # VS Code service management
 ├── views/             # HTML templates with HTMX
-│   ├── layout/        # Base layouts
 │   ├── partials/      # Reusable components
-│   └── *.html         # Page templates
+│   ├── repo-*.html    # Repository views
+│   ├── monitoring*.html # Monitoring views
+│   └── *.html         # Other page templates
 └── internal/          # Internal packages
     ├── coding/        # Git server implementation
     └── search/        # FTS5 search implementation
 ```
 
 ### Database Schema
-- **repositories**: Git repository metadata
-- **workspaces**: Development environment configurations
+- **repositories**: Git repository metadata with FTS5 search
 - **actions**: CI/CD workflow definitions
 - **action_runs**: Execution history with metrics
 - **action_artifacts**: Build artifacts with versioning
-- **issues**: Issue tracking
-- **pull_requests**: PR management
+- **issues**: Issue tracking with status management
+- **pull_requests**: PR management and merging
+- **comments**: Threaded discussions on issues/PRs
+- **activities**: Repository activity feed
 - **users**: User accounts and authentication
+- **access_tokens**: API token management
 - **permissions**: Role-based access control
+- **settings**: Repository and user preferences
+- **file_search**: FTS5 full-text search index
 
 ## 🚦 Getting Started
 

@@ -83,6 +83,7 @@ Templates access controller methods directly:
 | `workspaces.go` | Container management | `CurrentWorkspace()`, `UserWorkspaces()` |
 | `integrations.go` | GitHub sync | `RepoIntegrations()`, `GitHubSync()` |
 | `settings.go` | Settings management | `RepoSettings()`, `UserSettings()` |
+| `monitoring.go` | System monitoring | `GetCurrentStats()`, `GetAlertCount()` |
 | `home.go` | Dashboard & landing | `UserRepos()`, `RecentActivity()` |
 | `public.go` | Unauthenticated access | `CurrentRepo()`, `PublicRepoIssues()` |
 
@@ -93,17 +94,23 @@ Templates access controller methods directly:
 | `action.go` | CI/CD workflows | `Execute()`, `CollectArtifacts()`, `monitorSandboxExecution()` |
 | `action_run.go` | Execution history | `GetRunsByAction()`, `FormatDuration()` |
 | `action_artifact.go` | Build artifacts | Versioned artifact storage with grouping |
-| `workspace.go` | Workspace model | `Start()`, `Stop()`, `Service()` |
 | `repository.go` | Git repos | Enhanced with FTS5 search support |
-| `coding.go` | Git operations | `NewRepo()`, `GetWorkspaceByID()` |
+| `coder.go` | Coder service handler | `CoderHandler()`, `WorkspaceHandler()` |
+| `coding.go` | Git operations | `NewRepo()`, clone and workspace setup |
+| `file_search.go` | FTS5 search | Full-text search implementation |
+| `issue.go` | Issue tracking | Issue model and operations |
+| `pullrequest.go` | PR management | Pull request model |
+| `comment.go` | Comments | Comment model for issues/PRs |
+| `activity.go` | Activity tracking | Repository activity feed |
+| `accesstoken.go` | API tokens | Access token management |
 | `permission.go` | Access control | `HasPermission()`, `CheckRepoAccess()` |
+| `settings.go` | Settings model | Repository and user settings |
 
 ### Services (`/services/`)
 | File | Purpose | Key Functions |
 |------|---------|---------------|
 | `sandbox.go` | Docker sandboxes | `StartSandbox()`, `GetOutput()`, `ExtractFile()` |
-| `git.go` | Git operations | Repository management and operations |
-| `workspace.go` | VS Code workspaces | Workspace lifecycle management |
+| `coder.go` | Coder service | VS Code web IDE service management |
 
 ### Views (`/views/`)
 | File | Purpose | Controller |
@@ -114,8 +121,11 @@ Templates access controller methods directly:
 | `repo-issues.html` | Issue tracking | `issues` |
 | `repo-prs.html` | Pull requests | `pullrequests` |
 | `repo-integrations.html` | GitHub integration | `integrations` |
-| `workspace-*.html` | Workspace views | `workspaces` |
-| `workspaces-list.html` | Workspace management | `workspaces` |
+| `repo-settings.html` | Repository settings | `settings` |
+| `monitoring*.html` | System monitoring views | `monitoring` |
+| `signin.html` | Sign in page | `auth` |
+| `signup.html` | Sign up page | `auth` |
+| `settings.html` | User settings | `settings` |
 
 ## Cross-Controller Communication
 
@@ -182,6 +192,26 @@ func (c *Controller) ComplexData() ([]Model, error) {
 }
 ```
 
+## Monitoring System
+
+### Architecture
+Real-time system monitoring accessible at `/monitoring` for admin users.
+
+### Features
+- CPU usage tracking
+- Memory utilization
+- Disk space monitoring
+- Docker container status
+- Alert system for resource thresholds
+
+### Views
+- `monitoring.html` - Main dashboard
+- `monitoring-cpu.html` - CPU metrics
+- `monitoring-memory.html` - Memory metrics
+- `monitoring-disk.html` - Disk usage
+- `monitoring-containers.html` - Container status
+- `monitoring-alerts.html` - System alerts
+
 ## Actions System (CI/CD)
 
 ### Architecture
@@ -224,32 +254,33 @@ go action.monitorSandboxExecution(sandboxName, runID)
 err := action.CollectArtifacts(sandboxName, paths, runID)
 ```
 
-## Workspace System
+## Workspace System (Coder Service)
 
 ### Architecture
 ```
-User Request → /coder/{workspace-id}/ → WorkspaceHandler → Docker Container
-                                              ↓
-                                    Persistent Volumes:
-                                    - /home/coder/.config
-                                    - /home/coder/project  
-                                    - /workspace/repos/{repo-id}
+User Request → /coder/{workspace-id}/ → WorkspaceHandler → Coder Service → Docker Container
+                                              ↓                               ↓
+                                    Authentication Check            code-server (VS Code)
+                                              ↓                               ↓
+                                    Repository Access              Persistent Volumes
 ```
 
 ### Key Operations
 ```go
-// Create workspace
-workspace, err := models.NewWorkspace(userID, port, repo)
-
-// Start workspace
-err := workspace.Start(user, repo)
+// Workspace access is handled through the coder service
+// The WorkspaceHandler in models/coder.go manages access
 
 // Access workspace
-/coder/{workspace.ID}/
+/coder/{workspaceID}/
 
-// Stop workspace  
-err := workspace.Stop()
+// Service is managed globally via services.Coder
+services.Coder.Start()
+services.Coder.Stop()
+services.Coder.IsRunning()
 ```
+
+### Coder Service Setup
+The coder service provides VS Code in the browser via code-server. Workspaces are created per-repository and provide isolated development environments with Docker access.
 
 ## Error Handling
 
@@ -329,9 +360,11 @@ go build -o workspace && ./workspace
 
 ### Common Test Scenarios
 1. **Repository Creation**: Sign in → Create Repo → Verify in list
-2. **Workspace Launch**: Open repo → Launch Workspace → Verify /coder/ proxy
-3. **Permissions**: Create private repo → Sign out → Verify 404
-4. **Issue Creation**: Open repo → Create issue → Verify in list
+2. **Coder Service**: Access /coder/{workspace-id}/ → Verify VS Code loads
+3. **Actions Execution**: Create action → Run action → Check logs and artifacts
+4. **Permissions**: Create private repo → Sign out → Verify 404
+5. **Issue Creation**: Open repo → Create issue → Verify in list
+6. **GitHub Integration**: Connect repo → Sync → Verify bidirectional updates
 
 ## Docker Service Management
 
@@ -468,7 +501,8 @@ ssh root@SERVER_IP "docker restart sky-app"
 ### Docker Requirements
 - Docker daemon must be running
 - User must have docker permissions
-- Ports 8000-9000 reserved for workspaces
+- Coder service requires dedicated port
+- Sandbox service requires Docker API access
 
 ### File System
 - Repos stored in `./repos/`
