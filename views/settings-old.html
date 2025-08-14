@@ -19,7 +19,11 @@
     <!-- Main Content -->
     <div class="lg:col-span-2">
       {{with settings.GetSettings}}
-      <div class="space-y-6">
+      <form hx-post="{{host}}/settings" 
+            hx-target="body" 
+            hx-swap="outerHTML"
+            hx-indicator="#settings-spinner"
+            class="space-y-6">
         
         <!-- System Configuration -->
         <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6">
@@ -31,9 +35,9 @@
           </legend>
           
           <div class="flex flex-col gap-4">
-            <div class="w-full">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium flex items-center gap-2">
+            <label class="form-control w-full">
+              <div class="label justify-between">
+                <span class="label-text text-sm font-medium flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                   </svg>
@@ -45,23 +49,14 @@
                   </svg>
                 </div>
               </div>
-              <label class="input input-bordered w-full flex items-center gap-2">
-                <input type="text" name="app_name" value="{{.AppName}}" 
-                       class="grow" 
-                       placeholder="Skyscape"
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none"
-                       hx-indicator="#app-name-spinner" />
-                <span id="app-name-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
-              </label>
-            </div>
+              <input type="text" name="app_name" value="{{.AppName}}" 
+                     class="input input-bordered w-full" 
+                     placeholder="Skyscape" />
+            </label>
 
-            <div class="w-full">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium flex items-center gap-2">
+            <label class="form-control w-full">
+              <div class="label justify-between">
+                <span class="label-text text-sm font-medium flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                   </svg>
@@ -73,23 +68,14 @@
                   </svg>
                 </div>
               </div>
-              <label class="input input-bordered w-full flex items-center gap-2">
-                <input type="text" name="app_description" value="{{.AppDescription}}" 
-                       class="grow" 
-                       placeholder="Self-hosted developer platform"
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none"
-                       hx-indicator="#app-desc-spinner" />
-                <span id="app-desc-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
-              </label>
-            </div>
+              <input type="text" name="app_description" value="{{.AppDescription}}" 
+                     class="input input-bordered w-full" 
+                     placeholder="Self-hosted developer platform" />
+            </label>
 
-            <div class="w-full">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium flex items-center gap-2">
+            <label class="form-control w-full">
+              <div class="label justify-between">
+                <span class="label-text text-sm font-medium flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                   </svg>
@@ -101,35 +87,17 @@
                   </svg>
                 </div>
               </div>
-              <div class="dropdown dropdown-bottom w-full">
-                <div tabindex="0" role="button" class="btn btn-outline w-full justify-between">
-                  <span class="flex items-center gap-2">
-                    {{if eq .DefaultTheme "light"}}🌞 Light
-                    {{else if eq .DefaultTheme "dark"}}🌙 Dark
-                    {{else if eq .DefaultTheme "corporate"}}💼 Corporate
-                    {{else if eq .DefaultTheme "business"}}🏢 Business
-                    {{else if eq .DefaultTheme "emerald"}}💚 Emerald
-                    {{else if eq .DefaultTheme "lofi"}}📻 Lo-Fi
-                    {{else if eq .DefaultTheme "cyberpunk"}}🤖 Cyberpunk
-                    {{else if eq .DefaultTheme "valentine"}}💝 Valentine
-                    {{else}}{{.DefaultTheme}}{{end}}
-                  </span>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-full p-2 shadow-lg border border-base-300">
-                  <li><button hx-post="{{host}}/settings/theme?theme=light" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🌞 Light</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=dark" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🌙 Dark</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=corporate" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">💼 Corporate</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=business" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🏢 Business</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=emerald" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">💚 Emerald</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=lofi" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">📻 Lo-Fi</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=cyberpunk" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🤖 Cyberpunk</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=valentine" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">💝 Valentine</button></li>
-                </ul>
-              </div>
-            </div>
+              <select name="default_theme" class="select select-bordered w-full">
+                <option value="light" {{if eq .DefaultTheme "light"}}selected{{end}}>🌞 Light</option>
+                <option value="dark" {{if eq .DefaultTheme "dark"}}selected{{end}}>🌙 Dark</option>
+                <option value="corporate" {{if eq .DefaultTheme "corporate"}}selected{{end}}>💼 Corporate</option>
+                <option value="business" {{if eq .DefaultTheme "business"}}selected{{end}}>🏢 Business</option>
+                <option value="emerald" {{if eq .DefaultTheme "emerald"}}selected{{end}}>💚 Emerald</option>
+                <option value="lofi" {{if eq .DefaultTheme "lofi"}}selected{{end}}>📻 Lo-Fi</option>
+                <option value="cyberpunk" {{if eq .DefaultTheme "cyberpunk"}}selected{{end}}>🤖 Cyberpunk</option>
+                <option value="valentine" {{if eq .DefaultTheme "valentine"}}selected{{end}}>💝 Valentine</option>
+              </select>
+            </label>
           </div>
         </fieldset>
 
@@ -147,11 +115,7 @@
               <label class="label cursor-pointer justify-start gap-4">
                 <input type="checkbox" name="allow_public_repos" value="true" 
                        class="checkbox checkbox-primary" 
-                       {{if .AllowPublicRepos}}checked{{end}}
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change"
-                       hx-swap="none"
-                       hx-indicator="#public-repos-spinner" />
+                       {{if .AllowPublicRepos}}checked{{end}} />
                 <div class="flex-1">
                   <span class="label-text font-medium flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,9 +125,6 @@
                   </span>
                   <span class="label-text-alt text-xs">Users can create repositories visible to everyone</span>
                 </div>
-                <span id="public-repos-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
               </label>
             </div>
 
@@ -171,11 +132,7 @@
               <label class="label cursor-pointer justify-start gap-4">
                 <input type="checkbox" name="allow_signup" value="true" 
                        class="checkbox checkbox-primary" 
-                       {{if .AllowSignup}}checked{{end}}
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change"
-                       hx-swap="none"
-                       hx-indicator="#signup-spinner" />
+                       {{if .AllowSignup}}checked{{end}} />
                 <div class="flex-1">
                   <span class="label-text font-medium flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -185,9 +142,6 @@
                   </span>
                   <span class="label-text-alt text-xs">New users can create accounts</span>
                 </div>
-                <span id="signup-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
               </label>
             </div>
 
@@ -195,11 +149,7 @@
               <label class="label cursor-pointer justify-start gap-4">
                 <input type="checkbox" name="require_email_verify" value="true" 
                        class="checkbox checkbox-primary" 
-                       {{if .RequireEmailVerify}}checked{{end}}
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change"
-                       hx-swap="none"
-                       hx-indicator="#email-verify-spinner" />
+                       {{if .RequireEmailVerify}}checked{{end}} />
                 <div class="flex-1">
                   <span class="label-text font-medium flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -209,9 +159,6 @@
                   </span>
                   <span class="label-text-alt text-xs">Users must verify email before access</span>
                 </div>
-                <span id="email-verify-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
               </label>
             </div>
           </div>
@@ -231,62 +178,37 @@
               <label class="label cursor-pointer justify-start gap-4">
                 <input type="checkbox" name="github_enabled" value="true" 
                        class="checkbox checkbox-primary" 
-                       {{if .GitHubEnabled}}checked{{end}}
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change"
-                       hx-swap="none"
-                       hx-indicator="#github-enabled-spinner" />
+                       {{if .GitHubEnabled}}checked{{end}} />
                 <div class="flex-1">
                   <span class="label-text font-medium">Enable GitHub Integration</span>
                   <span class="label-text-alt text-xs">Allow users to connect GitHub repositories</span>
                 </div>
-                <span id="github-enabled-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
               </label>
             </div>
 
             <div class="divider my-2">OAuth Configuration</div>
 
-            <div class="w-full">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">OAuth Client ID</span>
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">OAuth Client ID</span>
                 <a href="https://github.com/settings/developers" target="_blank" class="link link-primary text-xs">
                   Create OAuth App →
                 </a>
               </div>
-              <label class="input input-bordered w-full flex items-center gap-2">
-                <input type="text" name="github_client_id" value="{{.GitHubClientID}}" 
-                       class="grow font-mono" 
-                       placeholder="Iv1.a1b2c3d4e5f6g7h8"
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none"
-                       hx-indicator="#github-id-spinner" />
-                <span id="github-id-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
-              </label>
-            </div>
+              <input type="text" name="github_client_id" value="{{.GitHubClientID}}" 
+                     class="input input-bordered w-full font-mono" 
+                     placeholder="Iv1.a1b2c3d4e5f6g7h8" />
+            </label>
 
-            <div class="w-full">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">OAuth Client Secret</span>
-                <span class="text-xs text-warning">Keep this secret!</span>
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-sm font-medium">OAuth Client Secret</span>
+                <span class="label-text-alt text-xs text-warning">Keep this secret!</span>
               </div>
-              <label class="input input-bordered w-full flex items-center gap-2">
-                <input type="password" name="github_client_secret" value="{{.GitHubClientSecret}}" 
-                       class="grow font-mono" 
-                       placeholder="••••••••••••••••••••••••••••••••"
-                       hx-post="{{host}}/settings"
-                       hx-trigger="change, keyup delay:1000ms changed"
-                       hx-swap="none"
-                       hx-indicator="#github-secret-spinner" />
-                <span id="github-secret-spinner" class="htmx-indicator">
-                  <span class="loading loading-spinner loading-xs"></span>
-                </span>
-              </label>
-            </div>
+              <input type="password" name="github_client_secret" value="{{.GitHubClientSecret}}" 
+                     class="input input-bordered w-full font-mono" 
+                     placeholder="••••••••••••••••••••••••••••••••" />
+            </label>
 
             {{if .GitHubClientID}}
             <div class="alert alert-success">
@@ -310,20 +232,42 @@
           </div>
         </fieldset>
 
-        <!-- Last Updated Info -->
-        {{if .LastUpdatedBy}}
-        <div class="text-sm text-base-content/60 flex items-center gap-4 justify-end">
-          <span class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            Settings auto-save as you type
-          </span>
-          <span>•</span>
-          <span>Last updated by {{.LastUpdatedBy}} on {{.LastUpdatedAt.Format "Jan 2, 2006 at 3:04 PM"}}</span>
+        <!-- Save Button -->
+        <div class="card bg-base-100 shadow-lg border border-base-300">
+          <div class="card-body">
+            <div class="flex justify-between items-center">
+              <div class="text-sm text-base-content/70">
+                {{if .LastUpdatedBy}}
+                <p class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Last updated by {{.LastUpdatedBy}}
+                </p>
+                <p class="flex items-center gap-2 mt-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {{.LastUpdatedAt.Format "Jan 2, 2006 at 3:04 PM"}}
+                </p>
+                {{end}}
+              </div>
+              <div class="flex items-center gap-3">
+                <span id="settings-spinner" class="htmx-indicator">
+                  <span class="loading loading-spinner loading-sm text-primary"></span>
+                  <span class="text-sm text-base-content/70">Saving...</span>
+                </span>
+                <button type="submit" class="btn btn-primary">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        {{end}}
-      </div>
+      </form>
       {{else}}
       <div class="alert alert-error">
         <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">

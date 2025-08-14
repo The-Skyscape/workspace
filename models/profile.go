@@ -8,15 +8,15 @@ import (
 type Profile struct {
 	application.Model
 	
-	UserID      string `json:"user_id"`      // Foreign key to User
-	Bio         string `json:"bio"`           // Biography/description
-	Title       string `json:"title"`         // Professional title
-	Website     string `json:"website"`       // Personal website URL
-	GitHub      string `json:"github"`        // GitHub username
-	Twitter     string `json:"twitter"`       // Twitter handle
-	LinkedIn    string `json:"linkedin"`      // LinkedIn profile
-	ShowEmail   bool   `json:"show_email"`    // Whether to display email publicly
-	ShowStats   bool   `json:"show_stats"`    // Whether to show repository stats
+	UserID      string // Foreign key to User
+	Bio         string // Biography/description
+	Title       string // Professional title
+	Website     string // Personal website URL
+	GitHub      string // GitHub username
+	Twitter     string // Twitter handle
+	LinkedIn    string // LinkedIn profile
+	ShowEmail   bool   // Whether to display email publicly
+	ShowStats   bool   // Whether to show repository stats
 }
 
 // Table returns the database table name
@@ -56,44 +56,3 @@ func GetAdminProfile() (*Profile, error) {
 	return profiles[0], nil
 }
 
-// UpdateAdminProfile updates the admin user's profile
-func UpdateAdminProfile(updates map[string]interface{}) (*Profile, error) {
-	profile, err := GetAdminProfile()
-	if err != nil {
-		return nil, err
-	}
-	
-	// Update fields if provided
-	if bio, ok := updates["bio"].(string); ok {
-		profile.Bio = bio
-	}
-	if title, ok := updates["title"].(string); ok {
-		profile.Title = title
-	}
-	if website, ok := updates["website"].(string); ok {
-		profile.Website = website
-	}
-	if github, ok := updates["github"].(string); ok {
-		profile.GitHub = github
-	}
-	if twitter, ok := updates["twitter"].(string); ok {
-		profile.Twitter = twitter
-	}
-	if linkedin, ok := updates["linkedin"].(string); ok {
-		profile.LinkedIn = linkedin
-	}
-	if showEmail, ok := updates["show_email"].(bool); ok {
-		profile.ShowEmail = showEmail
-	}
-	if showStats, ok := updates["show_stats"].(bool); ok {
-		profile.ShowStats = showStats
-	}
-	
-	// Save to database
-	err = Profiles.Update(profile)
-	if err != nil {
-		return nil, err
-	}
-	
-	return profile, nil
-}

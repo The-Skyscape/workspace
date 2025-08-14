@@ -1,8 +1,8 @@
 package controllers
 
 import (
+	"cmp"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -25,9 +25,16 @@ func (s *SettingsController) Setup(app *application.App) {
 	s.BaseController.Setup(app)
 	auth := app.Use("auth").(*authentication.Controller)
 
+	// Load and apply theme from settings
+	settings, err := models.GetSettings()
+	if err == nil && settings.DefaultTheme != "" {
+		app.SetTheme(settings.DefaultTheme)
+	}
+
 	// Settings pages (admin only)
 	http.Handle("GET /settings", app.Serve("settings.html", auth.Required))
 	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, auth.Required))
+	http.Handle("POST /settings/theme", app.ProtectFunc(s.updateTheme, auth.Required))
 	
 	// Profile settings
 	http.Handle("GET /settings/profile", app.Serve("settings-profile.html", auth.Required))
@@ -45,14 +52,6 @@ func (s *SettingsController) GetSettings() (*models.Settings, error) {
 	return models.GetSettings()
 }
 
-// GetSanitizedSettings returns settings safe for display
-func (s *SettingsController) GetSanitizedSettings() map[string]interface{} {
-	settings, err := models.GetSettings()
-	if err != nil {
-		return map[string]interface{}{}
-	}
-	return settings.SanitizedSettings()
-}
 
 // updateSettings handles the main settings form submission
 func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -74,51 +73,28 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Update from form values directly (HATEOAS pattern)
-	settings.AppName = r.FormValue("app_name")
-	settings.AppDescription = r.FormValue("app_description")
-	settings.DefaultTheme = r.FormValue("default_theme")
+	// Update only provided fields using cmp.Or to preserve existing values
+	settings.AppName = cmp.Or(r.FormValue("app_name"), settings.AppName)
+	settings.AppDescription = cmp.Or(r.FormValue("app_description"), settings.AppDescription)
+	settings.DefaultTheme = cmp.Or(r.FormValue("default_theme"), settings.DefaultTheme)
 	
-	// Parse numeric values
-	if size := r.FormValue("max_repo_size_mb"); size != "" {
-		if val, err := strconv.ParseInt(size, 10, 64); err == nil {
-			settings.MaxRepoSize = val
-		}
+	// Security Settings (checkboxes) - only update if field is present
+	if _, exists := r.Form["allow_public_repos"]; exists {
+		settings.AllowPublicRepos = r.FormValue("allow_public_repos") == "true"
 	}
-	if workspaces := r.FormValue("max_workspaces"); workspaces != "" {
-		if val, err := strconv.Atoi(workspaces); err == nil {
-			settings.MaxWorkspaces = val
-		}
+	if _, exists := r.Form["allow_signup"]; exists {
+		settings.AllowSignup = r.FormValue("allow_signup") == "true"
 	}
-	
-	// Security Settings (checkboxes)
-	settings.AllowPublicRepos = r.FormValue("allow_public_repos") == "true"
-	settings.AllowSignup = r.FormValue("allow_signup") == "true"
-	settings.RequireEmailVerify = r.FormValue("require_email_verify") == "true"
-	
-	if timeout := r.FormValue("session_timeout_hours"); timeout != "" {
-		if val, err := strconv.Atoi(timeout); err == nil {
-			settings.SessionTimeout = val
-		}
+	if _, exists := r.Form["require_email_verify"]; exists {
+		settings.RequireEmailVerify = r.FormValue("require_email_verify") == "true"
 	}
-
-	// Performance Settings
-	if ttl := r.FormValue("cache_ttl_minutes"); ttl != "" {
-		if val, err := strconv.Atoi(ttl); err == nil {
-			settings.CacheTTLMinutes = val
-		}
-	}
-	if size := r.FormValue("max_cache_size_mb"); size != "" {
-		if val, err := strconv.ParseInt(size, 10, 64); err == nil {
-			settings.MaxCacheSize = val
-		}
-	}
-	settings.EnableGitCache = r.FormValue("enable_git_cache") == "true"
 
 	// GitHub Integration
-	settings.GitHubEnabled = r.FormValue("github_enabled") == "true"
-	settings.GitHubClientID = r.FormValue("github_client_id")
-	settings.GitHubClientSecret = r.FormValue("github_client_secret")
+	if _, exists := r.Form["github_enabled"]; exists {
+		settings.GitHubEnabled = r.FormValue("github_enabled") == "true"
+	}
+	settings.GitHubClientID = cmp.Or(r.FormValue("github_client_id"), settings.GitHubClientID)
+	settings.GitHubClientSecret = cmp.Or(r.FormValue("github_client_secret"), settings.GitHubClientSecret)
 
 	// Update metadata
 	settings.LastUpdatedBy = user.Email
@@ -133,6 +109,11 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Update App.Theme if theme was changed
+	if r.Form.Has("default_theme") {
+		s.App.SetTheme(settings.DefaultTheme)
+	}
+
 	// Log activity
 	models.LogActivity("settings_updated", "Updated global settings", 
 		"Administrator updated global settings", user.ID, "", "settings", "")
@@ -141,6 +122,59 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	s.Redirect(w, r, "/settings")
 }
 
+
+// updateTheme handles theme change requests
+func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		s.Render(w, r, "error-message.html", map[string]interface{}{
+			"Message": "Unauthorized",
+		})
+		return
+	}
+
+	theme := r.URL.Query().Get("theme")
+	if theme == "" {
+		s.Render(w, r, "error-message.html", map[string]interface{}{
+			"Message": "Theme not specified",
+		})
+		return
+	}
+
+	// Get current settings
+	settings, err := models.GetSettings()
+	if err != nil {
+		s.Render(w, r, "error-message.html", map[string]interface{}{
+			"Message": "Failed to load settings: " + err.Error(),
+		})
+		return
+	}
+
+	// Update theme
+	settings.DefaultTheme = theme
+	settings.LastUpdatedBy = user.Email
+	settings.LastUpdatedAt = time.Now()
+
+	// Save to database
+	err = models.GlobalSettings.Update(settings)
+	if err != nil {
+		s.Render(w, r, "error-message.html", map[string]interface{}{
+			"Message": "Failed to update theme: " + err.Error(),
+		})
+		return
+	}
+
+	// Update App theme
+	s.App.SetTheme(theme)
+
+	// Log activity
+	models.LogActivity("theme_updated", "Updated UI theme to " + theme, 
+		"Administrator changed theme to " + theme, user.ID, "", "settings", "")
+
+	// Return success (HTMX will reload the page)
+	w.WriteHeader(http.StatusOK)
+}
 
 // GetProfile returns the admin user's profile for settings page
 func (s *SettingsController) GetProfile() (*models.Profile, error) {
@@ -158,20 +192,45 @@ func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Parse form values
-	updates := map[string]interface{}{
-		"bio":        r.FormValue("bio"),
-		"title":      r.FormValue("title"),
-		"website":    r.FormValue("website"),
-		"github":     r.FormValue("github"),
-		"twitter":    r.FormValue("twitter"),
-		"linkedin":   r.FormValue("linkedin"),
-		"show_email": r.FormValue("show_email") == "true",
-		"show_stats": r.FormValue("show_stats") == "true",
+	// Get existing profile
+	profile, err := models.GetAdminProfile()
+	if err != nil {
+		s.Render(w, r, "error-message.html", map[string]interface{}{
+			"Message": "Failed to load profile: " + err.Error(),
+		})
+		return
 	}
 
-	// Update profile
-	_, err = models.UpdateAdminProfile(updates)
+	// Update only the fields that are present in the form
+	if r.Form.Has("bio") {
+		profile.Bio = r.FormValue("bio")
+	}
+	if r.Form.Has("title") {
+		profile.Title = r.FormValue("title")
+	}
+	if r.Form.Has("website") {
+		profile.Website = r.FormValue("website")
+	}
+	if r.Form.Has("github") {
+		profile.GitHub = r.FormValue("github")
+	}
+	if r.Form.Has("twitter") {
+		profile.Twitter = r.FormValue("twitter")
+	}
+	if r.Form.Has("linkedin") {
+		profile.LinkedIn = r.FormValue("linkedin")
+	}
+	
+	// Checkboxes - only update if field is present
+	if r.Form.Has("show_email") {
+		profile.ShowEmail = r.FormValue("show_email") == "true"
+	}
+	if r.Form.Has("show_stats") {
+		profile.ShowStats = r.FormValue("show_stats") == "true"
+	}
+
+	// Save profile
+	err = models.Profiles.Update(profile)
 	if err != nil {
 		s.Render(w, r, "error-message.html", map[string]interface{}{
 			"Message": "Failed to update profile: " + err.Error(),

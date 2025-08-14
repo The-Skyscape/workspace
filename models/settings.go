@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -12,31 +11,31 @@ type Settings struct {
 	application.Model
 	
 	// System Settings
-	AppName             string `json:"app_name"`
-	AppDescription      string `json:"app_description"`
-	DefaultTheme        string `json:"default_theme"` // DaisyUI theme
-	MaxRepoSize         int64  `json:"max_repo_size_mb"`
-	MaxWorkspaces       int    `json:"max_workspaces_per_user"`
+	AppName             string
+	AppDescription      string
+	DefaultTheme        string // DaisyUI theme
+	MaxRepoSize         int64
+	MaxWorkspaces       int
 	
 	// Security Settings
-	AllowPublicRepos    bool   `json:"allow_public_repos"`
-	AllowSignup         bool   `json:"allow_signup"`
-	RequireEmailVerify  bool   `json:"require_email_verify"`
-	SessionTimeout      int    `json:"session_timeout_hours"`
+	AllowPublicRepos    bool
+	AllowSignup         bool
+	RequireEmailVerify  bool
+	SessionTimeout      int
 	
 	// Performance Settings
-	CacheTTLMinutes     int    `json:"cache_ttl_minutes"`
-	MaxCacheSize        int64  `json:"max_cache_size_mb"`
-	EnableGitCache      bool   `json:"enable_git_cache"`
+	CacheTTLMinutes     int
+	MaxCacheSize        int64
+	EnableGitCache      bool
 	
 	// Integration Settings
-	GitHubEnabled       bool   `json:"github_enabled"`
-	GitHubClientID      string `json:"github_client_id"`
-	GitHubClientSecret  string `json:"github_client_secret"`
+	GitHubEnabled       bool
+	GitHubClientID      string
+	GitHubClientSecret  string
 	
 	// Metadata
-	LastUpdatedBy       string    `json:"last_updated_by"`
-	LastUpdatedAt       time.Time `json:"last_updated_at"`
+	LastUpdatedBy       string
+	LastUpdatedAt       time.Time
 }
 
 // Table returns the database table name
@@ -76,59 +75,7 @@ func GetSettings() (*Settings, error) {
 	return settings, nil
 }
 
-// UpdateSettings updates the global settings
-func UpdateSettings(updates map[string]interface{}, updatedBy string) (*Settings, error) {
-	settings, err := GetSettings()
-	if err != nil {
-		return nil, err
-	}
-	
-	// Marshal updates to JSON and unmarshal into settings
-	jsonData, err := json.Marshal(updates)
-	if err != nil {
-		return nil, err
-	}
-	
-	if err := json.Unmarshal(jsonData, settings); err != nil {
-		return nil, err
-	}
-	
-	// Update metadata
-	settings.LastUpdatedBy = updatedBy
-	settings.LastUpdatedAt = time.Now()
-	
-	// Save to database
-	err = GlobalSettings.Update(settings)
-	if err != nil {
-		return nil, err
-	}
-	
-	return settings, nil
-}
-
 // HasGitHubIntegration checks if GitHub integration is configured
 func (s *Settings) HasGitHubIntegration() bool {
 	return s.GitHubEnabled && s.GitHubClientID != "" && s.GitHubClientSecret != ""
-}
-
-// SanitizedSettings returns settings with sensitive fields removed
-func (s *Settings) SanitizedSettings() map[string]interface{} {
-	return map[string]interface{}{
-		"app_name":              s.AppName,
-		"app_description":       s.AppDescription,
-		"default_theme":         s.DefaultTheme,
-		"max_repo_size_mb":      s.MaxRepoSize,
-		"max_workspaces":        s.MaxWorkspaces,
-		"allow_public_repos":    s.AllowPublicRepos,
-		"allow_signup":          s.AllowSignup,
-		"require_email_verify":  s.RequireEmailVerify,
-		"session_timeout_hours": s.SessionTimeout,
-		"cache_ttl_minutes":     s.CacheTTLMinutes,
-		"max_cache_size_mb":     s.MaxCacheSize,
-		"enable_git_cache":      s.EnableGitCache,
-		"github_enabled":        s.GitHubEnabled,
-		"has_github":            s.HasGitHubIntegration(),
-		"last_updated_at":       s.LastUpdatedAt,
-		"last_updated_by":       s.LastUpdatedBy,
-	}
 }

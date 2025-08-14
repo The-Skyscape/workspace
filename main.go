@@ -15,6 +15,15 @@ import (
 var views embed.FS
 
 func main() {
+	// Load theme from database settings, fallback to env or corporate
+	settings, err := models.GetSettings()
+	theme := "corporate"
+	if err == nil && settings.DefaultTheme != "" {
+		theme = settings.DefaultTheme
+	} else if envTheme := os.Getenv("THEME"); envTheme != "" {
+		theme = envTheme
+	}
+
 	// Start application immediately
 	application.Serve(views,
 		application.WithController("auth", models.Auth.Controller()),
@@ -29,6 +38,6 @@ func main() {
 		application.WithController(controllers.Settings()),
 		application.WithController(controllers.Monitoring()),
 		application.WithHostPrefix(cmp.Or(os.Getenv("PREFIX"), "")),
-		application.WithDaisyTheme(cmp.Or(os.Getenv("THEME"), "corporate")),
+		application.WithDaisyTheme(theme),
 	)
 }
