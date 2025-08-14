@@ -16,9 +16,11 @@ When working on this codebase:
 **Skyscape Workspace** is a GitHub-like platform with containerized development environments. Think of it as self-hosted GitHub + Codespaces.
 
 ### Core Features
-- 🔐 **Git Repository Management** - Create, browse, search repos
+- 🔐 **Git Repository Management** - Create, browse, search repos with FTS5
 - 🚀 **Ephemeral Workspaces** - Docker-based VS Code environments
+- 🤖 **CI/CD Actions** - Docker sandbox execution with artifact collection
 - 📋 **Project Management** - Issues, PRs, and automation
+- 🔗 **GitHub Integration** - Bidirectional sync and OAuth
 - 👥 **Access Control** - Role-based permissions (read/write/admin)
 
 ## Architecture Patterns
@@ -71,11 +73,16 @@ Templates access controller methods directly:
 
 ## Key Files Reference
 
-### Controllers (`/controllers/`)
+### Controllers (`/controllers/`) - Modular Architecture
 | File | Purpose | Key Methods |
 |------|---------|-------------|
-| `repos.go` | Repository management | `CurrentRepo()`, `RepoFiles()`, `RepoIssues()` |
+| `repos.go` | Repository management | `CurrentRepo()`, `RepoFiles()`, delegates to other controllers |
+| `actions.go` | CI/CD actions | `CurrentAction()`, `ActionRuns()`, `GroupedArtifacts()` |
+| `issues.go` | Issue tracking | `RepoIssues()`, `CurrentIssue()`, `IssueComments()` |
+| `pullrequests.go` | PR management | `RepoPullRequests()`, `CurrentPR()` |
 | `workspaces.go` | Container management | `CurrentWorkspace()`, `UserWorkspaces()` |
+| `integrations.go` | GitHub sync | `RepoIntegrations()`, `GitHubSync()` |
+| `settings.go` | Settings management | `RepoSettings()`, `UserSettings()` |
 | `home.go` | Dashboard & landing | `UserRepos()`, `RecentActivity()` |
 | `public.go` | Unauthenticated access | `CurrentRepo()`, `PublicRepoIssues()` |
 
@@ -83,17 +90,44 @@ Templates access controller methods directly:
 | File | Purpose | Key Functions |
 |------|---------|---------------|
 | `database.go` | Global DB setup | `setupDatabase()` - Initializes all repositories |
+| `action.go` | CI/CD workflows | `Execute()`, `CollectArtifacts()`, `monitorSandboxExecution()` |
+| `action_run.go` | Execution history | `GetRunsByAction()`, `FormatDuration()` |
+| `action_artifact.go` | Build artifacts | Versioned artifact storage with grouping |
 | `workspace.go` | Workspace model | `Start()`, `Stop()`, `Service()` |
+| `repository.go` | Git repos | Enhanced with FTS5 search support |
 | `coding.go` | Git operations | `NewRepo()`, `GetWorkspaceByID()` |
 | `permission.go` | Access control | `HasPermission()`, `CheckRepoAccess()` |
+
+### Services (`/services/`)
+| File | Purpose | Key Functions |
+|------|---------|---------------|
+| `sandbox.go` | Docker sandboxes | `StartSandbox()`, `GetOutput()`, `ExtractFile()` |
+| `git.go` | Git operations | Repository management and operations |
+| `workspace.go` | VS Code workspaces | Workspace lifecycle management |
 
 ### Views (`/views/`)
 | File | Purpose | Controller |
 |------|---------|------------|
 | `home.html` | Dashboard/Landing | `home` |
 | `repo-*.html` | Repository views | `repos` |
+| `repo-action-*.html` | Action views (info, logs, history, artifacts) | `actions` |
+| `repo-issues.html` | Issue tracking | `issues` |
+| `repo-prs.html` | Pull requests | `pullrequests` |
+| `repo-integrations.html` | GitHub integration | `integrations` |
 | `workspace-*.html` | Workspace views | `workspaces` |
 | `workspaces-list.html` | Workspace management | `workspaces` |
+
+## Cross-Controller Communication
+
+### Using Other Controllers
+```go
+// Access another controller from within a controller
+func (c *ReposController) RepoIssues(r application.Request) {
+    // Use the Use() method to get another controller
+    issues := c.Use("issues").(*IssuesController)
+    return issues.RepoIssues(r)
+}
+```
 
 ## Common Tasks
 
@@ -146,6 +180,48 @@ func (c *Controller) PublicData() string {
 func (c *Controller) ComplexData() ([]Model, error) {
     return Models.All()
 }
+```
+
+## Actions System (CI/CD)
+
+### Architecture
+```
+User Trigger → Action Controller → Sandbox Service → Docker Container
+                    ↓                    ↓              ↓
+              ActionRun Record    Monitor Output    Collect Artifacts
+                    ↓                    ↓              ↓
+              Update Status        Stream Logs    Store in Database
+```
+
+### Action Execution Flow
+1. User triggers action (manual/scheduled/event)
+2. ActionRun record created with "running" status
+3. Docker sandbox created with repository mounted at /workspace
+4. Command executed in isolated environment
+5. Output captured and streamed to logs
+6. Artifacts collected based on configured paths
+7. ActionRun updated with final status and metrics
+8. Sandbox cleaned up after 5 minute delay
+
+### Key Operations
+```go
+// Create action
+action := &Action{
+    Title: "Build and Test",
+    Type: "manual",
+    Command: "npm test && npm build",
+    Branch: "main",
+    ArtifactPaths: "dist/, coverage/",
+}
+
+// Execute action
+err := action.Execute()
+
+// Monitor in background
+go action.monitorSandboxExecution(sandboxName, runID)
+
+// Collect artifacts
+err := action.CollectArtifacts(sandboxName, paths, runID)
 ```
 
 ## Workspace System
@@ -323,6 +399,9 @@ user, _, _ := auth.Authenticate(r)  // Get current user
 6. **Duplicate containers** - Check IsRunning() before creating new containers
 7. **Build failures** - Always use `make clean && make` instead of direct `go build`
 8. **Validator not working** - DaisyUI v5 doesn't have validator component, use HTML5 validation
+9. **Controller not found** - Use `c.Use("controllerName")` to access other controllers
+10. **Action output missing** - Wrap Docker command in `bash -c` for proper shell redirection
+11. **Database column errors** - Check model uses `application.Model` for base fields
 
 ## Performance Considerations
 
@@ -401,6 +480,42 @@ ssh root@SERVER_IP "docker restart sky-app"
 - Auto-creates tables on startup
 - No manual migrations needed
 
+## UI/UX Patterns
+
+### Consistent Header Style
+- All action/repo pages use same header layout
+- Avatar placeholder with icon on left
+- Title and metadata below
+- Status badge and dropdown menu on right
+
+### Tab Navigation
+- Use route-based tabs (not JavaScript)
+- Active tab indicated with `tab-active` class
+- Each tab has its own route and template
+
+### Borders and Cards
+- Use `border border-base-300` for faint borders
+- Cards should have `shadow-lg` for depth
+- Consistent spacing with `gap-4` between sections
+
+## Recent Architecture Changes (2025)
+
+### Controller Refactoring
+- Split monolithic `repos` controller into focused controllers
+- Each controller handles single responsibility
+- Cross-controller communication via `Use()` method
+
+### Actions System Implementation
+- Docker-based sandbox service for isolated execution
+- Full execution history with ActionRun model
+- Artifact versioning and grouping
+- Tab-based UI for logs, history, artifacts
+
+### Database Enhancements
+- SQLite FTS5 for full-text search
+- ActionRun model for execution tracking
+- Enhanced artifact storage with versioning
+
 ---
 
-**Remember**: When in doubt, follow existing patterns in the codebase. The controllers in `/controllers/repos.go` and `/controllers/workspaces.go` are good examples of the standard patterns used throughout the application.
+**Remember**: When in doubt, follow existing patterns in the codebase. The modular controller architecture and consistent UI patterns are key to maintaining the application.
