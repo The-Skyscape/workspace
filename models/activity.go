@@ -18,6 +18,17 @@ type Activity struct {
 
 func (*Activity) Table() string { return "activities" }
 
+func init() {
+	// Create indexes for activities table
+	go func() {
+		Activities.Index("RepoID")
+		Activities.Index("UserID")
+		Activities.Index("Type")
+		Activities.Index("CreatedAt DESC")
+	}()
+}
+
+
 // LogActivity creates a new activity record
 func LogActivity(activityType, title, description, userID, repoID, entityType, entityID string) error {
 	activity := &Activity{

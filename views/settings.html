@@ -19,7 +19,7 @@
     <!-- Main Content -->
     <div class="lg:col-span-2">
       {{with settings.GetSettings}}
-      <div class="space-y-6">
+      <div class="flex flex-col gap-6">
         
         <!-- System Configuration -->
         <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6">
@@ -119,14 +119,14 @@
                   </svg>
                 </div>
                 <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-full p-2 shadow-lg border border-base-300">
-                  <li><button hx-post="{{host}}/settings/theme?theme=light" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🌞 Light</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=dark" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🌙 Dark</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=corporate" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">💼 Corporate</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=business" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🏢 Business</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=emerald" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">💚 Emerald</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=lofi" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">📻 Lo-Fi</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=cyberpunk" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">🤖 Cyberpunk</button></li>
-                  <li><button hx-post="{{host}}/settings/theme?theme=valentine" hx-swap="none" hx-on:htmx:after-request="window.location.reload()" class="justify-start">💝 Valentine</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=light" hx-target="body" hx-swap="outerHTML" class="justify-start">🌞 Light</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=dark" hx-target="body" hx-swap="outerHTML" class="justify-start">🌙 Dark</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=corporate" hx-target="body" hx-swap="outerHTML" class="justify-start">💼 Corporate</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=business" hx-target="body" hx-swap="outerHTML" class="justify-start">🏢 Business</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=emerald" hx-target="body" hx-swap="outerHTML" class="justify-start">💚 Emerald</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=lofi" hx-target="body" hx-swap="outerHTML" class="justify-start">📻 Lo-Fi</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=cyberpunk" hx-target="body" hx-swap="outerHTML" class="justify-start">🤖 Cyberpunk</button></li>
+                  <li><button hx-post="{{host}}/settings/theme?theme=valentine" hx-target="body" hx-swap="outerHTML" class="justify-start">💝 Valentine</button></li>
                 </ul>
               </div>
             </div>

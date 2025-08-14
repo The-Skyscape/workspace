@@ -33,6 +33,17 @@ type Action struct {
 
 func (*Action) Table() string { return "actions" }
 
+func init() {
+	// Create indexes for actions table
+	go func() {
+		Actions.Index("RepoID")
+		Actions.Index("Type")
+		Actions.Index("Branch")
+		Actions.Index("CreatedAt DESC")
+	}()
+}
+
+
 // Execute runs the action script in a sandbox container
 func (a *Action) Execute() error {
 	// Create a new action run record

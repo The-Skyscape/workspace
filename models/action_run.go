@@ -27,6 +27,16 @@ type ActionRun struct {
 // Table returns the database table name
 func (*ActionRun) Table() string { return "action_runs" }
 
+func init() {
+	// Create indexes for action runs table
+	go func() {
+		ActionRuns.Index("ActionID")
+		ActionRuns.Index("Status")
+		ActionRuns.Index("CreatedAt DESC")
+	}()
+}
+
+
 // GetByAction returns all runs for a specific action
 func GetRunsByAction(actionID string) ([]*ActionRun, error) {
 	return ActionRuns.Search("WHERE ActionID = ? ORDER BY CreatedAt DESC", actionID)

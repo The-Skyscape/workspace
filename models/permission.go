@@ -16,6 +16,16 @@ type Permission struct {
 
 func (*Permission) Table() string { return "permissions" }
 
+func init() {
+	// Create indexes for permissions table
+	go func() {
+		Permissions.Index("RepoID")
+		Permissions.Index("UserID")
+		Permissions.UniqueIndex("RepoID", "UserID")
+	}()
+}
+
+
 // Permission constants
 const (
 	RoleRead  = "read"

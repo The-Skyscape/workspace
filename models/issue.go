@@ -1,6 +1,8 @@
 package models
 
-import "github.com/The-Skyscape/devtools/pkg/application"
+import (
+	"github.com/The-Skyscape/devtools/pkg/application"
+)
 
 type Issue struct {
 	application.Model
@@ -14,3 +16,14 @@ type Issue struct {
 }
 
 func (*Issue) Table() string { return "issues" }
+
+func init() {
+	// Create indexes for issues table
+	go func() {
+		Issues.Index("RepoID")
+		Issues.Index("AuthorID")
+		Issues.Index("Status")
+		Issues.Index("CreatedAt DESC")
+	}()
+}
+

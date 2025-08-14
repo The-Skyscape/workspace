@@ -25,6 +25,12 @@ type Repository struct {
 	DefaultBranch string    // Default branch name
 	Size          int64     // Repository size in bytes
 	
+	// Statistics
+	PrimaryLanguage string    // Primary programming language
+	LastActivityAt  time.Time // Last activity timestamp
+	StarCount       int       // Number of stars (for future use)
+	ForkCount       int       // Number of forks (for future use)
+	
 	// GitHub Integration
 	GitHubURL     string    // GitHub repository URL
 	GitHubToken   string    // GitHub personal access token (should be encrypted)
@@ -41,6 +47,16 @@ const (
 	VisibilityPublic  = "public"
 	VisibilityPrivate = "private"
 )
+
+func init() {
+	// Create indexes for repositories table
+	go func() {
+		Repositories.Index("UserID")
+		Repositories.Index("Visibility")
+		Repositories.Index("CreatedAt DESC")
+	}()
+}
+
 
 // GenerateRepositoryID creates a URL-safe ID from a repository name
 func GenerateRepositoryID(name string) string {
@@ -313,8 +329,126 @@ func (r *Repository) GetSize() (int64, error) {
 
 // UpdateLastActivity updates the last activity timestamp
 func (r *Repository) UpdateLastActivity() error {
+	r.LastActivityAt = time.Now()
 	// UpdatedAt is automatically updated by the database layer
 	return Repositories.Update(r)
+}
+
+// GetStats returns comprehensive statistics for the repository
+func (r *Repository) GetStats() (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+	
+	// Basic stats
+	stats["name"] = r.Name
+	stats["description"] = r.Description
+	stats["visibility"] = r.Visibility
+	stats["primary_language"] = r.PrimaryLanguage
+	stats["last_activity"] = r.LastActivityAt
+	stats["star_count"] = r.StarCount
+	stats["fork_count"] = r.ForkCount
+	
+	// Get repository size
+	size, err := r.GetSize()
+	if err == nil {
+		stats["size"] = size
+		stats["size_formatted"] = formatBytes(size)
+	}
+	
+	// Get file count
+	fileCount, err := r.GetFileCount()
+	if err == nil {
+		stats["file_count"] = fileCount
+	}
+	
+	// Get branch count
+	branches, err := r.GetBranches()
+	if err == nil {
+		stats["branch_count"] = len(branches)
+		stats["default_branch"] = r.GetDefaultBranch()
+	}
+	
+	// Get commit count
+	stdout, _, err := r.Git("rev-list", "--count", "HEAD")
+	if err == nil {
+		commitCount := strings.TrimSpace(stdout.String())
+		stats["commit_count"] = commitCount
+	}
+	
+	// Get contributor count
+	contributors, err := r.GetContributors()
+	if err == nil {
+		stats["contributor_count"] = len(contributors)
+	}
+	
+	// Get language statistics
+	langStats, err := r.GetLanguageStats()
+	if err == nil {
+		stats["languages"] = langStats
+		
+		// Determine primary language if not set
+		if r.PrimaryLanguage == "" && len(langStats) > 0 {
+			maxBytes := 0
+			primaryLang := ""
+			for lang, bytes := range langStats {
+				if bytes > maxBytes {
+					maxBytes = bytes
+					primaryLang = lang
+				}
+			}
+			r.PrimaryLanguage = primaryLang
+			stats["primary_language"] = primaryLang
+			// Update the repository with the detected primary language
+			go func() {
+				Repositories.Update(r)
+			}()
+		}
+	}
+	
+	// Get issue and PR counts
+	openIssues, _ := Issues.Search("WHERE RepoID = ? AND Status = ?", r.ID, "open")
+	closedIssues, _ := Issues.Search("WHERE RepoID = ? AND Status = ?", r.ID, "closed")
+	stats["open_issues"] = len(openIssues)
+	stats["closed_issues"] = len(closedIssues)
+	
+	openPRs, _ := PullRequests.Search("WHERE RepoID = ? AND Status = ?", r.ID, "open")
+	mergedPRs, _ := PullRequests.Search("WHERE RepoID = ? AND Status = ?", r.ID, "merged")
+	stats["open_prs"] = len(openPRs)
+	stats["merged_prs"] = len(mergedPRs)
+	
+	// Get action statistics
+	actions, _ := Actions.Search("WHERE RepoID = ?", r.ID)
+	stats["action_count"] = len(actions)
+	
+	// Get recent action runs
+	recentRuns, _ := ActionRuns.Search("WHERE RepoID = ? ORDER BY CreatedAt DESC LIMIT 10", r.ID)
+	successCount := 0
+	failureCount := 0
+	for _, run := range recentRuns {
+		if run.Status == "success" {
+			successCount++
+		} else if run.Status == "failure" {
+			failureCount++
+		}
+	}
+	if len(recentRuns) > 0 {
+		stats["action_success_rate"] = float64(successCount) / float64(len(recentRuns)) * 100
+	}
+	
+	return stats, nil
+}
+
+// formatBytes formats bytes into human-readable format
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // Contributor represents a repository contributor

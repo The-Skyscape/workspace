@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"workspace/models"
@@ -77,7 +78,7 @@ func (c *PublicController) submitIssue(w http.ResponseWriter, r *http.Request) {
 	// Get the public repository
 	repo, err := c.getPublicRepoFromRequest(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -87,18 +88,18 @@ func (c *PublicController) submitIssue(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.FormValue("email"))
 
 	if title == "" {
-		c.Render(w, r, "error-message.html", errors.New("issue title is required"))
+		c.RenderErrorMsg(w, r, "issue title is required")
 		return
 	}
 
 	if email == "" {
-		c.Render(w, r, "error-message.html", errors.New("email is required for notifications"))
+		c.RenderErrorMsg(w, r, "email is required for notifications")
 		return
 	}
 
 	// Basic email validation
 	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
-		c.Render(w, r, "error-message.html", errors.New("please provide a valid email address"))
+		c.RenderErrorMsg(w, r, "please provide a valid email address")
 		return
 	}
 
@@ -114,7 +115,7 @@ func (c *PublicController) submitIssue(w http.ResponseWriter, r *http.Request) {
 
 	_, err = models.Issues.Insert(issue)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create issue: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to create issue: %w", err))
 		return
 	}
 

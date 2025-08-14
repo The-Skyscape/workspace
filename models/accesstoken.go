@@ -19,6 +19,16 @@ type AccessToken struct {
 
 func (*AccessToken) Table() string { return "access_tokens" }
 
+func init() {
+	// Create indexes for access_tokens table
+	go func() {
+		AccessTokens.Index("RepoID")
+		AccessTokens.Index("ExpiresAt")
+		AccessTokens.Index("UserID")
+	}()
+}
+
+
 // GenerateToken creates a secure random token
 func GenerateToken() string {
 	bytes := make([]byte, 32)

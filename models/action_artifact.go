@@ -25,6 +25,16 @@ type ActionArtifact struct {
 // Table returns the database table name
 func (*ActionArtifact) Table() string { return "action_artifacts" }
 
+func init() {
+	// Create indexes for action artifacts table
+	go func() {
+		ActionArtifacts.Index("RunID")
+		ActionArtifacts.Index("Version")
+		ActionArtifacts.Index("CreatedAt DESC")
+	}()
+}
+
+
 // GetByAction returns all artifacts for a specific action
 func GetArtifactsByAction(actionID string) ([]*ActionArtifact, error) {
 	return ActionArtifacts.Search("WHERE ActionID = ? ORDER BY CreatedAt DESC", actionID)

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -121,23 +122,14 @@ func (c *IssuesController) getCurrentRepo() (*models.Repository, error) {
 
 // searchIssues handles issue search requests with HTMX
 func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoReadRequired()(c.App, w, r) {
 		return
 	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
@@ -147,23 +139,17 @@ func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) 
 
 // createIssue handles issue creation
 func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoReadRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check repository access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
@@ -173,7 +159,7 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	tags := strings.TrimSpace(r.FormValue("tags"))
 
 	if title == "" {
-		c.Render(w, r, "error-message.html", errors.New("issue title is required"))
+		c.RenderErrorMsg(w, r, "issue title is required")
 		return
 	}
 
@@ -188,9 +174,9 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 		AssigneeID: user.ID,  // Initially assign to creator
 	}
 
-	_, err = models.Issues.Insert(issue)
+	_, err := models.Issues.Insert(issue)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create issue: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to create issue: %w", err))
 		return
 	}
 
@@ -216,7 +202,7 @@ func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
@@ -224,27 +210,27 @@ func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
 	issueID := r.PathValue("issueID")
 
 	if repoID == "" || issueID == "" {
-		http.Error(w, "repository ID and issue ID required", http.StatusBadRequest)
+		c.RenderErrorMsg(w, r, "repository ID and issue ID required")
 		return
 	}
 
 	// Get and update issue
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
+		c.RenderErrorMsg(w, r, "issue not found")
 		return
 	}
 
 	// Check if user can update this issue
 	if !models.CanUserUpdateIssue(user, issue) {
-		http.Error(w, "insufficient permissions", http.StatusForbidden)
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
 	issue.Status = "closed"
 	err = models.Issues.Update(issue)
 	if err != nil {
-		http.Error(w, "failed to close issue", http.StatusInternalServerError)
+		c.RenderErrorMsg(w, r, "failed to close issue")
 		return
 	}
 
@@ -260,7 +246,7 @@ func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
@@ -268,27 +254,27 @@ func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
 	issueID := r.PathValue("issueID")
 
 	if repoID == "" || issueID == "" {
-		http.Error(w, "repository ID and issue ID required", http.StatusBadRequest)
+		c.RenderErrorMsg(w, r, "repository ID and issue ID required")
 		return
 	}
 
 	// Get and update issue
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
+		c.RenderErrorMsg(w, r, "issue not found")
 		return
 	}
 
 	// Check if user can update this issue
 	if !models.CanUserUpdateIssue(user, issue) {
-		http.Error(w, "insufficient permissions", http.StatusForbidden)
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
 	issue.Status = "open"
 	err = models.Issues.Update(issue)
 	if err != nil {
-		http.Error(w, "failed to reopen issue", http.StatusInternalServerError)
+		c.RenderErrorMsg(w, r, "failed to reopen issue")
 		return
 	}
 
@@ -304,7 +290,7 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
@@ -312,20 +298,20 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 	issueID := r.PathValue("issueID")
 
 	if repoID == "" || issueID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and issue ID required"))
+		c.RenderErrorMsg(w, r, "repository ID and issue ID required")
 		return
 	}
 
 	// Get the issue
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("issue not found"))
+		c.RenderErrorMsg(w, r, "issue not found")
 		return
 	}
 
 	// Check if user can update this issue
 	if !models.CanUserUpdateIssue(user, issue) {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
@@ -345,7 +331,7 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 	// Save changes
 	err = models.Issues.Update(issue)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to update issue"))
+		c.RenderErrorMsg(w, r, "failed to update issue")
 		return
 	}
 
@@ -361,7 +347,7 @@ func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
@@ -369,27 +355,27 @@ func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
 	issueID := r.PathValue("issueID")
 
 	if repoID == "" || issueID == "" {
-		http.Error(w, "repository ID and issue ID required", http.StatusBadRequest)
+		c.RenderErrorMsg(w, r, "repository ID and issue ID required")
 		return
 	}
 
 	// Get the issue for logging
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
+		c.RenderErrorMsg(w, r, "issue not found")
 		return
 	}
 
 	// Check if user can delete this issue (admin only)
 	if !models.IsUserAdmin(user) {
-		http.Error(w, "insufficient permissions", http.StatusForbidden)
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
 	// Delete the issue
 	err = models.Issues.Delete(issue)
 	if err != nil {
-		http.Error(w, "failed to delete issue", http.StatusInternalServerError)
+		c.RenderErrorMsg(w, r, "failed to delete issue")
 		return
 	}
 
@@ -405,7 +391,7 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
@@ -414,28 +400,28 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 	body := strings.TrimSpace(r.FormValue("body"))
 
 	if repoID == "" || issueID == "" || body == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID, issue ID, and comment body required"))
+		c.RenderErrorMsg(w, r, "repository ID, issue ID, and comment body required")
 		return
 	}
 
 	// Check repository read access (anyone who can read can comment)
 	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
 	// Verify issue exists
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("issue not found"))
+		c.RenderErrorMsg(w, r, "issue not found")
 		return
 	}
 
 	// Create comment
 	_, err = models.CreateIssueComment(issueID, repoID, user.ID, body)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create comment"))
+		c.RenderErrorMsg(w, r, "failed to create comment")
 		return
 	}
 

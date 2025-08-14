@@ -6,7 +6,7 @@
     <!-- Tabs -->
     <div class="tabs tabs-boxed mb-6">
       <input type="radio" name="create_mode" value="create" class="hidden" id="tab-create" checked />
-      <label for="tab-create" class="tab" onclick="document.getElementById('tab-create').checked=true; document.getElementById('create-form').classList.remove('hidden'); document.getElementById('import-form').classList.add('hidden');">
+      <label for="tab-create" class="tab" _="on click add .hidden to #import-form then remove .hidden from #create-form">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
@@ -14,7 +14,7 @@
       </label>
       
       <input type="radio" name="create_mode" value="import" class="hidden" id="tab-import" />
-      <label for="tab-import" class="tab" onclick="document.getElementById('tab-import').checked=true; document.getElementById('import-form').classList.remove('hidden'); document.getElementById('create-form').classList.add('hidden');">
+      <label for="tab-import" class="tab" _="on click add .hidden to #create-form then remove .hidden from #import-form">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
         </svg>
@@ -23,7 +23,8 @@
     </div>
 
     <!-- Create New Form -->
-    <form id="create-form" hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-4">
+    <form id="create-form" hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML" 
+          hx-indicator="#create-submit-indicator" class="flex flex-col gap-4">
       <!-- Repository Name -->
       <label class="form-control w-full">
         <div class="label">
@@ -77,17 +78,22 @@
       <!-- Modal Actions -->
       <div class="modal-action">
         <button type="submit" class="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <span class="htmx-indicator" id="create-submit-indicator">
+            <span class="loading loading-spinner loading-sm"></span>
+          </span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 htmx-indicator:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
-          Create Repository
+          <span class="htmx-indicator:hidden">Create Repository</span>
+          <span class="htmx-indicator">Creating...</span>
         </button>
-        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
+        <button type="button" class="btn" _="on click call create_repo_modal.close()">Cancel</button>
       </div>
     </form>
 
     <!-- Import from GitHub Form -->
-    <form id="import-form" hx-post="{{host}}/repos/import" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-4 hidden">
+    <form id="import-form" hx-post="{{host}}/repos/import" hx-target="body" hx-swap="outerHTML" 
+          hx-indicator="#import-submit-indicator" class="flex flex-col gap-4 hidden">
       <!-- GitHub URL -->
       <label class="form-control w-full">
         <div class="label">
@@ -141,12 +147,16 @@
       <!-- Modal Actions -->
       <div class="modal-action">
         <button type="submit" class="btn btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <span class="htmx-indicator" id="import-submit-indicator">
+            <span class="loading loading-spinner loading-sm"></span>
+          </span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 htmx-indicator:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
           </svg>
-          Import Repository
+          <span class="htmx-indicator:hidden">Import Repository</span>
+          <span class="htmx-indicator">Importing...</span>
         </button>
-        <button type="button" class="btn" onclick="create_repo_modal.close()">Cancel</button>
+        <button type="button" class="btn" _="on click call create_repo_modal.close()">Cancel</button>
       </div>
     </form>
   </div>
@@ -154,14 +164,3 @@
     <button>close</button>
   </form>
 </dialog>
-
-<script>
-  // Set initial tab state
-  document.addEventListener('DOMContentLoaded', function() {
-    const createTab = document.getElementById('tab-create');
-    if (createTab && createTab.checked) {
-      document.getElementById('create-form')?.classList.remove('hidden');
-      document.getElementById('import-form')?.classList.add('hidden');
-    }
-  });
-</script>

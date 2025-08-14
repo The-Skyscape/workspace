@@ -13,9 +13,22 @@ type Comment struct {
 	PRID       string // Can be empty if it's an issue comment
 	LineNumber int    // For inline code comments on PRs
 	FilePath   string // For inline code comments on PRs
+	EntityID   string // Generic entity ID for future use
+	EntityType string // "issue", "pr", etc.
 }
 
 func (*Comment) Table() string { return "comments" }
+
+func init() {
+	// Create indexes for comments table
+	go func() {
+		Comments.Index("IssueID")
+		Comments.Index("PRID")
+		Comments.Index("AuthorID")
+		Comments.Index("CreatedAt DESC")
+	}()
+}
+
 
 // GetIssueComments returns all comments for an issue
 func GetIssueComments(issueID string) ([]*Comment, error) {

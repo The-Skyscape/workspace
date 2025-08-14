@@ -201,20 +201,20 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
 	// Check if user can create repositories (admin only)
 	if !models.CanUserCreateRepo(user) {
-		c.Render(w, r, "error-message.html", errors.New("only administrators can create repositories"))
+		c.RenderErrorMsg(w, r, "only administrators can create repositories")
 		return
 	}
 
 	// Validate required fields
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository name required"))
+		c.RenderErrorMsg(w, r, "repository name required")
 		return
 	}
 
@@ -229,7 +229,7 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 	// Insert into database
 	repo, err = models.Repositories.Insert(repo)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to create repository: %w", err))
 		return
 	}
 
@@ -253,26 +253,26 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
 	// Get repository first to check ownership
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("repository not found"))
+		c.RenderErrorMsg(w, r, "repository not found")
 		return
 	}
 
 	// Check if user can update repository (admin or owner)
 	if !models.IsUserAdmin(user) && repo.UserID != user.ID {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
@@ -289,7 +289,7 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 	// Save changes
 	err = models.Repositories.Update(repo)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to update repository"))
+		c.RenderErrorMsg(w, r, "failed to update repository")
 		return
 	}
 
@@ -306,26 +306,26 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
 	// Get repository for deletion
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("repository not found"))
+		c.RenderErrorMsg(w, r, "repository not found")
 		return
 	}
 
 	// Check if user can delete repository (admin or owner)
 	if !models.CanUserDeleteRepo(user, repo) {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "insufficient permissions")
 		return
 	}
 
@@ -337,7 +337,7 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 	// Delete from database
 	err = models.Repositories.Delete(repo)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to delete repository"))
+		c.RenderErrorMsg(w, r, "failed to delete repository")
 		return
 	}
 
@@ -351,23 +351,14 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 
 // grantPermission handles granting permissions to users
 func (c *ReposController) grantPermission(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("unauthorized"))
+	// Use shared middleware for permission checking
+	if !RepoAdminRequired()(c.App, w, r) {
 		return
 	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check admin permissions for granting permissions
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
@@ -375,21 +366,21 @@ func (c *ReposController) grantPermission(w http.ResponseWriter, r *http.Request
 	role := r.FormValue("role")
 
 	if targetUserEmail == "" || role == "" {
-		c.Render(w, r, "error-message.html", errors.New("user email and role are required"))
+		c.RenderErrorMsg(w, r, "user email and role are required")
 		return
 	}
 
 	// Find user by email
 	targetUser, err := models.Auth.Users.Search("WHERE Email = ?", targetUserEmail)
 	if err != nil || len(targetUser) == 0 {
-		c.Render(w, r, "error-message.html", errors.New("user not found"))
+		c.RenderErrorMsg(w, r, "user not found")
 		return
 	}
 
 	// Grant permission
 	err = models.GrantPermission(targetUser[0].ID, repoID, role)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -399,32 +390,26 @@ func (c *ReposController) grantPermission(w http.ResponseWriter, r *http.Request
 
 // revokePermission handles revoking permissions from users
 func (c *ReposController) revokePermission(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoAdminRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	targetUserID := r.PathValue("userID")
 
 	if repoID == "" || targetUserID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and user ID required"))
-		return
-	}
-
-	// Check admin permissions for revoking permissions
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID and user ID required")
 		return
 	}
 
 	// Revoke permission
-	err = models.RevokePermission(targetUserID, repoID)
+	err := models.RevokePermission(targetUserID, repoID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -999,30 +984,24 @@ func getLanguageFromExtension(ext string) string {
 
 // saveFile handles saving file content via web editor
 func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoWriteRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check write permissions
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
 	// Get repository
 	repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -1033,7 +1012,7 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 	branch := strings.TrimSpace(r.FormValue("branch"))
 
 	if filePath == "" || commitMessage == "" {
-		c.Render(w, r, "error-message.html", errors.New("file path and commit message are required"))
+		c.RenderErrorMsg(w, r, "file path and commit message are required")
 		return
 	}
 
@@ -1044,7 +1023,7 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 	// Update the file
 	err = repo.WriteFile(branch, filePath, content, commitMessage, user.Name, user.Email)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to save file: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to save file: %w", err))
 		return
 	}
 
@@ -1065,30 +1044,24 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 
 // createFile handles creating new files via web editor
 func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoWriteRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check write permissions
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
 	// Get repository
 	repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -1099,7 +1072,7 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 	branch := strings.TrimSpace(r.FormValue("branch"))
 
 	if filePath == "" || commitMessage == "" {
-		c.Render(w, r, "error-message.html", errors.New("file path and commit message are required"))
+		c.RenderErrorMsg(w, r, "file path and commit message are required")
 		return
 	}
 
@@ -1110,7 +1083,7 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 	// Create the file
 	err = repo.WriteFile(branch, filePath, content, commitMessage, user.Name, user.Email)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create file: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to create file: %w", err))
 		return
 	}
 	
@@ -1131,31 +1104,25 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 
 // deleteFile handles deleting files via web interface
 func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoWriteRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	filePath := r.PathValue("path")
 	if repoID == "" || filePath == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and file path required"))
-		return
-	}
-
-	// Check write permissions
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID and file path required")
 		return
 	}
 
 	// Get repository
 	repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -1172,7 +1139,7 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 	// Delete the file
 	err = repo.DeleteFile(branch, filePath, commitMessage, user.Name, user.Email)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to delete file: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to delete file: %w", err))
 		return
 	}
 
@@ -1196,21 +1163,21 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	auth := c.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
 	repoID := r.PathValue("id")
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("repository not found"))
+		c.RenderErrorMsg(w, r, "repository not found")
 		return
 	}
 
 	// Check permissions
 	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("access denied"))
+		c.RenderErrorMsg(w, r, "access denied")
 		return
 	}
 
@@ -1218,7 +1185,7 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	token, err := models.CreateAccessToken(repoID, user.ID, 5*time.Minute)
 	if err != nil {
 		log.Printf("Failed to create access token: %v", err)
-		c.Render(w, r, "error-message.html", errors.New("failed to create access token"))
+		c.RenderErrorMsg(w, r, "failed to create access token")
 		return
 	}
 
@@ -1255,7 +1222,7 @@ func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
 	// Execute in the coder container
 	output, err := exec.Command("docker", "exec", "skyscape-coder", "bash", "-c", cloneCmd).CombinedOutput()
 	if err != nil {
-		c.Render(w, r, "error-message.html", fmt.Errorf("failed to clone/update repository: %s", string(output)))
+		c.RenderError(w, r, fmt.Errorf("failed to clone/update repository: %s", string(output)))
 		return
 	}
 
@@ -1289,7 +1256,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 
@@ -1301,14 +1268,14 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 
 	// Parse GitHub URL
 	if !strings.HasPrefix(githubURL, "https://github.com/") {
-		c.Render(w, r, "error-message.html", errors.New("invalid GitHub URL"))
+		c.RenderErrorMsg(w, r, "invalid GitHub URL")
 		return
 	}
 
 	// Extract repo name from URL if not provided
 	urlParts := strings.Split(strings.TrimPrefix(githubURL, "https://github.com/"), "/")
 	if len(urlParts) < 2 {
-		c.Render(w, r, "error-message.html", errors.New("invalid GitHub repository URL"))
+		c.RenderErrorMsg(w, r, "invalid GitHub repository URL")
 		return
 	}
 	
@@ -1318,7 +1285,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 
 	// Validate repository name (basic validation)
 	if len(name) < 2 || len(name) > 40 {
-		c.Render(w, r, "error-message.html", errors.New("repository name must be 2-40 characters"))
+		c.RenderErrorMsg(w, r, "repository name must be 2-40 characters")
 		return
 	}
 
@@ -1332,7 +1299,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 
 	repo, err = models.Repositories.Insert(repo)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create repository: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to create repository: %w", err))
 		return
 	}
 
@@ -1342,7 +1309,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 	if err := cmd.Run(); err != nil {
 		// Clean up on failure
 		models.Repositories.Delete(repo)
-		c.Render(w, r, "error-message.html", errors.New("failed to clone repository: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to clone repository: %w", err))
 		return
 	}
 
@@ -1380,7 +1347,7 @@ func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Requ
 	// Get user's repositories
 	repos, err := c.SearchUserRepositories(user, query, filter)
 	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderError(w, r, err)
 		return
 	}
 

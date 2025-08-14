@@ -53,7 +53,19 @@
           <!-- File Content Editor -->
           <fieldset class="fieldset bg-base-200 border border-base-300 rounded-box mb-6">
             <legend class="fieldset-legend">File Content</legend>
-            <textarea name="content" class="textarea textarea-bordered w-full font-mono text-sm" rows="30" style="resize: vertical;">{{.Content}}</textarea>
+            <textarea name="content" class="textarea textarea-bordered w-full font-mono text-sm" rows="30" style="resize: vertical;"
+                      _="on keydown if event.key is 'Tab' then halt event then
+                           set start to my.selectionStart
+                           set end to my.selectionEnd
+                           set value to my.value
+                           set my.value to (value.substring(0, start) + '  ' + value.substring(end))
+                           set my.selectionStart to start + 2
+                           set my.selectionEnd to start + 2
+                         end
+                         on keydown if event.ctrlKey and event.key is 's' then halt event then
+                           get the closest <form/> then
+                           trigger submit on it
+                         end">{{.Content}}</textarea>
             <p class="label">Edit the file content above</p>
           </fieldset>
 
@@ -73,13 +85,13 @@
   </div>
 
   <!-- Sidebar -->
-  <div class="space-y-6">
+  <div class="flex flex-col gap-6">
 
     <!-- Editor Tips -->
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">💡 Editor Tips</h3>
-        <div class="space-y-2 text-sm">
+        <div class="flex flex-col gap-2 text-sm">
           <div class="flex items-start space-x-2">
             <kbd class="kbd kbd-xs">Tab</kbd>
             <span>Insert 2 spaces</span>
@@ -100,7 +112,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">File Information</h3>
-        <div class="space-y-3">
+        <div class="flex flex-col gap-3">
           <div class="flex justify-between">
             <span class="text-base-content/70">Language</span>
             <span>{{.Language}}</span>
@@ -125,7 +137,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Navigation</h3>
-        <div class="space-y-2">
+        <div class="flex flex-col gap-2">
           <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -159,36 +171,6 @@
 </div>
 {{end}}
 
-<!-- Enhanced editor with keyboard shortcuts -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const textarea = document.querySelector('textarea[name="content"]');
-    const form = document.querySelector('form');
-    
-    if (textarea) {
-        // Handle Tab key for indentation
-        textarea.addEventListener('keydown', function(e) {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const start = this.selectionStart;
-                const end = this.selectionEnd;
-                const value = this.value;
-                
-                // Insert 2 spaces
-                this.value = value.substring(0, start) + '  ' + value.substring(end);
-                this.selectionStart = this.selectionEnd = start + 2;
-            }
-        });
-        
-        // Handle Ctrl+S to save
-        textarea.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-            }
-        });
-    }
-});
-</script>
+<!-- Enhanced editor with keyboard shortcuts using hyperscript -->
 
 {{template "layout/end"}}

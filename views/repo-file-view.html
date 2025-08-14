@@ -189,14 +189,14 @@
   </div>
 
   <!-- Sidebar -->
-  <div class="space-y-6">
+  <div class="flex flex-col gap-6">
 
     <!-- File Actions -->
     {{if not .IsDir}}
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">File Actions</h3>
-        <div class="space-y-2">
+        <div class="flex flex-col gap-2">
           <a href="{{host}}/repos/{{$repo.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -226,7 +226,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">File Information</h3>
-        <div class="space-y-3">
+        <div class="flex flex-col gap-3">
           <div class="flex justify-between">
             <span class="text-base-content/70">Type</span>
             <span>{{if .IsDir}}Directory{{else if .IsBinary}}Binary{{else}}Text{{end}}</span>
@@ -259,7 +259,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Navigation</h3>
-        <div class="space-y-2">
+        <div class="flex flex-col gap-2">
           <a href="{{host}}/repos/{{$repo.ID}}/files" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0a2 2 0 002 2h10" />

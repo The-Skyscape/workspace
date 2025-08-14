@@ -24,7 +24,7 @@
           
           <div class="flex items-center space-x-2">
             <!-- Create File Button -->
-            <button class="btn btn-primary btn-sm" onclick="create_file_modal.showModal()">
+            <button class="btn btn-primary btn-sm" _="on click call create_file_modal.showModal()">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
@@ -170,13 +170,13 @@
   </div>
 
   <!-- Sidebar -->
-  <div class="space-y-6">
+  <div class="flex flex-col gap-6">
 
     <!-- Repository Actions -->
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Repository</h3>
-        <div class="space-y-2">
+        <div class="flex flex-col gap-2">
 <a href="{{host}}/repos/{{.ID}}/commits" class="btn btn-outline btn-sm w-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

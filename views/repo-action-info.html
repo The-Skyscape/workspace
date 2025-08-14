@@ -142,7 +142,7 @@
       <div class="card bg-base-100 shadow-lg border border-base-300">
         <div class="card-body">
           <h3 class="text-lg font-semibold mb-3">Overview</h3>
-          <dl class="space-y-2">
+          <dl class="flex flex-col gap-2">
             <div class="flex justify-between py-1">
               <dt class="text-base-content/70">Type</dt>
               <dd class="font-medium">{{.Type}}</dd>
@@ -172,7 +172,7 @@
         <div class="card-body">
           <h3 class="text-lg font-semibold mb-3">Last Execution</h3>
           {{with actions.LastRun}}
-          <dl class="space-y-2">
+          <dl class="flex flex-col gap-2">
             <div class="flex justify-between py-1">
               <dt class="text-base-content/70">Ran</dt>
               <dd>{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</dd>

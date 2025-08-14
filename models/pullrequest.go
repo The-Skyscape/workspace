@@ -1,6 +1,8 @@
 package models
 
-import "github.com/The-Skyscape/devtools/pkg/application"
+import (
+	"github.com/The-Skyscape/devtools/pkg/application"
+)
 
 type PullRequest struct {
 	application.Model
@@ -14,3 +16,14 @@ type PullRequest struct {
 }
 
 func (*PullRequest) Table() string { return "pull_requests" }
+
+func init() {
+	// Create indexes for pull requests table
+	go func() {
+		PullRequests.Index("RepoID")
+		PullRequests.Index("AuthorID")
+		PullRequests.Index("Status")
+		PullRequests.Index("CreatedAt DESC")
+	}()
+}
+

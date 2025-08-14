@@ -1,4 +1,4 @@
-<div class="space-y-4">
+<div class="flex flex-col gap-4">
   {{range home.UserRepos}}
   <a href="{{host}}/repos/{{.ID}}" class="block hover:bg-base-200 rounded-lg p-4 transition-all hover:shadow-sm">
     <div class="flex items-center gap-3">
@@ -37,7 +37,7 @@
     <p class="text-lg text-base-content/70">No repositories yet</p>
     {{if auth.CurrentUser.IsAdmin}}
     <p class="text-sm text-base-content/50 mt-2">Create your first repository to get started</p>
-    <button class="btn btn-primary mt-4" onclick="create_repo_modal.showModal()">
+    <button class="btn btn-primary mt-4" _="on click call create_repo_modal.showModal()">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>

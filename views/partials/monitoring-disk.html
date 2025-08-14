@@ -1,7 +1,7 @@
 <div class="card-body">
   <h3 class="card-title text-lg">Disk Usage</h3>
   {{with monitoring.GetCurrentStats}}
-  <div class="space-y-3">
+  <div class="flex flex-col gap-3">
     <div>
       <div class="flex justify-between mb-1">
         <span class="text-sm text-base-content/70">Usage</span>
@@ -10,7 +10,7 @@
       <progress class="progress {{if gt .Disk.UsedPercent 95.0}}progress-error{{else if gt .Disk.UsedPercent 85.0}}progress-warning{{else}}progress-primary{{end}}" 
                value="{{.Disk.UsedPercent}}" max="100"></progress>
     </div>
-    <div class="text-xs space-y-1">
+    <div class="text-xs flex flex-col gap-1">
       <div class="flex justify-between">
         <span class="text-base-content/70">Used</span>
         <span class="font-mono">{{monitoring.FormatBytes .Disk.Used}}</span>

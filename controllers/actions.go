@@ -103,23 +103,17 @@ func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Reques
 
 // createAction handles action creation
 func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoWriteRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID required"))
-		return
-	}
-
-	// Check write permissions for creating actions
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID required")
 		return
 	}
 
@@ -132,7 +126,7 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 	artifactPaths := strings.TrimSpace(r.FormValue("artifact_paths"))
 
 	if title == "" || actionType == "" || command == "" {
-		c.Render(w, r, "error-message.html", errors.New("title, type, and command are required"))
+		c.RenderErrorMsg(w, r, "title, type, and command are required")
 		return
 	}
 
@@ -149,9 +143,9 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 		UserID:        user.ID,
 	}
 
-	_, err = models.Actions.Insert(action)
+	_, err := models.Actions.Insert(action)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to create action: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to create action: %w", err))
 		return
 	}
 
@@ -165,39 +159,33 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 
 // runAction handles manual action execution
 func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoWriteRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
-		return
-	}
-
-	// Check write permissions for running actions
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID and action ID required")
 		return
 	}
 
 	// Get action
 	action, err := models.Actions.Get(actionID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("action not found"))
+		c.RenderErrorMsg(w, r, "action not found")
 		return
 	}
 
 	// Run action manually
 	err = action.ExecuteManually()
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to run action: "+err.Error()))
+		c.RenderError(w, r, fmt.Errorf("failed to run action: %w", err))
 		return
 	}
 
@@ -211,39 +199,33 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 
 // disableAction handles disabling an action
 func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoAdminRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
-		return
-	}
-
-	// Check admin permissions for disabling actions
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID and action ID required")
 		return
 	}
 
 	// Get and update action
 	action, err := models.Actions.Get(actionID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("action not found"))
+		c.RenderErrorMsg(w, r, "action not found")
 		return
 	}
 
 	action.Status = "disabled"
 	err = models.Actions.Update(action)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to disable action"))
+		c.RenderErrorMsg(w, r, "failed to disable action")
 		return
 	}
 
@@ -256,39 +238,33 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 
 // enableAction handles enabling an action
 func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoAdminRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
-		return
-	}
-
-	// Check admin permissions for enabling actions
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		c.RenderErrorMsg(w, r, "repository ID and action ID required")
 		return
 	}
 
 	// Get and update action
 	action, err := models.Actions.Get(actionID)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("action not found"))
+		c.RenderErrorMsg(w, r, "action not found")
 		return
 	}
 
 	action.Status = "active"
 	err = models.Actions.Update(action)
 	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("failed to enable action"))
+		c.RenderErrorMsg(w, r, "failed to enable action")
 		return
 	}
 
@@ -301,25 +277,19 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 
 // downloadArtifact handles artifact download
 func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		http.Error(w, "authentication required", http.StatusUnauthorized)
+	// Use shared middleware for permission checking
+	if !RepoReadRequired()(c.App, w, r) {
 		return
 	}
+
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
 	artifactID := r.PathValue("artifactID")
 
 	if repoID == "" || artifactID == "" {
 		http.Error(w, "repository ID and artifact ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Check repository read access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		http.Error(w, "insufficient permissions", http.StatusForbidden)
 		return
 	}
 
@@ -345,10 +315,8 @@ func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Requ
 
 // getActionLogs handles fetching action logs via HTMX
 func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoReadRequired()(c.App, w, r) {
 		return
 	}
 
@@ -356,14 +324,7 @@ func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
-		return
-	}
-
-	// Check repository read access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderErrorMsg(w, r, "repository ID and action ID required")
 		return
 	}
 
@@ -373,10 +334,8 @@ func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request
 
 // getActionArtifacts handles fetching action artifacts via HTMX
 func (c *ActionsController) getActionArtifacts(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("authentication required"))
+	// Use shared middleware for permission checking
+	if !RepoReadRequired()(c.App, w, r) {
 		return
 	}
 
@@ -384,14 +343,7 @@ func (c *ActionsController) getActionArtifacts(w http.ResponseWriter, r *http.Re
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.Render(w, r, "error-message.html", errors.New("repository ID and action ID required"))
-		return
-	}
-
-	// Check repository read access
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.Render(w, r, "error-message.html", err)
+		c.RenderErrorMsg(w, r, "repository ID and action ID required")
 		return
 	}
 

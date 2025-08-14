@@ -11,7 +11,7 @@
   
   <div class="flex items-center justify-between mb-6">
     <h2 class="text-2xl font-bold">Automated Actions</h2>
-    <button class="btn btn-primary" onclick="create_action_modal.showModal()">
+    <button class="btn btn-primary" _="on click call create_action_modal.showModal()">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
@@ -22,7 +22,7 @@
   <!-- Actions List -->
 {{with actions.RepoActions}}
 {{if .}}
-<div class="space-y-4">
+<div class="flex flex-col gap-4">
   {{range .}}
   <div class="card bg-base-100 shadow hover:shadow-lg transition-shadow">
     <div class="card-body">
@@ -102,7 +102,7 @@
     <div class="modal-box w-11/12">
       <h3 class="font-bold text-lg mb-4">{{.Title}} - Execution Logs</h3>
       
-      <div class="space-y-4">
+      <div class="flex flex-col gap-4">
         <!-- Action Info -->
         <div class="stats shadow">
           <div class="stat">
@@ -172,7 +172,7 @@
       </div>
       
       <div class="modal-action">
-        <button class="btn" onclick="action_logs_modal_{{.ID}}.close()">Close</button>
+        <button class="btn" _="on click call action_logs_modal_{{.ID}}.close()">Close</button>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop">
@@ -189,7 +189,7 @@
   </svg>
   <h2 class="text-2xl font-bold mb-4">No automated actions yet</h2>
   <p class="text-base-content/70 mb-6">Create automated workflows to handle repository tasks</p>
-  <button class="btn btn-primary btn-lg" onclick="create_action_modal.showModal()">Create First Action</button>
+  <button class="btn btn-primary btn-lg" _="on click call create_action_modal.showModal()">Create First Action</button>
 </div>
 {{end}}
 {{end}}
@@ -292,7 +292,7 @@ echo 'Deploy complete!'" required></textarea>
 
       <div class="modal-action">
         <button type="submit" class="btn btn-primary">Create Action</button>
-        <button type="button" class="btn" onclick="create_action_modal.close()">Cancel</button>
+        <button type="button" class="btn" _="on click call create_action_modal.close()">Cancel</button>
       </div>
     </form>
   </div>

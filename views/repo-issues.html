@@ -37,10 +37,11 @@
                hx-get="{{host}}/repos/{{$repo.ID}}/issues/search"
                hx-trigger="change"
                hx-target="#issues-list"
-               hx-include="#search-input">
+               hx-include="#search-input"
+               hx-indicator="#issues-list .htmx-indicator">
       </label>
     </div>
-    <button class="btn btn-primary" onclick="create_issue_modal.showModal()">
+    <button class="btn btn-primary" _="on click call create_issue_modal.showModal()">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
       </svg>
@@ -49,10 +50,14 @@
   </div>
 
   <!-- Issues List Container -->
-  <div id="issues-list">
+  <div id="issues-list" class="relative">
+    <!-- Loading indicator -->
+    <div class="htmx-indicator absolute inset-0 bg-base-100/80 flex items-center justify-center z-10 rounded-lg min-h-[200px]">
+      <span class="loading loading-spinner loading-lg text-primary"></span>
+    </div>
     {{$issues := issues.RepoIssues}}
     {{if $issues}}
-  <div class="space-y-4">
+  <div class="flex flex-col gap-4">
     {{range $issues}}
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
@@ -184,7 +189,7 @@
           </svg>
           Create Issue
         </button>
-        <button type="button" class="btn" onclick="create_issue_modal.close()">Cancel</button>
+        <button type="button" class="btn" _="on click call create_issue_modal.close()">Cancel</button>
       </div>
     </form>
   </div>
