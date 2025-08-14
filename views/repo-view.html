@@ -251,7 +251,7 @@
         <div class="space-y-2">
           {{range .}}
           <div class="flex items-center gap-3 p-2 bg-base-200 rounded">
-            <div class="avatar avatar-placeholder">
+            <div class="avatar placeholder">
               <div class="bg-primary text-primary-content rounded w-8 h-8">
                 <span class="text-sm">
                   {{if eq .Type "repo_created"}}R{{else if eq .Type "issue_created"}}I{{else if eq .Type "pr_created"}}P{{else if eq .Type "file_created"}}F{{else}}A{{end}}

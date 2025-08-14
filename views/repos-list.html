@@ -14,13 +14,13 @@
 </div>
 
 {{range home.UserRepos}}
-<div class="card bg-base-100 shadow-lg mb-4 hover:shadow-xl transition-shadow">
+<div class="card bg-base-100 shadow-lg border border-base-300 mb-4 hover:shadow-xl hover:border-primary/30 transition-all">
   <div class="card-body">
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
       <div class="flex items-center space-x-3 min-w-0 flex-1">
-        <div class="avatar avatar-placeholder flex-shrink-0">
+        <div class="avatar placeholder avatar-placeholder flex-shrink-0">
           <div class="bg-primary text-primary-content rounded w-10 h-10 sm:w-12 sm:h-12">
-            <span class="text-xs sm:text-sm">{{printf "%.2s" .Name}}</span>
+            <span class="text-xs sm:text-sm font-bold">{{printf "%.2s" .Name}}</span>
           </div>
         </div>
         <div class="min-w-0 flex-1">
