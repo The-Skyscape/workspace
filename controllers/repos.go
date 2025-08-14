@@ -205,6 +205,12 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Check if user can create repositories (admin only)
+	if !models.CanUserCreateRepo(user) {
+		c.Render(w, r, "error-message.html", errors.New("only administrators can create repositories"))
+		return
+	}
+
 	// Validate required fields
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
@@ -257,19 +263,19 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check admin permissions for updates
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
-	// Get repository
+	// Get repository first to check ownership
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("repository not found"))
 		return
 	}
+
+	// Check if user can update repository (admin or owner)
+	if !models.IsUserAdmin(user) && repo.UserID != user.ID {
+		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
+		return
+	}
+
 
 	// Update fields
 	if name := strings.TrimSpace(r.FormValue("name")); name != "" {
@@ -310,17 +316,16 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check admin permissions for deletion
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
 	// Get repository for deletion
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("repository not found"))
+		return
+	}
+
+	// Check if user can delete repository (admin or owner)
+	if !models.CanUserDeleteRepo(user, repo) {
+		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
 		return
 	}
 

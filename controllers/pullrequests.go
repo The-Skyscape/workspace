@@ -285,17 +285,16 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check write permissions
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
-	// Get PR and repository
+	// Get PR first
 	pr, err := models.PullRequests.Get(prID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("pull request not found"))
+		return
+	}
+
+	// Check if user can merge PR (admin or user with write permission)
+	if !models.CanUserMergePR(user, pr) {
+		c.Render(w, r, "error-message.html", errors.New("insufficient permissions to merge"))
 		return
 	}
 

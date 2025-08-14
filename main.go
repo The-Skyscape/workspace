@@ -37,6 +37,7 @@ func main() {
 		application.WithController(controllers.Public()),
 		application.WithController(controllers.Settings()),
 		application.WithController(controllers.Monitoring()),
+		application.WithController(controllers.Users()),
 		application.WithHostPrefix(cmp.Or(os.Getenv("PREFIX"), "")),
 		application.WithDaisyTheme(theme),
 	)

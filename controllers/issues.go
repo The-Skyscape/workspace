@@ -184,7 +184,8 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 		Tags:       tags,
 		Status:     "open",
 		RepoID:     repoID,
-		AssigneeID: user.ID,
+		AuthorID:   user.ID,  // Set the author
+		AssigneeID: user.ID,  // Initially assign to creator
 	}
 
 	_, err = models.Issues.Insert(issue)
@@ -234,6 +235,12 @@ func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user can update this issue
+	if !models.CanUserUpdateIssue(user, issue) {
+		http.Error(w, "insufficient permissions", http.StatusForbidden)
+		return
+	}
+
 	issue.Status = "closed"
 	err = models.Issues.Update(issue)
 	if err != nil {
@@ -272,6 +279,12 @@ func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user can update this issue
+	if !models.CanUserUpdateIssue(user, issue) {
+		http.Error(w, "insufficient permissions", http.StatusForbidden)
+		return
+	}
+
 	issue.Status = "open"
 	err = models.Issues.Update(issue)
 	if err != nil {
@@ -303,17 +316,16 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check repository write access
-	err = models.CheckRepoAccess(user, repoID, models.RoleWrite)
-	if err != nil {
-		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
-		return
-	}
-
 	// Get the issue
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
 		c.Render(w, r, "error-message.html", errors.New("issue not found"))
+		return
+	}
+
+	// Check if user can update this issue
+	if !models.CanUserUpdateIssue(user, issue) {
+		c.Render(w, r, "error-message.html", errors.New("insufficient permissions"))
 		return
 	}
 
@@ -361,17 +373,16 @@ func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check repository admin access
-	err = models.CheckRepoAccess(user, repoID, models.RoleAdmin)
-	if err != nil {
-		http.Error(w, "insufficient permissions", http.StatusForbidden)
-		return
-	}
-
 	// Get the issue for logging
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
 		http.Error(w, "issue not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if user can delete this issue (admin only)
+	if !models.IsUserAdmin(user) {
+		http.Error(w, "insufficient permissions", http.StatusForbidden)
 		return
 	}
 

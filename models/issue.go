@@ -8,6 +8,7 @@ type Issue struct {
 	Body       string
 	Tags       string // JSON array of tags
 	Status     string // "open", "closed"
+	AuthorID   string // User who created the issue
 	AssigneeID string
 	RepoID     string
 }

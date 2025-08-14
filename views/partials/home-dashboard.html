@@ -8,7 +8,16 @@
       <!-- Header -->
       <div>
         <h1 class="text-3xl font-bold">Dashboard</h1>
-        <p class="text-base-content/70 mt-2">Welcome back, {{auth.CurrentUser.Name}}!</p>
+        <div class="flex items-center gap-3 mt-2">
+          <p class="text-base-content/70">Welcome back, {{auth.CurrentUser.Name}}!</p>
+          {{if or auth.CurrentUser.IsAdmin (eq auth.CurrentUser.Role "admin")}}
+          <span class="badge badge-primary badge-sm">Admin</span>
+          {{else if eq auth.CurrentUser.Role "developer"}}
+          <span class="badge badge-secondary badge-sm">Developer</span>
+          {{else}}
+          <span class="badge badge-outline badge-sm">Guest</span>
+          {{end}}
+        </div>
       </div>
       
       <!-- My Repositories Card -->
@@ -30,7 +39,7 @@
 
     <!-- Right Column: Quick Actions + Recent Activity -->
     <div class="space-y-6">
-      {{if auth.CurrentUser.IsAdmin}}
+      {{if or auth.CurrentUser.IsAdmin (eq auth.CurrentUser.Role "admin")}}
       <!-- Quick Actions Card (Admin Only) -->
       <div class="card bg-base-100 shadow-sm border border-base-300">
         <div class="card-body" hx-boost="true">
@@ -63,6 +72,37 @@
               </svg>
               System Monitoring
             </a>
+          </div>
+        </div>
+      </div>
+      {{else}}
+      <!-- Developer/Guest Info Card -->
+      <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body">
+          <h3 class="card-title text-lg">Your Access</h3>
+          <div class="text-sm space-y-2">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>View repositories and code</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Create issues and pull requests</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Comment on issues and PRs</span>
+            </div>
+            {{if eq auth.CurrentUser.Role "developer"}}
+            <div class="divider my-2"></div>
+            <p class="text-xs text-base-content/60">Contact an administrator for write access to specific repositories.</p>
+            {{end}}
           </div>
         </div>
       </div>

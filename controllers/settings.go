@@ -32,16 +32,19 @@ func (s *SettingsController) Setup(app *application.App) {
 	}
 
 	// Create admin-only access check that redirects to profile
-	adminRequired := func(app *application.App, r *http.Request) string {
+	adminRequired := func(app *application.App, w http.ResponseWriter, r *http.Request) bool {
 		user, _, err := auth.Authenticate(r)
 		if err != nil {
-			return "/signin"
+			// Redirect to signin if not authenticated
+			s.Redirect(w, r, "/signin")
+			return false
 		}
 		if !user.IsAdmin {
 			// Non-admins get redirected to profile page
-			return "/settings/profile"
+			s.Redirect(w, r, "/settings/profile")
+			return false
 		}
-		return ""
+		return true
 	}
 
 	// Settings pages (admin only)

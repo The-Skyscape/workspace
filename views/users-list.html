@@ -1,0 +1,226 @@
+{{template "layout/start"}}
+
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold">User Management</h1>
+    <p class="text-base-content/70 mt-2">Manage user roles and repository permissions</p>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="stat bg-base-100 shadow-sm border border-base-300 rounded-box">
+      <div class="stat-figure text-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      </div>
+      <div class="stat-title">Total Users</div>
+      <div class="stat-value">{{len users.GetAllUsers}}</div>
+    </div>
+
+    <div class="stat bg-base-100 shadow-sm border border-base-300 rounded-box">
+      <div class="stat-figure text-success">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+      <div class="stat-title">Admins</div>
+      <div class="stat-value">{{users.GetAdminCount}}</div>
+    </div>
+
+    <div class="stat bg-base-100 shadow-sm border border-base-300 rounded-box">
+      <div class="stat-figure text-info">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+      </div>
+      <div class="stat-title">Developers</div>
+      <div class="stat-value">{{users.GetDeveloperCount}}</div>
+    </div>
+  </div>
+
+  <!-- Users Table -->
+  <div class="card bg-base-100 shadow-sm border border-base-300">
+    <div class="card-body p-0">
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range users.GetAllUsers}}
+            <tr class="hover">
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="avatar">
+                    <div class="mask mask-squircle w-10 h-10">
+                      <img src="{{.Avatar}}" alt="{{.Name}}" />
+                    </div>
+                  </div>
+                  <div>
+                    <div class="font-bold">{{.Name}}</div>
+                    <div class="text-sm opacity-50">@{{.Handle}}</div>
+                  </div>
+                </div>
+              </td>
+              <td>{{.Email}}</td>
+              <td>
+                {{if or .IsAdmin (eq .Role "admin")}}
+                  <span class="badge badge-primary">Admin</span>
+                {{else if eq .Role "developer"}}
+                  <span class="badge badge-secondary">Developer</span>
+                {{else if eq .Role "guest"}}
+                  <span class="badge badge-outline">Guest</span>
+                {{else}}
+                  <span class="badge">Unknown</span>
+                {{end}}
+              </td>
+              <td>
+                <div class="text-sm">{{.CreatedAt.Format "Jan 2, 2006"}}</div>
+              </td>
+              <td>
+                <div class="flex gap-2">
+                  <button class="btn btn-ghost btn-sm" onclick="edit_user_{{.ID}}_modal.showModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                  {{if not (or .IsAdmin (eq .Role "admin"))}}
+                  {{if eq .Role "guest"}}
+                  <form hx-post="{{host}}/users/{{.ID}}/enable" hx-target="body" hx-swap="outerHTML" class="inline">
+                    <button type="submit" class="btn btn-success btn-sm">Enable</button>
+                  </form>
+                  {{else}}
+                  <form hx-post="{{host}}/users/{{.ID}}/disable" hx-target="body" hx-swap="outerHTML" class="inline">
+                    <button type="submit" class="btn btn-error btn-sm">Disable</button>
+                  </form>
+                  {{end}}
+                  {{end}}
+                </div>
+              </td>
+            </tr>
+
+            <!-- Edit User Modal -->
+            <dialog id="edit_user_{{.ID}}_modal" class="modal">
+              <div class="modal-box max-w-2xl">
+                <h3 class="font-bold text-lg mb-4">Edit User: {{.Name}}</h3>
+                
+                <!-- User Info -->
+                <div class="mb-6">
+                  <div class="flex items-center gap-4">
+                    <div class="avatar">
+                      <div class="w-16 rounded-full">
+                        <img src="{{.Avatar}}" alt="{{.Name}}" />
+                      </div>
+                    </div>
+                    <div>
+                      <div class="font-bold">{{.Name}}</div>
+                      <div class="text-sm opacity-50">@{{.Handle}}</div>
+                      <div class="text-sm">{{.Email}}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Role Selection -->
+                <form hx-post="{{host}}/users/{{.ID}}/role" hx-target="body" hx-swap="outerHTML">
+                  <div class="form-control mb-4">
+                    <label class="label">
+                      <span class="label-text">User Role</span>
+                    </label>
+                    <select name="role" class="select select-bordered">
+                      <option value="admin" {{if or .IsAdmin (eq .Role "admin")}}selected{{end}}>Admin - Full system access</option>
+                      <option value="developer" {{if eq .Role "developer"}}selected{{end}}>Developer - Standard access</option>
+                      <option value="guest" {{if eq .Role "guest"}}selected{{end}}>Guest - Read only</option>
+                    </select>
+                    <label class="label">
+                      <span class="label-text-alt">Admins can create repositories and manage all content</span>
+                    </label>
+                  </div>
+                  
+                  {{if ne auth.CurrentUser.ID .ID}}
+                  <button type="submit" class="btn btn-primary">Update Role</button>
+                  {{else}}
+                  <div class="alert alert-warning">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>You cannot change your own role</span>
+                  </div>
+                  {{end}}
+                </form>
+
+                <div class="divider"></div>
+
+                <!-- Repository Permissions -->
+                <div>
+                  <h4 class="font-bold mb-4">Repository Permissions</h4>
+                  
+                  <!-- Add Permission Form -->
+                  <form hx-post="{{host}}/users/{{.ID}}/permissions" hx-target="body" hx-swap="outerHTML" class="mb-4">
+                    <div class="flex gap-2">
+                      <select name="repo_id" class="select select-bordered flex-1" required>
+                        <option value="">Select Repository...</option>
+                        {{range repos.AllRepos}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                      </select>
+                      <select name="role" class="select select-bordered" required>
+                        <option value="read">Read</option>
+                        <option value="write">Write</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button type="submit" class="btn btn-primary">Grant</button>
+                    </div>
+                  </form>
+
+                  <!-- Current Permissions List -->
+                  <div class="space-y-2">
+                    {{$userID := .ID}}
+                    {{range users.GetUserPermissions}}
+                    {{if eq .UserID $userID}}
+                    <div class="flex items-center justify-between p-2 bg-base-200 rounded">
+                      <span>{{.RepoID}}</span>
+                      <div class="flex items-center gap-2">
+                        <span class="badge">{{.Role}}</span>
+                        <form hx-delete="{{host}}/users/{{$userID}}/permissions" hx-target="body" hx-swap="outerHTML" class="inline">
+                          <input type="hidden" name="repo_id" value="{{.RepoID}}">
+                          <button type="submit" class="btn btn-ghost btn-xs">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                    {{end}}
+                    {{end}}
+                  </div>
+                </div>
+
+                <div class="modal-action">
+                  <form method="dialog">
+                    <button class="btn">Close</button>
+                  </form>
+                </div>
+              </div>
+              <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+              </form>
+            </dialog>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{template "layout/end"}}

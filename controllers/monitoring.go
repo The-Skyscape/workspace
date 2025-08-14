@@ -49,16 +49,19 @@ func (m *MonitoringController) Setup(app *application.App) {
 	m.startContainerMonitor()
 
 	// Create admin-only access check that redirects to profile
-	adminRequired := func(app *application.App, r *http.Request) string {
+	adminRequired := func(app *application.App, w http.ResponseWriter, r *http.Request) bool {
 		user, _, err := auth.Authenticate(r)
 		if err != nil {
-			return "/signin"
+			// Redirect to signin if not authenticated
+			m.Redirect(w, r, "/signin")
+			return false
 		}
 		if !user.IsAdmin {
 			// Non-admins get redirected to profile page
-			return "/settings/profile"
+			m.Redirect(w, r, "/settings/profile")
+			return false
 		}
-		return ""
+		return true
 	}
 
 	// Live monitoring dashboard (now part of settings, admin only)
