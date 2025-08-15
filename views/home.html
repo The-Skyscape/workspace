@@ -5,8 +5,17 @@
 {{else}}
   <!-- Public Homepage -->
   <div class="container mx-auto px-4 py-6 max-w-7xl">
-    {{template "home-public-hero.html" .}}
-    {{template "home-public-repos.html" .}}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Left Column - Profile Information -->
+      <div class="lg:col-span-4">
+        {{template "home-public-profile.html" .}}
+      </div>
+      
+      <!-- Right Column - Public Repositories -->
+      <div class="lg:col-span-8">
+        {{template "home-public-repos.html" .}}
+      </div>
+    </div>
   </div>
 {{end}}
 

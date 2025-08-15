@@ -33,25 +33,33 @@ func (c *PullRequestsController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 	auth := app.Use("auth").(*authentication.Controller)
 
-	// Pull Requests
-	http.Handle("GET /repos/{id}/prs", app.Serve("repo-prs.html", auth.Required))
-	http.Handle("GET /repos/{id}/prs/search", app.ProtectFunc(c.searchPRs, auth.Required))
-	http.Handle("GET /repos/{id}/prs/more", app.Serve("prs-more.html", auth.Required))
-	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", auth.Required))
-	http.Handle("POST /repos/{id}/prs/create", app.ProtectFunc(c.createPR, auth.Required))
-	http.Handle("POST /repos/{id}/prs/{prID}/merge", app.ProtectFunc(c.mergePR, auth.Required))
+	// Pull Requests - view on public repos or as admin
+	http.Handle("GET /repos/{id}/prs", app.Serve("repo-prs.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/prs/search", app.ProtectFunc(c.searchPRs, PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/prs/more", app.Serve("prs-more.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", PublicOrAdmin()))
+	
+	// PR operations - authenticated users on public repos, admins on any
+	http.Handle("POST /repos/{id}/prs/create", app.ProtectFunc(c.createPR, PublicRepoOnly()))
+	http.Handle("POST /repos/{id}/prs/{prID}/comment", app.ProtectFunc(c.createPRComment, PublicRepoOnly()))
+	
+	// PR merge - admin only
+	http.Handle("POST /repos/{id}/prs/{prID}/merge", app.ProtectFunc(c.mergePR, AdminOnly()))
+	
+	// PR close - author or admin
 	http.Handle("POST /repos/{id}/prs/{prID}/close", app.ProtectFunc(c.closePR, auth.Required))
-	http.Handle("POST /repos/{id}/prs/{prID}/comment", app.ProtectFunc(c.createPRComment, auth.Required))
 }
 
 // CurrentRepo returns the current repository from the request
 func (c *PullRequestsController) CurrentRepo() (*models.Repository, error) {
-	return c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	return reposController.CurrentRepo()
 }
 
 // RepoPullRequests returns pull requests for the current repository
 func (c *PullRequestsController) RepoPullRequests() ([]*models.PullRequest, error) {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +99,8 @@ func (c *PullRequestsController) RepoPullRequests() ([]*models.PullRequest, erro
 
 // MorePRs returns the next page of PRs for infinite scroll
 func (c *PullRequestsController) MorePRs() ([]*models.PullRequest, error) {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +122,8 @@ func (c *PullRequestsController) MorePRs() ([]*models.PullRequest, error) {
 
 // HasMorePRs checks if there are more PRs to load
 func (c *PullRequestsController) HasMorePRs() bool {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return false
 	}
@@ -173,7 +183,8 @@ func (c *PullRequestsController) RepoPRDiff() (*models.PRDiff, error) {
 		return nil, err
 	}
 
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +204,8 @@ func (c *PullRequestsController) RepoPRDiffContent() (string, error) {
 		return "", err
 	}
 
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return "", err
 	}
@@ -211,11 +223,6 @@ func (c *PullRequestsController) IncludeClosed() bool {
 	return c.Request.URL.Query().Get("includeClosed") == "true"
 }
 
-// getCurrentRepo helper to get current repository via repos controller
-func (c *PullRequestsController) getCurrentRepo() (*models.Repository, error) {
-	reposController := c.Use("repos").(*ReposController)
-	return reposController.CurrentRepo()
-}
 
 // RepoBranches returns branches for the current repository via repos controller
 func (c *PullRequestsController) RepoBranches() ([]*models.Branch, error) {
@@ -233,10 +240,7 @@ func (c *PullRequestsController) IncludeMerged() bool {
 
 // searchPRs handles PR search requests with HTMX
 func (c *PullRequestsController) searchPRs(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
+	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
@@ -250,10 +254,7 @@ func (c *PullRequestsController) searchPRs(w http.ResponseWriter, r *http.Reques
 
 // createPR handles pull request creation
 func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
+	// Access already verified by route middleware (PublicRepoOnly)
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -335,9 +336,9 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check if user can merge PR (admin or user with write permission)
-	if !models.CanUserMergePR(user, pr) {
-		c.RenderErrorMsg(w, r, "insufficient permissions to merge")
+	// Only admins can merge PRs
+	if !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "only admins can merge pull requests")
 		return
 	}
 
@@ -423,6 +424,12 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 		c.RenderErrorMsg(w, r, "pull request not found")
 		return
 	}
+	
+	// Check if user is admin or PR author
+	if !user.IsAdmin && pr.AuthorID != user.ID {
+		c.RenderErrorMsg(w, r, "only the author or admin can close this pull request")
+		return
+	}
 
 	pr.Status = "closed"
 	err = models.PullRequests.Update(pr)
@@ -440,10 +447,7 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 
 // createPRComment handles adding a comment to a pull request
 func (c *PullRequestsController) createPRComment(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
+	// Access already verified by route middleware (PublicRepoOnly)
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)

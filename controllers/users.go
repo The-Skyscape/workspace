@@ -3,7 +3,6 @@ package controllers
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -32,7 +31,7 @@ func (c *UsersController) Setup(app *application.App) {
 			c.Redirect(w, r, "/signin")
 			return false
 		}
-		if !models.IsUserAdmin(user) {
+		if !user.IsAdmin {
 			c.RenderErrorMsg(w, r, "Admin access required")
 			return false
 		}
@@ -43,8 +42,6 @@ func (c *UsersController) Setup(app *application.App) {
 	http.Handle("GET /users", app.Serve("users-list.html", adminRequired))
 	http.Handle("GET /users/{id}", app.Serve("user-detail.html", adminRequired))
 	http.Handle("POST /users/{id}/role", app.ProtectFunc(c.updateUserRole, adminRequired))
-	http.Handle("POST /users/{id}/permissions", app.ProtectFunc(c.grantPermission, adminRequired))
-	http.Handle("DELETE /users/{id}/permissions", app.ProtectFunc(c.revokePermission, adminRequired))
 	http.Handle("POST /users/{id}/disable", app.ProtectFunc(c.disableUser, adminRequired))
 	http.Handle("POST /users/{id}/enable", app.ProtectFunc(c.enableUser, adminRequired))
 }
@@ -69,30 +66,14 @@ func (c *UsersController) GetAdminCount() int {
 	
 	count := 0
 	for _, user := range users {
-		if user.IsAdmin || user.Role == "admin" {
+		if user.IsAdmin {
 			count++
 		}
 	}
 	return count
 }
 
-// GetDeveloperCount returns the count of developer users
-func (c *UsersController) GetDeveloperCount() int {
-	users, err := c.GetAllUsers()
-	if err != nil {
-		return 0
-	}
-	
-	count := 0
-	for _, user := range users {
-		if user.Role == "developer" {
-			count++
-		}
-	}
-	return count
-}
-
-// GetGuestCount returns the count of guest users
+// GetGuestCount returns the count of non-admin (guest) users
 func (c *UsersController) GetGuestCount() int {
 	users, err := c.GetAllUsers()
 	if err != nil {
@@ -101,12 +82,13 @@ func (c *UsersController) GetGuestCount() int {
 	
 	count := 0
 	for _, user := range users {
-		if user.Role == "guest" {
+		if !user.IsAdmin {
 			count++
 		}
 	}
 	return count
 }
+
 
 // GetUser returns a specific user by ID
 func (c *UsersController) GetUser() (*authentication.User, error) {
@@ -119,15 +101,6 @@ func (c *UsersController) GetUser() (*authentication.User, error) {
 	return auth.Users.Get(userID)
 }
 
-// GetUserPermissions returns all repository permissions for a user
-func (c *UsersController) GetUserPermissions() ([]*models.Permission, error) {
-	userID := c.Request.PathValue("id")
-	if userID == "" {
-		return nil, errors.New("user ID required")
-	}
-	
-	return models.Permissions.Search("WHERE UserID = ?", userID)
-}
 
 // GetUserRepositories returns repositories a user has access to
 func (c *UsersController) GetUserRepositories() ([]*models.Repository, error) {
@@ -168,16 +141,9 @@ func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Update role
-	newRole := strings.TrimSpace(r.FormValue("role"))
-	if newRole != "admin" && newRole != "developer" && newRole != "guest" {
-		c.RenderErrorMsg(w, r, "invalid role")
-		return
-	}
-
-	user.Role = newRole
-	// Update IsAdmin flag for compatibility
-	user.IsAdmin = (newRole == "admin")
+	// Toggle admin status
+	makeAdmin := r.FormValue("make_admin") == "true"
+	user.IsAdmin = makeAdmin
 
 	err = auth.Users.Update(user)
 	if err != nil {
@@ -186,82 +152,16 @@ func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Log activity
+	adminStatus := "non-admin"
+	if user.IsAdmin {
+		adminStatus = "admin"
+	}
 	models.LogActivity("user_role_updated", "Updated user role",
-		"Changed "+user.Name+"'s role to "+newRole, currentUser.ID, userID, "user", "")
+		"Changed "+user.Name+" to "+adminStatus, currentUser.ID, userID, "user", "")
 
 	c.Refresh(w, r)
 }
 
-// grantPermission handles granting repository permissions to a user
-func (c *UsersController) grantPermission(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
-	currentUser, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
-		return
-	}
-
-	userID := r.PathValue("id")
-	repoID := r.FormValue("repo_id")
-	role := r.FormValue("role")
-
-	if userID == "" || repoID == "" || role == "" {
-		c.RenderErrorMsg(w, r, "user ID, repository ID, and role required")
-		return
-	}
-
-	// Grant the permission
-	err = models.GrantPermission(userID, repoID, role)
-	if err != nil {
-		c.RenderError(w, r, err)
-		return
-	}
-
-	// Get user and repo names for logging
-	user, _ := auth.Users.Get(userID)
-	repo, _ := models.Repositories.Get(repoID)
-	
-	// Log activity
-	models.LogActivity("permission_granted", "Granted repository permission",
-		"Granted "+role+" access to "+user.Name+" for "+repo.Name, currentUser.ID, repoID, "permission", "")
-
-	c.Refresh(w, r)
-}
-
-// revokePermission handles revoking repository permissions from a user
-func (c *UsersController) revokePermission(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
-	currentUser, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
-		return
-	}
-
-	userID := r.PathValue("id")
-	repoID := r.FormValue("repo_id")
-
-	if userID == "" || repoID == "" {
-		c.RenderErrorMsg(w, r, "user ID and repository ID required")
-		return
-	}
-
-	// Revoke the permission
-	err = models.RevokePermission(userID, repoID)
-	if err != nil {
-		c.RenderError(w, r, err)
-		return
-	}
-
-	// Get user and repo names for logging
-	user, _ := auth.Users.Get(userID)
-	repo, _ := models.Repositories.Get(repoID)
-	
-	// Log activity
-	models.LogActivity("permission_revoked", "Revoked repository permission",
-		"Revoked access from "+user.Name+" for "+repo.Name, currentUser.ID, repoID, "permission", "")
-
-	c.Refresh(w, r)
-}
 
 // disableUser handles disabling a user account
 func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
@@ -291,8 +191,7 @@ func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set to guest role (most restricted)
-	user.Role = "guest"
+	// Remove admin privileges
 	user.IsAdmin = false
 
 	err = auth.Users.Update(user)
@@ -328,8 +227,7 @@ func (c *UsersController) enableUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set to developer role (standard access)
-	user.Role = "developer"
+	// Keep as non-admin (guests have read-only access to public repos)
 	user.IsAdmin = false
 
 	err = auth.Users.Update(user)

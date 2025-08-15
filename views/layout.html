@@ -90,7 +90,7 @@
         <div class="navbar-end">
             {{if auth.CurrentUser}}
                 <!-- Mobile Search Button -->
-                <button class="btn btn-ghost btn-circle lg:hidden" _="on click toggle .hidden on #mobile-search-container then focus() #mobile-search-input">
+                <button class="btn btn-ghost btn-circle lg:hidden" _="on click toggle .hidden on #mobile-search-container then call #mobile-search-input.focus()">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>

@@ -10,7 +10,7 @@
         <h1 class="text-3xl font-bold">Dashboard</h1>
         <div class="flex items-center gap-3 mt-2">
           <p class="text-base-content/70">Welcome back, {{auth.CurrentUser.Name}}!</p>
-          {{if or auth.CurrentUser.IsAdmin (eq auth.CurrentUser.Role "admin")}}
+          {{if auth.CurrentUser.IsAdmin}}
           <span class="badge badge-primary badge-sm">Admin</span>
           {{else if eq auth.CurrentUser.Role "developer"}}
           <span class="badge badge-secondary badge-sm">Developer</span>
@@ -39,7 +39,7 @@
 
     <!-- Right Column: Quick Actions + Recent Activity -->
     <div class="flex flex-col gap-6">
-      {{if or auth.CurrentUser.IsAdmin (eq auth.CurrentUser.Role "admin")}}
+      {{if auth.CurrentUser.IsAdmin}}
       <!-- Quick Actions Card (Admin Only) -->
       <div class="card bg-base-100 shadow-sm border border-base-300">
         <div class="card-body" hx-boost="true">
@@ -55,7 +55,7 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
-              Open Coder IDE
+              Open Code IDE
             </a>
             
             <div class="divider my-2"></div>

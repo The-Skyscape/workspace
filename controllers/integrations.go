@@ -34,27 +34,18 @@ func (c IntegrationsController) Handle(req *http.Request) application.Controller
 // Setup registers routes
 func (c *IntegrationsController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
 
-	// GitHub Integration
-	http.Handle("GET /repos/{id}/integrations", app.Serve("repo-integrations.html", auth.Required))
-	http.Handle("POST /repos/{id}/github/setup", app.ProtectFunc(c.setupGitHub, auth.Required))
-	http.Handle("POST /repos/{id}/github/sync", app.ProtectFunc(c.syncGitHub, auth.Required))
-	http.Handle("POST /repos/{id}/github/disconnect", app.ProtectFunc(c.disconnectGitHub, auth.Required))
+	// GitHub Integration - admin only
+	http.Handle("GET /repos/{id}/integrations", app.Serve("repo-integrations.html", AdminOnly()))
+	http.Handle("POST /repos/{id}/github/setup", app.ProtectFunc(c.setupGitHub, AdminOnly()))
+	http.Handle("POST /repos/{id}/github/sync", app.ProtectFunc(c.syncGitHub, AdminOnly()))
+	http.Handle("POST /repos/{id}/github/disconnect", app.ProtectFunc(c.disconnectGitHub, AdminOnly()))
 }
 
-// CurrentRepo returns the current repository via repos controller
-func (c *IntegrationsController) CurrentRepo() (*models.Repository, error) {
-	reposController := c.Use("repos").(*ReposController)
-	return reposController.CurrentRepo()
-}
 
 // setupGitHub handles GitHub integration setup
 func (c *IntegrationsController) setupGitHub(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoAdminRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -136,10 +127,7 @@ func (c *IntegrationsController) setupGitHub(w http.ResponseWriter, r *http.Requ
 
 // syncGitHub handles manual GitHub sync
 func (c *IntegrationsController) syncGitHub(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoWriteRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -272,10 +260,7 @@ func (c *IntegrationsController) syncGitHub(w http.ResponseWriter, r *http.Reque
 
 // disconnectGitHub handles GitHub disconnection
 func (c *IntegrationsController) disconnectGitHub(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoAdminRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)

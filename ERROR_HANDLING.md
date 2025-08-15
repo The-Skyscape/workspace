@@ -21,9 +21,13 @@ func (c *Controller) handler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // 3. Permission Check
-    err = models.CheckRepoAccess(user, id, models.RoleRead)
+    // 3. Permission Check (Binary: Admin or Public Repo)
+    repo, err := models.Repositories.Get(id)
     if err != nil {
+        c.Render(w, r, "error-message.html", errors.New("repository not found"))
+        return
+    }
+    if repo.Visibility != "public" && !user.IsAdmin {
         c.Render(w, r, "error-message.html", errors.New("access denied"))
         return
     }

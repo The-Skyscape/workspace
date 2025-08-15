@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/database"
@@ -35,22 +36,67 @@ func GitServer(auth *authentication.Controller) http.Handler {
 			return false, nil
 		}
 
+		// First authenticate the user
+		var user *authentication.User
+		
 		// Check if it's token-based auth (using token ID as username, token value as password)
 		token, err := AccessTokens.Get(creds.Username)
 		if err == nil && token != nil && token.Token == creds.Password {
-			// Token matches, allow access
+			// Token matches, get the user associated with the token
+			user, err = auth.Users.Get(token.UserID)
+			if err != nil {
+				return false, errors.New("invalid token user")
+			}
 			log.Printf("Token auth successful - ID: %s", creds.Username)
-			return true, nil
+		} else {
+			// Fall back to username/password authentication
+			user, err = auth.GetUser(creds.Username)
+			if err != nil {
+				return false, errors.New("invalid username or password")
+			}
+			if !user.VerifyPassword(creds.Password) {
+				return false, errors.New("invalid username or password")
+			}
+			log.Printf("User auth successful for %s", creds.Username)
 		}
 
-		// Fall back to username/password authentication
-		if user, err := auth.GetUser(creds.Username); err != nil {
-			return false, errors.New("invalid username or password")
-		} else if ok := user.VerifyPassword(creds.Password); !ok {
-			return false, errors.New("invalid username or password")
+		// Now check repository access based on operation
+		// req.RepoPath contains the repository path being accessed
+		// The operation is determined from the URL: "git-upload-pack" (pull/clone) or "git-receive-pack" (push)
+		
+		// Extract repository ID from path (format: /repo/{id}.git or /repo/{id})
+		repoPath := strings.TrimPrefix(req.RepoPath, "/")
+		repoPath = strings.TrimSuffix(repoPath, ".git")
+		repoID := strings.TrimPrefix(repoPath, "repo/")
+		
+		// Get the repository to check visibility
+		repo, err := Repositories.Get(repoID)
+		if err != nil {
+			log.Printf("Repository not found: %s", repoID)
+			return false, errors.New("repository not found")
 		}
-
-		log.Printf("User auth successful for %s", creds.Username)
+		
+		// Check if this is a push or pull operation based on the URL
+		isPush := strings.Contains(req.Request.URL.Path, "git-receive-pack") || 
+				  strings.Contains(req.Request.URL.Query().Get("service"), "git-receive-pack")
+		isPull := strings.Contains(req.Request.URL.Path, "git-upload-pack") || 
+				  strings.Contains(req.Request.URL.Query().Get("service"), "git-upload-pack")
+		
+		// Check access based on operation
+		if isPush {
+			// Push operation - admin only
+			if !user.IsAdmin {
+				log.Printf("Push denied for non-admin user %s to repo %s", user.Email, repoID)
+				return false, errors.New("only admins can push to repositories")
+			}
+		} else if isPull {
+			// Pull/clone operation - check repository visibility
+			if repo.Visibility != "public" && !user.IsAdmin {
+				log.Printf("Pull denied for non-admin user %s to private repo %s", user.Email, repoID)
+				return false, errors.New("access denied - private repository")
+			}
+		}
+		
 		return true, nil
 	}
 

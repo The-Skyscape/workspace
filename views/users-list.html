@@ -72,7 +72,7 @@
               </td>
               <td>{{.Email}}</td>
               <td>
-                {{if or .IsAdmin (eq .Role "admin")}}
+                {{if .IsAdmin}}
                   <span class="badge badge-primary">Admin</span>
                 {{else if eq .Role "developer"}}
                   <span class="badge badge-secondary">Developer</span>
@@ -93,7 +93,7 @@
                     </svg>
                     Edit
                   </button>
-                  {{if not (or .IsAdmin (eq .Role "admin"))}}
+                  {{if not .IsAdmin}}
                   {{if eq .Role "guest"}}
                   <form hx-post="{{host}}/users/{{.ID}}/enable" hx-target="body" hx-swap="outerHTML" class="inline">
                     <button type="submit" class="btn btn-success btn-sm">Enable</button>

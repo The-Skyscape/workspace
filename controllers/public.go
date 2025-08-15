@@ -20,6 +20,13 @@ type PublicController struct {
 	application.BaseController
 }
 
+// OwnerInfo represents repository owner information
+type OwnerInfo struct {
+	ID     string
+	Name   string
+	Avatar string
+}
+
 // Setup is called when the application is started
 func (c *PublicController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
@@ -124,7 +131,7 @@ func (c *PublicController) submitIssue(w http.ResponseWriter, r *http.Request) {
 }
 
 // RepoOwnerInfo returns basic information about the repository owner
-func (c *PublicController) RepoOwnerInfo() (map[string]interface{}, error) {
+func (c *PublicController) RepoOwnerInfo() (*OwnerInfo, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
@@ -134,15 +141,16 @@ func (c *PublicController) RepoOwnerInfo() (map[string]interface{}, error) {
 	if repo.UserID != "" {
 		// Look up owner information from Auth system if needed
 		// For now, return basic info
-		return map[string]interface{}{
-			"id":     repo.UserID,
-			"name":   "Repository Owner",
-			"avatar": "https://ui-avatars.com/api/?name=Owner&size=40&background=3b82f6&color=white",
+		return &OwnerInfo{
+			ID:     repo.UserID,
+			Name:   "Repository Owner",
+			Avatar: "https://ui-avatars.com/api/?name=Owner&size=40&background=3b82f6&color=white",
 		}, nil
 	}
 
-	return map[string]interface{}{
-		"name":   "Unknown",
-		"avatar": "https://ui-avatars.com/api/?name=?&size=40&background=6b7280&color=white",
+	return &OwnerInfo{
+		ID:     "",
+		Name:   "Unknown",
+		Avatar: "https://ui-avatars.com/api/?name=?&size=40&background=6b7280&color=white",
 	}, nil
 }

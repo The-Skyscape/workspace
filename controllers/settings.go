@@ -74,18 +74,14 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	auth := s.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Unauthorized",
-		})
+		s.RenderErrorMsg(w, r, "unauthorized")
 		return
 	}
 
 	// Get current settings
 	settings, err := models.GetSettings()
 	if err != nil {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to load settings: " + err.Error(),
-		})
+		s.RenderError(w, r, err)
 		return
 	}
 
@@ -119,9 +115,7 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	// Save to database
 	err = models.GlobalSettings.Update(settings)
 	if err != nil {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to update settings: " + err.Error(),
-		})
+		s.RenderError(w, r, err)
 		return
 	}
 
@@ -144,26 +138,20 @@ func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request)
 	auth := s.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Unauthorized",
-		})
+		s.RenderErrorMsg(w, r, "unauthorized")
 		return
 	}
 
 	theme := r.URL.Query().Get("theme")
 	if theme == "" {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Theme not specified",
-		})
+		s.RenderErrorMsg(w, r, "theme not specified")
 		return
 	}
 
 	// Get current settings
 	settings, err := models.GetSettings()
 	if err != nil {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to load settings: " + err.Error(),
-		})
+		s.RenderError(w, r, err)
 		return
 	}
 
@@ -175,9 +163,7 @@ func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request)
 	// Save to database
 	err = models.GlobalSettings.Update(settings)
 	if err != nil {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to update theme: " + err.Error(),
-		})
+		s.RenderError(w, r, err)
 		return
 	}
 
@@ -202,27 +188,33 @@ func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Reques
 	auth := s.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Unauthorized",
-		})
+		s.RenderErrorMsg(w, r, "unauthorized")
+		return
+	}
+
+	// Parse the form to get all values
+	if err := r.ParseForm(); err != nil {
+		s.RenderError(w, r, err)
 		return
 	}
 
 	// Get existing profile
 	profile, err := models.GetAdminProfile()
 	if err != nil {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to load profile: " + err.Error(),
-		})
+		s.RenderError(w, r, err)
 		return
 	}
 
 	// Update only the fields that are present in the form
+	// Allow clearing fields by sending empty values
+	if r.Form.Has("name") {
+		profile.Name = r.FormValue("name")
+	}
+	if r.Form.Has("description") {
+		profile.Description = r.FormValue("description")
+	}
 	if r.Form.Has("bio") {
 		profile.Bio = r.FormValue("bio")
-	}
-	if r.Form.Has("title") {
-		profile.Title = r.FormValue("title")
 	}
 	if r.Form.Has("website") {
 		profile.Website = r.FormValue("website")
@@ -237,7 +229,7 @@ func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Reques
 		profile.LinkedIn = r.FormValue("linkedin")
 	}
 	
-	// Checkboxes - only update if field is present
+	// Checkboxes need special handling - empty checkbox means false
 	if r.Form.Has("show_email") {
 		profile.ShowEmail = r.FormValue("show_email") == "true"
 	}
@@ -248,9 +240,7 @@ func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Reques
 	// Save profile
 	err = models.Profiles.Update(profile)
 	if err != nil {
-		s.Render(w, r, "error-message.html", map[string]interface{}{
-			"Message": "Failed to update profile: " + err.Error(),
-		})
+		s.RenderError(w, r, err)
 		return
 	}
 
@@ -258,6 +248,7 @@ func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Reques
 	models.LogActivity("profile_updated", "Updated public profile", 
 		"Administrator updated public profile settings", user.ID, "", "profile", "")
 
-	// Redirect back to profile settings page
-	s.Redirect(w, r, "/settings/profile")
+	// For HTMX requests, just return success (204 No Content)
+	// This prevents unnecessary page refreshes
+	w.WriteHeader(http.StatusNoContent)
 }

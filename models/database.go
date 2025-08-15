@@ -21,7 +21,6 @@ var (
 	Issues          = database.Manage(DB, new(Issue))
 	PullRequests    = database.Manage(DB, new(PullRequest))
 	Comments        = database.Manage(DB, new(Comment))
-	Permissions     = database.Manage(DB, new(Permission))
 	Actions         = database.Manage(DB, new(Action))
 	ActionRuns      = database.Manage(DB, new(ActionRun))
 	ActionArtifacts = database.Manage(DB, new(ActionArtifact))
@@ -34,18 +33,3 @@ var (
 	Profiles = database.Manage(DB, new(Profile))
 )
 
-func init() {
-	// Initialize FTS5 search tables
-	// We need to access the underlying sql.DB for FTS5 operations
-	// Using a goroutine to ensure DB is initialized first
-	go func() {
-		// Get the underlying connection through a query
-		iter := DB.Query("SELECT 1")
-		if iter.Conn != nil {
-			if err := InitFileSearch(); err != nil {
-				// Log the error but don't panic - search will be disabled if tables don't exist
-				println("Warning: Failed to initialize file search:", err.Error())
-			}
-		}
-	}()
-}

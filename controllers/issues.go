@@ -33,27 +33,35 @@ func (c *IssuesController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 	auth := app.Use("auth").(*authentication.Controller)
 
-	// Issues
-	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", auth.Required))
-	http.Handle("GET /repos/{id}/issues/search", app.ProtectFunc(c.searchIssues, auth.Required))
-	http.Handle("GET /repos/{id}/issues/more", app.Serve("issues-more.html", auth.Required))
-	http.Handle("GET /repos/{id}/issues/{issueID}", app.Serve("repo-issue-view.html", auth.Required))
-	http.Handle("POST /repos/{id}/issues/create", app.ProtectFunc(c.createIssue, auth.Required))
+	// Issues - view on public repos or as admin
+	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/issues/search", app.ProtectFunc(c.searchIssues, PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/issues/more", app.Serve("issues-more.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/issues/{issueID}", app.Serve("repo-issue-view.html", PublicOrAdmin()))
+	
+	// Issue operations - authenticated users on public repos, admins on any
+	http.Handle("POST /repos/{id}/issues/create", app.ProtectFunc(c.createIssue, PublicRepoOnly()))
+	http.Handle("POST /repos/{id}/issues/{issueID}/comment", app.ProtectFunc(c.createIssueComment, PublicRepoOnly()))
+	
+	// Issue modifications - author or admin only
 	http.Handle("POST /repos/{id}/issues/{issueID}/close", app.ProtectFunc(c.closeIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/reopen", app.ProtectFunc(c.reopenIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/edit", app.ProtectFunc(c.editIssue, auth.Required))
-	http.Handle("POST /repos/{id}/issues/{issueID}/delete", app.ProtectFunc(c.deleteIssue, auth.Required))
-	http.Handle("POST /repos/{id}/issues/{issueID}/comment", app.ProtectFunc(c.createIssueComment, auth.Required))
+	
+	// Issue deletion - admin only
+	http.Handle("POST /repos/{id}/issues/{issueID}/delete", app.ProtectFunc(c.deleteIssue, AdminOnly()))
 }
 
 // CurrentRepo returns the current repository from the request
 func (c *IssuesController) CurrentRepo() (*models.Repository, error) {
-	return c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	return reposController.CurrentRepo()
 }
 
 // RepoIssues returns issues for the current repository
 func (c *IssuesController) RepoIssues() ([]*models.Issue, error) {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +101,8 @@ func (c *IssuesController) RepoIssues() ([]*models.Issue, error) {
 
 // MoreIssues returns the next page of issues for infinite scroll
 func (c *IssuesController) MoreIssues() ([]*models.Issue, error) {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +124,8 @@ func (c *IssuesController) MoreIssues() ([]*models.Issue, error) {
 
 // HasMoreIssues checks if there are more issues to load
 func (c *IssuesController) HasMoreIssues() bool {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return false
 	}
@@ -164,6 +174,56 @@ func (c *IssuesController) CurrentIssue() (*models.Issue, error) {
 	return models.Issues.Get(issueID)
 }
 
+// CurrentUser returns the currently authenticated user
+func (c *IssuesController) CurrentUser() *authentication.User {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil
+	}
+	return user
+}
+
+// IsAdmin returns true if the current user is an admin
+func (c *IssuesController) IsAdmin() bool {
+	user := c.CurrentUser()
+	return user != nil && user.IsAdmin
+}
+
+// CanCreateIssue returns true if the current user can create issues in the current repo
+func (c *IssuesController) CanCreateIssue() bool {
+	// Get current repo to check visibility
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return false
+	}
+	
+	// Admins can always create issues
+	if c.IsAdmin() {
+		return true
+	}
+	
+	// Non-admins can create issues on public repos if authenticated
+	user := c.CurrentUser()
+	return user != nil && repo.Visibility == "public"
+}
+
+// CanEditIssue returns true if the current user can edit the given issue
+func (c *IssuesController) CanEditIssue(issue *models.Issue) bool {
+	if issue == nil {
+		return false
+	}
+	
+	// Admins can edit any issue
+	if c.IsAdmin() {
+		return true
+	}
+	
+	// Authors can edit their own issues
+	user := c.CurrentUser()
+	return user != nil && issue.AuthorID == user.ID
+}
+
 // IssueComments returns comments for the current issue
 func (c *IssuesController) IssueComments() ([]*models.Comment, error) {
 	issue, err := c.CurrentIssue()
@@ -173,19 +233,10 @@ func (c *IssuesController) IssueComments() ([]*models.Comment, error) {
 	return models.GetIssueComments(issue.ID)
 }
 
-// getCurrentRepo helper to get current repository via repos controller
-func (c *IssuesController) getCurrentRepo() (*models.Repository, error) {
-	reposController := c.Use("repos").(*ReposController)
-	return reposController.CurrentRepo()
-}
 
 // searchIssues handles issue search requests with HTMX
 func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
-
+	// Access already checked by route middleware
 	repoID := r.PathValue("id")
 	if repoID == "" {
 		c.RenderErrorMsg(w, r, "repository ID required")
@@ -198,11 +249,7 @@ func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) 
 
 // createIssue handles issue creation
 func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
-
+	// Access already checked by route middleware (PublicRepoOnly)
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
 
@@ -280,9 +327,9 @@ func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user can update this issue
-	if !models.CanUserUpdateIssue(user, issue) {
-		c.RenderErrorMsg(w, r, "insufficient permissions")
+	// Check if user is admin or issue author
+	if !user.IsAdmin && issue.AuthorID != user.ID {
+		c.RenderErrorMsg(w, r, "only the author or admin can close this issue")
 		return
 	}
 
@@ -324,9 +371,9 @@ func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user can update this issue
-	if !models.CanUserUpdateIssue(user, issue) {
-		c.RenderErrorMsg(w, r, "insufficient permissions")
+	// Check if user is admin or issue author
+	if !user.IsAdmin && issue.AuthorID != user.ID {
+		c.RenderErrorMsg(w, r, "only the author or admin can reopen this issue")
 		return
 	}
 
@@ -368,9 +415,9 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user can update this issue
-	if !models.CanUserUpdateIssue(user, issue) {
-		c.RenderErrorMsg(w, r, "insufficient permissions")
+	// Check if user is admin or issue author
+	if !user.IsAdmin && issue.AuthorID != user.ID {
+		c.RenderErrorMsg(w, r, "only the author or admin can edit this issue")
 		return
 	}
 
@@ -425,11 +472,7 @@ func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user can delete this issue (admin only)
-	if !models.IsUserAdmin(user) {
-		c.RenderErrorMsg(w, r, "insufficient permissions")
-		return
-	}
+	// Admin access already verified by route middleware
 
 	// Delete the issue
 	err = models.Issues.Delete(issue)
@@ -463,12 +506,7 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Check repository read access (anyone who can read can comment)
-	err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-	if err != nil {
-		c.RenderErrorMsg(w, r, "insufficient permissions")
-		return
-	}
+	// Access already verified by route middleware
 
 	// Verify issue exists
 	issue, err := models.Issues.Get(issueID)

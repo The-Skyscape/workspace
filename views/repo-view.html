@@ -246,7 +246,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Recent Activity</h3>
-        {{with repos.RepoActivities 5}}
+        {{with repos.RepoActivities}}
         {{if .}}
         <div class="flex flex-col gap-2">
           {{range .}}

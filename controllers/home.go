@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	
 	"workspace/models"
 	"workspace/services"
@@ -21,6 +22,13 @@ type HomeController struct {
 	application.BaseController
 }
 
+// RepoStats represents repository statistics
+type RepoStats struct {
+	TotalRepos   int
+	PublicRepos  int
+	PrivateRepos int
+}
+
 // Setup is called when the application is started
 func (c *HomeController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
@@ -31,6 +39,9 @@ func (c *HomeController) Setup(app *application.App) {
 	http.Handle("GET /signin", app.ProtectFunc(c.signinPage, nil))
 	http.Handle("GET /signup", app.ProtectFunc(c.signupPage, nil))
 	http.Handle("GET /activities", app.Serve("activities.html", auth.Required))
+	
+	// Public repository search
+	http.Handle("GET /public/repos/search", app.Serve("home-public-repos-results.html", nil))
 	
 	// Infinite scroll endpoints
 	http.Handle("GET /repos/more", app.Serve("repos-more.html", auth.Required))
@@ -71,17 +82,6 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 	return models.ListUserRepositoriesPaginated(user.ID, 20, 0)
 }
 
-// UserReposPaginated returns paginated repositories for the current user
-func (c *HomeController) UserReposPaginated(limit, offset int) ([]*models.Repository, int, error) {
-	auth := c.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// Get paginated repositories
-	return models.ListUserRepositoriesPaginatedWithCount(user.ID, limit, offset)
-}
 
 // MoreRepos returns the next page of repositories for infinite scroll
 func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
@@ -149,63 +149,55 @@ func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 }
 
 // AdminProfile returns the admin user's profile information for the homepage
-func (c *HomeController) AdminProfile() map[string]interface{} {
+func (c *HomeController) AdminProfile() *models.Profile {
 	// Get the admin profile
 	profile, err := models.GetAdminProfile()
 	if err != nil {
-		// Return default values if no profile exists
-		return map[string]interface{}{
-			"name":   "Skyscape Admin",
-			"email":  "admin@skyscape.dev",
-			"avatar": "https://ui-avatars.com/api/?name=Skyscape+Admin&size=200&background=3b82f6&color=white",
+		// Return default profile if none exists
+		return &models.Profile{
+			Name:        "Workspace",
+			Description: "Secure Development Platform",
+			Avatar:      "https://ui-avatars.com/api/?name=Workspace&size=200&background=3b82f6&color=white",
 		}
 	}
 	
-	// Get the admin user
-	users, err := models.Auth.Users.Search("ORDER BY ID ASC LIMIT 1")
-	if err != nil || len(users) == 0 {
-		return map[string]interface{}{
-			"name":   "Skyscape Admin",
-			"email":  "admin@skyscape.dev",
-			"avatar": "https://ui-avatars.com/api/?name=Skyscape+Admin&size=200&background=3b82f6&color=white",
+	// Set defaults if fields are empty
+	if profile.Name == "" {
+		profile.Name = "Workspace"
+	}
+	if profile.Description == "" {
+		profile.Description = "Secure Development Platform"
+	}
+	
+	// Get admin email if not set
+	if profile.Email == "" {
+		users, err := models.Auth.Users.Search("ORDER BY ID ASC LIMIT 1")
+		if err == nil && len(users) > 0 {
+			profile.Email = users[0].Email
 		}
 	}
 	
-	admin := users[0]
-	
-	// Combine user and profile data
-	result := map[string]interface{}{
-		"name":       admin.Name,
-		"email":      admin.Email,
-		"avatar":     admin.Avatar,
-		"bio":        profile.Bio,
-		"title":      profile.Title,
-		"website":    profile.Website,
-		"github":     profile.GitHub,
-		"twitter":    profile.Twitter,
-		"linkedin":   profile.LinkedIn,
-		"show_email": profile.ShowEmail,
-		"show_stats": profile.ShowStats,
+	// Generate avatar if not set
+	if profile.Avatar == "" {
+		profile.Avatar = "https://ui-avatars.com/api/?name=" + profile.Name + "&size=200&background=3b82f6&color=white"
 	}
 	
-	return result
+	return profile
 }
 
 // PublicRepoStats returns statistics about public repositories
-func (c *HomeController) PublicRepoStats() (map[string]int, error) {
+func (c *HomeController) PublicRepoStats() (*RepoStats, error) {
 	repos, err := c.PublicRepos()
 	if err != nil {
 		return nil, err
 	}
 
-	// Count repositories by language/type (simplified for now)
-	stats := map[string]int{
-		"total_repos":   len(repos),
-		"public_repos":  len(repos),
-		"private_repos": 0, // Don't show private repo count on public homepage
-	}
-
-	return stats, nil
+	// Count repositories (simplified for now)
+	return &RepoStats{
+		TotalRepos:   len(repos),
+		PublicRepos:  len(repos),
+		PrivateRepos: 0, // Don't show private repo count on public homepage
+	}, nil
 }
 
 // RecentActivity returns recent activities for the dashboard
@@ -359,5 +351,27 @@ func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
 	
 	// Show home page (public or dashboard based on auth status)
 	c.Render(w, r, "home.html", nil)
+}
+
+// SearchPublicRepos returns filtered public repositories based on search query
+func (c *HomeController) SearchPublicRepos() ([]*models.Repository, error) {
+	// Get search query from request
+	query := strings.TrimSpace(c.Request.FormValue("query"))
+	
+	// If no query, return all public repos
+	if query == "" {
+		return models.Repositories.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
+	}
+	
+	// Search for public repositories matching the query (case-insensitive)
+	// Search in name and description
+	return models.Repositories.Search(`
+		WHERE Visibility = 'public' 
+		AND (
+			LOWER(Name) LIKE LOWER(?) 
+			OR LOWER(Description) LIKE LOWER(?)
+		)
+		ORDER BY UpdatedAt DESC
+	`, "%"+query+"%", "%"+query+"%")
 }
 

@@ -100,7 +100,7 @@ func BuildSearchQuery(baseTable string, params SearchParams, repoID string) (str
 }
 
 // GetRepositoryWithAccess gets a repository and checks access in one operation
-func GetRepositoryWithAccess(r *http.Request, requiredRole string, auth *authentication.Controller) (*models.Repository, error) {
+func GetRepositoryWithAccess(r *http.Request, needsWrite bool, auth *authentication.Controller) (*models.Repository, error) {
 	repoID := r.PathValue("id")
 	if repoID == "" {
 		return nil, fmt.Errorf("repository ID required")
@@ -115,19 +115,21 @@ func GetRepositoryWithAccess(r *http.Request, requiredRole string, auth *authent
 	// Check authentication and access
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		// Check if repository is public
-		if repo.Visibility == "public" && requiredRole == models.RoleRead {
+		// Check if repository is public and read-only access is needed
+		if repo.Visibility == "public" && !needsWrite {
 			return repo, nil
 		}
 		return nil, fmt.Errorf("authentication required")
 	}
 
-	// Check access level
-	if requiredRole != "" {
-		err = models.CheckRepoAccess(user, repoID, requiredRole)
-		if err != nil {
-			return nil, fmt.Errorf("insufficient permissions")
-		}
+	// For write access, must be admin
+	if needsWrite && !user.IsAdmin {
+		return nil, fmt.Errorf("admin access required")
+	}
+
+	// For read access on private repos, must be admin
+	if repo.Visibility != "public" && !user.IsAdmin {
+		return nil, fmt.Errorf("access denied - private repository")
 	}
 
 	return repo, nil

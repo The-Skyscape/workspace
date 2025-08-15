@@ -32,32 +32,33 @@ func (c ActionsController) Handle(req *http.Request) application.Controller {
 // Setup registers routes
 func (c *ActionsController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
 
-	// Actions
-	http.Handle("GET /repos/{id}/actions", app.Serve("repo-actions.html", auth.Required))
+	// Actions - view on public repos or as admin
+	http.Handle("GET /repos/{id}/actions", app.Serve("repo-actions.html", PublicOrAdmin()))
 	// Main action view redirects to info tab
-	http.Handle("GET /repos/{id}/actions/{actionID}", app.ProtectFunc(c.redirectToInfo, auth.Required))
+	http.Handle("GET /repos/{id}/actions/{actionID}", app.ProtectFunc(c.redirectToInfo, PublicOrAdmin()))
 	// Tab-specific routes
-	http.Handle("GET /repos/{id}/actions/{actionID}/info", app.Serve("repo-action-info.html", auth.Required))
-	http.Handle("GET /repos/{id}/actions/{actionID}/command", app.Serve("repo-action-command.html", auth.Required))
-	http.Handle("GET /repos/{id}/actions/{actionID}/logs", app.Serve("repo-action-logs.html", auth.Required))
-	http.Handle("GET /repos/{id}/actions/{actionID}/history", app.Serve("repo-action-history.html", auth.Required))
-	http.Handle("GET /repos/{id}/actions/{actionID}/artifacts", app.Serve("repo-action-artifacts.html", auth.Required))
+	http.Handle("GET /repos/{id}/actions/{actionID}/info", app.Serve("repo-action-info.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/actions/{actionID}/command", app.Serve("repo-action-command.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/actions/{actionID}/logs", app.Serve("repo-action-logs.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/actions/{actionID}/history", app.Serve("repo-action-history.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/actions/{actionID}/artifacts", app.Serve("repo-action-artifacts.html", PublicOrAdmin()))
 	// HTMX partials for dynamic updates
-	http.Handle("GET /repos/{id}/actions/{actionID}/logs-partial", app.ProtectFunc(c.getActionLogs, auth.Required))
-	http.Handle("GET /repos/{id}/actions/{actionID}/artifacts-partial", app.ProtectFunc(c.getActionArtifacts, auth.Required))
-	// Action operations
-	http.Handle("POST /repos/{id}/actions/create", app.ProtectFunc(c.createAction, auth.Required))
-	http.Handle("POST /repos/{id}/actions/{actionID}/run", app.ProtectFunc(c.runAction, auth.Required))
-	http.Handle("POST /repos/{id}/actions/{actionID}/disable", app.ProtectFunc(c.disableAction, auth.Required))
-	http.Handle("POST /repos/{id}/actions/{actionID}/enable", app.ProtectFunc(c.enableAction, auth.Required))
-	http.Handle("GET /repos/{id}/actions/{actionID}/artifacts/{artifactID}/download", app.ProtectFunc(c.downloadArtifact, auth.Required))
+	http.Handle("GET /repos/{id}/actions/{actionID}/logs-partial", app.ProtectFunc(c.getActionLogs, PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/actions/{actionID}/artifacts-partial", app.ProtectFunc(c.getActionArtifacts, PublicOrAdmin()))
+	// Action operations - admin only
+	http.Handle("POST /repos/{id}/actions/create", app.ProtectFunc(c.createAction, AdminOnly()))
+	http.Handle("POST /repos/{id}/actions/{actionID}/run", app.ProtectFunc(c.runAction, AdminOnly()))
+	http.Handle("POST /repos/{id}/actions/{actionID}/disable", app.ProtectFunc(c.disableAction, AdminOnly()))
+	http.Handle("POST /repos/{id}/actions/{actionID}/enable", app.ProtectFunc(c.enableAction, AdminOnly()))
+	// Artifact download - public repos or admin
+	http.Handle("GET /repos/{id}/actions/{actionID}/artifacts/{artifactID}/download", app.ProtectFunc(c.downloadArtifact, PublicOrAdmin()))
 }
 
 // RepoActions returns actions for the current repository
 func (c *ActionsController) RepoActions() ([]*models.Action, error) {
-	repo, err := c.getCurrentRepo()
+	reposController := c.Use("repos").(*ReposController)
+	repo, err := reposController.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +83,6 @@ func (c *ActionsController) ActionArtifacts() ([]*models.ActionArtifact, error) 
 	return models.GetArtifactsByAction(action.ID)
 }
 
-// getCurrentRepo helper to get current repository via repos controller
-func (c *ActionsController) getCurrentRepo() (*models.Repository, error) {
-	reposController := c.Use("repos").(*ReposController)
-	return reposController.CurrentRepo()
-}
-
 // RepoBranches returns branches for the current repository via repos controller
 func (c *ActionsController) RepoBranches() ([]*models.Branch, error) {
 	reposController := c.Use("repos").(*ReposController)
@@ -103,10 +98,7 @@ func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Reques
 
 // createAction handles action creation
 func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoWriteRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -159,10 +151,7 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 
 // runAction handles manual action execution
 func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoWriteRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -199,10 +188,7 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 
 // disableAction handles disabling an action
 func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoAdminRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -238,10 +224,7 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 
 // enableAction handles enabling an action
 func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoAdminRequired()(c.App, w, r) {
-		return
-	}
+	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -277,10 +260,7 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 
 // downloadArtifact handles artifact download
 func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
+	// Access already verified by route middleware (PublicOrAdmin)
 
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, _ := auth.Authenticate(r)
@@ -315,10 +295,7 @@ func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Requ
 
 // getActionLogs handles fetching action logs via HTMX
 func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
+	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
@@ -334,10 +311,7 @@ func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request
 
 // getActionArtifacts handles fetching action artifacts via HTMX
 func (c *ActionsController) getActionArtifacts(w http.ResponseWriter, r *http.Request) {
-	// Use shared middleware for permission checking
-	if !RepoReadRequired()(c.App, w, r) {
-		return
-	}
+	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")

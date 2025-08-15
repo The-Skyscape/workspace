@@ -9,8 +9,11 @@ type Profile struct {
 	application.Model
 	
 	UserID      string // Foreign key to User
+	Name        string // Display name for public profile
+	Email       string // Email address (only shown if ShowEmail is true)
+	Avatar      string // Avatar URL or generated avatar
+	Description string // Short description/tagline
 	Bio         string // Biography/description
-	Title       string // Professional title
 	Website     string // Personal website URL
 	GitHub      string // GitHub username
 	Twitter     string // Twitter handle
@@ -40,7 +43,6 @@ func GetAdminProfile() (*Profile, error) {
 			Model:     DB.NewModel(""),
 			UserID:    adminUser.ID,
 			Bio:       "Welcome to my Skyscape instance",
-			Title:     "Software Developer",
 			ShowEmail: false,
 			ShowStats: false,
 		}

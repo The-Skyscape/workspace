@@ -1,0 +1,33 @@
+{{define "repo-card"}}
+<div class="card-body p-4">
+  <div class="flex items-center gap-3">
+    <div class="avatar avatar-placeholder flex-shrink-0">
+      <div class="{{if eq .Visibility "public"}}bg-success{{else}}bg-primary{{end}} {{if eq .Visibility "public"}}text-success-content{{else}}text-primary-content{{end}} rounded w-12 h-12">
+        <span class="text-base font-bold">{{printf "%.2s" .Name}}</span>
+      </div>
+    </div>
+    <div class="flex-1">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-lg">{{.Name}}</h3>
+            <div class="flex items-center gap-2">
+              {{if eq .Visibility "private"}}
+              <div class="badge badge-neutral badge-soft badge-sm">Private</div>
+              {{else}}
+              <div class="badge badge-success badge-soft badge-sm">Public</div>
+              {{end}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+          <p class="text-base-content/70 text-sm mt-1">
+            {{if .Description}}{{.Description}}{{else}}No description provided{{end}}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
