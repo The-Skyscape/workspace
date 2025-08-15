@@ -21,14 +21,6 @@ type CoderController struct {
 	application.BaseController
 }
 
-// CoderStatus represents the status of the coder service
-type CoderStatus struct {
-	Running   bool
-	Port      int
-	AdminOnly bool
-	URL       string
-}
-
 // Setup registers all routes for Code IDE management.
 func (c *CoderController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
@@ -71,11 +63,6 @@ func (c *CoderController) proxyToCodeServer(w http.ResponseWriter, r *http.Reque
 }
 
 // CoderStatus returns the status of the global coder service
-func (c *CoderController) CoderStatus() *CoderStatus {
-	return &CoderStatus{
-		Running:   services.Coder.IsRunning(),
-		Port:      services.Coder.GetPort(),
-		AdminOnly: services.Coder.IsAdminOnly(),
-		URL:       "/coder/",
-	}
+func (c *CoderController) CoderStatus() *services.CoderStatus {
+	return services.Coder.GetStatus()
 }
