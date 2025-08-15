@@ -1,74 +1,70 @@
 package services
 
 import (
-	"archive/tar"
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
-	
+
 	"github.com/The-Skyscape/devtools/pkg/containers"
 	"github.com/The-Skyscape/devtools/pkg/database"
 	"github.com/pkg/errors"
 )
 
-// SandboxService provides stateless sandbox container execution
-type SandboxService struct {
-	host containers.Host
+// Sandbox represents a containerized execution environment
+type Sandbox struct {
+	Name        string
+	RepoPath    string
+	RepoName    string
+	Command     string
+	TimeoutSecs int
+	Container   *containers.Service
+	startTime   time.Time
+	mu          sync.RWMutex
 }
 
+// sandboxRegistry keeps track of active sandboxes
 var (
-	// Global sandbox service instance
-	Sandboxes = &SandboxService{
-		host: containers.Local(),
-	}
+	sandboxRegistry = make(map[string]*Sandbox)
+	registryMu      sync.RWMutex
 )
 
-// SandboxInfo represents runtime information about a sandbox
-type SandboxInfo struct {
-	Name        string
-	RepoID      string
-	Command     string
-	Status      string // running, stopped, completed
-	StartTime   time.Time
-	Output      string
-	ExitCode    int
-	IsRunning   bool
-}
+// NewSandbox creates a new sandbox instance and prepares it for execution
+func NewSandbox(name, repoPath, repoName, command string, timeoutSecs int) (*Sandbox, error) {
+	// Check if sandbox already exists
+	registryMu.RLock()
+	if existing, exists := sandboxRegistry[name]; exists {
+		registryMu.RUnlock()
+		return existing, nil
+	}
+	registryMu.RUnlock()
 
-// containerName returns the Docker container name for a sandbox
-func (s *SandboxService) containerName(sandboxName string) string {
-	return fmt.Sprintf("skyscape-sandbox-%s", sandboxName)
-}
-
-// StartSandbox starts a sandbox container with the given parameters
-func (s *SandboxService) StartSandbox(name, repoPath, repoName, command string, timeoutSecs int) error {
 	// Prepare directories
 	sandboxDir := fmt.Sprintf("%s/sandboxes/%s", database.DataDir(), name)
 	workspaceDir := fmt.Sprintf("%s/workspace", sandboxDir)
 	repoDir := fmt.Sprintf("%s/repo", workspaceDir)
-	
+
 	// Clean up any existing sandbox directory
 	os.RemoveAll(sandboxDir)
-	
+
 	// Create directories
 	if err := os.MkdirAll(repoDir, 0755); err != nil {
-		return errors.Wrap(err, "failed to create sandbox directories")
+		return nil, errors.Wrap(err, "failed to create sandbox directories")
 	}
-	
+
 	// Clone repository to sandbox directory
 	log.Printf("Cloning repository to sandbox %s", name)
 	cloneCmd := fmt.Sprintf("git clone --bare %s %s.git && git clone %s.git %s && rm -rf %s.git",
 		repoPath, repoDir, repoDir, repoDir, repoDir)
-	
-	if err := s.host.Exec("bash", "-c", cloneCmd); err != nil {
-		return errors.Wrap(err, "failed to clone repository")
+
+	host := containers.Local()
+	if err := host.Exec("bash", "-c", cloneCmd); err != nil {
+		return nil, errors.Wrap(err, "failed to clone repository")
 	}
-	
+
 	// Create command script
 	scriptPath := fmt.Sprintf("%s/run.sh", sandboxDir)
 	scriptContent := fmt.Sprintf(`#!/bin/bash
@@ -90,17 +86,17 @@ echo "==================================="
 echo "=== Sandbox Completed with exit code: $EXIT_CODE ==="
 exit $EXIT_CODE
 `, name, repoName, command, command)
-	
+
 	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
-		return errors.Wrap(err, "failed to create command script")
+		return nil, errors.Wrap(err, "failed to create command script")
 	}
-	
-	// Create service configuration
-	containerName := s.containerName(name)
-	service := &containers.Service{
-		Host:  s.host,
-		Name:  containerName,
-		Image: "skyscape:latest",
+
+	// Create container configuration
+	containerName := fmt.Sprintf("skyscape-sandbox-%s", name)
+	container := &containers.Service{
+		Host:    host,
+		Name:    containerName,
+		Image:   "skyscape:latest",
 		Command: "/bin/bash -c '/bin/bash /sandbox/run.sh > /sandbox/output.log 2>&1'",
 		Network: "bridge",
 		Mounts: map[string]string{
@@ -111,65 +107,108 @@ exit $EXIT_CODE
 			"SANDBOX_NAME": name,
 		},
 	}
-	
-	// Launch the container
-	log.Printf("Starting sandbox container %s", containerName)
-	if err := containers.Launch(s.host, service); err != nil {
+
+	sandbox := &Sandbox{
+		Name:        name,
+		RepoPath:    repoPath,
+		RepoName:    repoName,
+		Command:     command,
+		TimeoutSecs: timeoutSecs,
+		Container:   container,
+	}
+
+	// Register sandbox
+	registryMu.Lock()
+	sandboxRegistry[name] = sandbox
+	registryMu.Unlock()
+
+	return sandbox, nil
+}
+
+// GetSandbox retrieves an existing sandbox by name
+func GetSandbox(name string) (*Sandbox, error) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+
+	sandbox, exists := sandboxRegistry[name]
+	if !exists {
+		return nil, errors.Errorf("sandbox %s not found", name)
+	}
+	return sandbox, nil
+}
+
+// ListSandboxes returns all registered sandboxes
+func ListSandboxes() []*Sandbox {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+
+	sandboxes := make([]*Sandbox, 0, len(sandboxRegistry))
+	for _, sandbox := range sandboxRegistry {
+		sandboxes = append(sandboxes, sandbox)
+	}
+	return sandboxes
+}
+
+// Start launches the sandbox container and begins execution
+func (s *Sandbox) Start() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.IsRunning() {
+		return errors.New("sandbox is already running")
+	}
+
+	log.Printf("Starting sandbox container %s", s.Container.Name)
+	if err := containers.Launch(s.Container.Host, s.Container); err != nil {
 		return errors.Wrap(err, "failed to launch sandbox container")
 	}
-	
-	// Start monitoring in a goroutine
-	go s.monitorContainer(name, timeoutSecs)
-	
+
+	s.startTime = time.Now()
+
+	// Start monitoring in a goroutine if timeout is set
+	if s.TimeoutSecs > 0 {
+		go s.monitorTimeout()
+	}
+
 	return nil
 }
 
-// monitorContainer monitors a running container with timeout
-func (s *SandboxService) monitorContainer(name string, timeoutSecs int) {
-	containerName := s.containerName(name)
-	startTime := time.Now()
-	timeout := time.Duration(timeoutSecs) * time.Second
-	
-	for {
-		service := &containers.Service{
-			Host: s.host,
-			Name: containerName,
-		}
-		
-		if !service.IsRunning() {
-			log.Printf("Sandbox %s container stopped", name)
-			return
-		}
-		
-		if time.Since(startTime) > timeout {
-			log.Printf("Sandbox %s timed out after %v", name, timeout)
-			s.StopSandbox(name)
-			return
-		}
-		
-		time.Sleep(2 * time.Second)
-	}
-}
+// Stop stops the sandbox container
+func (s *Sandbox) Stop() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-// StopSandbox stops a running sandbox container
-func (s *SandboxService) StopSandbox(name string) error {
-	containerName := s.containerName(name)
-	service := &containers.Service{
-		Host: s.host,
-		Name: containerName,
-	}
-	
-	if err := service.Stop(); err != nil {
-		log.Printf("Failed to stop sandbox container %s: %v", containerName, err)
+	if err := s.Container.Stop(); err != nil {
+		log.Printf("Failed to stop sandbox container %s: %v", s.Container.Name, err)
 		return err
 	}
-	
+
 	return nil
 }
 
-// GetOutput retrieves the output from a sandbox
-func (s *SandboxService) GetOutput(name string) (string, error) {
-	outputFile := fmt.Sprintf("%s/sandboxes/%s/output.log", database.DataDir(), name)
+// IsRunning checks if the sandbox container is running
+func (s *Sandbox) IsRunning() bool {
+	return s.Container.IsRunning()
+}
+
+// Execute runs a command inside the sandbox container
+func (s *Sandbox) Execute(command string) (string, int, error) {
+	if !s.IsRunning() {
+		return "", -1, errors.New("sandbox is not running")
+	}
+
+	output, err := s.Container.ExecInContainerWithOutput("bash", "-c", command)
+	if err != nil {
+		// Try to extract exit code from error
+		return output, 1, err
+	}
+
+	return output, 0, nil
+}
+
+// GetOutput retrieves the output from the sandbox
+func (s *Sandbox) GetOutput() (string, error) {
+	outputFile := fmt.Sprintf("%s/sandboxes/%s/output.log", database.DataDir(), s.Name)
 	output, err := os.ReadFile(outputFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -177,320 +216,228 @@ func (s *SandboxService) GetOutput(name string) (string, error) {
 		}
 		return "", errors.Wrap(err, "failed to read output file")
 	}
-	
+
 	return string(output), nil
 }
 
-// GetExitCode gets the exit code of a container
-func (s *SandboxService) GetExitCode(name string) int {
-	var stdout bytes.Buffer
-	s.host.SetStdout(&stdout)
-	containerName := s.containerName(name)
-	err := s.host.Exec("docker", "inspect", "-f", "{{.State.ExitCode}}", containerName)
-	
-	exitCode := 0
-	if err == nil {
-		fmt.Sscanf(strings.TrimSpace(stdout.String()), "%d", &exitCode)
-	}
-	return exitCode
+// GetLogs retrieves container logs
+func (s *Sandbox) GetLogs(tail int) (string, error) {
+	return s.Container.GetLogs(tail)
 }
 
-// IsRunning checks if a sandbox container is running
-func (s *SandboxService) IsRunning(name string) bool {
-	containerName := s.containerName(name)
-	service := &containers.Service{
-		Host: s.host,
-		Name: containerName,
+// GetExitCode gets the exit code of the container
+func (s *Sandbox) GetExitCode() int {
+	if !s.IsRunning() {
+		// Use host to inspect container exit code
+		var stdout strings.Builder
+		s.Container.Host.SetStdout(&stdout)
+		err := s.Container.Host.Exec("docker", "inspect", "-f", "{{.State.ExitCode}}", s.Container.Name)
+		if err == nil {
+			var exitCode int
+			fmt.Sscanf(strings.TrimSpace(stdout.String()), "%d", &exitCode)
+			return exitCode
+		}
 	}
-	return service.IsRunning()
+	return -1
 }
 
-// CleanupSandbox removes a sandbox container and its files
-func (s *SandboxService) CleanupSandbox(name string) error {
-	// Remove container if it exists
-	containerName := s.containerName(name)
-	service := &containers.Service{
-		Host: s.host,
-		Name: containerName,
+// WaitForCompletion waits for the sandbox to complete execution
+func (s *Sandbox) WaitForCompletion() error {
+	for s.IsRunning() {
+		time.Sleep(1 * time.Second)
 	}
-	
-	// Try to remove the container (ignore errors if it doesn't exist)
-	service.Remove()
-	
-	// Remove sandbox directory
-	sandboxDir := fmt.Sprintf("%s/sandboxes/%s", database.DataDir(), name)
-	if err := os.RemoveAll(sandboxDir); err != nil {
-		log.Printf("Failed to remove sandbox directory %s: %v", sandboxDir, err)
-	}
-	
 	return nil
 }
 
-// DownloadFile downloads a specific file from a sandbox
-func (s *SandboxService) DownloadFile(name string, filePath string) ([]byte, error) {
+// DownloadFile downloads a specific file from the sandbox
+func (s *Sandbox) DownloadFile(filePath string) ([]byte, error) {
 	// Security: ensure file path is within workspace
 	if strings.Contains(filePath, "..") {
 		return nil, errors.New("invalid file path")
 	}
-	
+
 	// Read file directly from mounted directory
-	fullPath := fmt.Sprintf("%s/sandboxes/%s/workspace/%s", database.DataDir(), name, filePath)
-	
+	fullPath := fmt.Sprintf("%s/sandboxes/%s/workspace/%s", database.DataDir(), s.Name, filePath)
+
+	// Try workspace/repo subdirectory if file not found
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		fullPath = fmt.Sprintf("%s/sandboxes/%s/workspace/repo/%s", database.DataDir(), s.Name, filePath)
+	}
+
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read file")
 	}
-	
+
 	return data, nil
 }
 
-// GetArtifactsList returns a list of files in the sandbox workspace
-func (s *SandboxService) GetArtifactsList(name string) ([]string, error) {
-	workspaceDir := fmt.Sprintf("%s/sandboxes/%s/workspace", database.DataDir(), name)
-	
+// ExtractArtifacts extracts multiple files/paths from the sandbox
+func (s *Sandbox) ExtractArtifacts(paths []string) (map[string][]byte, error) {
+	artifacts := make(map[string][]byte)
+
+	for _, path := range paths {
+		// Clean and validate path
+		path = strings.TrimSpace(path)
+		if path == "" || strings.Contains(path, "..") {
+			continue
+		}
+
+		// Check if it's a pattern or specific file
+		if strings.Contains(path, "*") {
+			// Handle glob pattern
+			baseDir := fmt.Sprintf("%s/sandboxes/%s/workspace/repo", database.DataDir(), s.Name)
+			matches, err := filepath.Glob(filepath.Join(baseDir, path))
+			if err != nil {
+				log.Printf("Failed to glob pattern %s: %v", path, err)
+				continue
+			}
+
+			for _, match := range matches {
+				relPath, _ := filepath.Rel(baseDir, match)
+				if data, err := os.ReadFile(match); err == nil {
+					artifacts[relPath] = data
+				}
+			}
+		} else if strings.HasSuffix(path, "/") {
+			// Handle directory
+			dirPath := fmt.Sprintf("%s/sandboxes/%s/workspace/repo/%s", database.DataDir(), s.Name, path)
+			err := filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
+				if err != nil || info.IsDir() {
+					return nil
+				}
+
+				relPath, _ := filepath.Rel(fmt.Sprintf("%s/sandboxes/%s/workspace/repo", database.DataDir(), s.Name), filePath)
+				if data, err := os.ReadFile(filePath); err == nil {
+					artifacts[relPath] = data
+				}
+				return nil
+			})
+			if err != nil {
+				log.Printf("Failed to walk directory %s: %v", path, err)
+			}
+		} else {
+			// Handle single file
+			if data, err := s.DownloadFile(path); err == nil {
+				artifacts[path] = data
+			}
+		}
+	}
+
+	return artifacts, nil
+}
+
+// ListFiles lists files in the sandbox workspace
+func (s *Sandbox) ListFiles(pattern string) ([]string, error) {
+	workspaceDir := fmt.Sprintf("%s/sandboxes/%s/workspace", database.DataDir(), s.Name)
+
 	var files []string
 	err := filepath.Walk(workspaceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		// Skip directories and hidden files
 		if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
 			return nil
 		}
-		
+
 		// Get relative path from workspace
 		relPath, err := filepath.Rel(workspaceDir, path)
 		if err != nil {
 			return err
 		}
-		
+
+		// Apply pattern matching if specified
+		if pattern != "" {
+			matched, _ := filepath.Match(pattern, relPath)
+			if !matched {
+				return nil
+			}
+		}
+
 		files = append(files, relPath)
 		return nil
 	})
-	
+
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list artifacts")
+		return nil, errors.Wrap(err, "failed to list files")
 	}
-	
+
 	return files, nil
 }
 
-// CreateArtifactArchive creates a tar archive of specified files
-func (s *SandboxService) CreateArtifactArchive(name string, files []string) (io.Reader, error) {
-	workspaceDir := fmt.Sprintf("%s/sandboxes/%s/workspace", database.DataDir(), name)
-	
-	// Create tar archive in memory
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	defer tw.Close()
-	
-	for _, file := range files {
-		// Security check
-		if strings.Contains(file, "..") {
-			continue
-		}
-		
-		fullPath := filepath.Join(workspaceDir, file)
-		
-		// Get file info
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			continue
-		}
-		
-		// Create tar header
-		header, err := tar.FileInfoHeader(info, "")
-		if err != nil {
-			continue
-		}
-		header.Name = file
-		
-		// Write header
-		if err := tw.WriteHeader(header); err != nil {
-			continue
-		}
-		
-		// Write file content
-		if !info.IsDir() {
-			data, err := os.ReadFile(fullPath)
-			if err != nil {
-				continue
-			}
-			if _, err := tw.Write(data); err != nil {
-				continue
-			}
-		}
+// Cleanup removes the sandbox container and its files
+func (s *Sandbox) Cleanup() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Remove container if it exists
+	if s.Container != nil {
+		s.Container.Remove()
 	}
-	
-	return &buf, nil
+
+	// Remove sandbox directory
+	sandboxDir := fmt.Sprintf("%s/sandboxes/%s", database.DataDir(), s.Name)
+	if err := os.RemoveAll(sandboxDir); err != nil {
+		log.Printf("Failed to remove sandbox directory %s: %v", sandboxDir, err)
+	}
+
+	// Remove from registry
+	registryMu.Lock()
+	delete(sandboxRegistry, s.Name)
+	registryMu.Unlock()
+
+	return nil
 }
 
-// Exec executes a command in a running sandbox container
-func (s *SandboxService) Exec(name string, command string) (string, int, error) {
-	containerName := s.containerName(name)
-	
-	// Check if container is running
-	if !s.IsRunning(name) {
-		return "", -1, errors.New("sandbox is not running")
+// monitorTimeout monitors the sandbox and stops it if it exceeds the timeout
+func (s *Sandbox) monitorTimeout() {
+	timeout := time.Duration(s.TimeoutSecs) * time.Second
+	time.Sleep(timeout)
+
+	if s.IsRunning() {
+		log.Printf("Sandbox %s timed out after %v", s.Name, timeout)
+		s.Stop()
 	}
-	
-	// Execute command in container
-	var stdout, stderr bytes.Buffer
-	s.host.SetStdout(&stdout)
-	s.host.SetStderr(&stderr)
-	
-	err := s.host.Exec("docker", "exec", containerName, "bash", "-c", command)
-	
-	// Get exit code
-	exitCode := 0
-	if err != nil {
-		// Try to extract exit code from error
-		exitCode = 1
-	}
-	
-	// Combine stdout and stderr
-	output := stdout.String()
-	if stderr.String() != "" {
-		output += "\n" + stderr.String()
-	}
-	
-	return output, exitCode, nil
 }
 
-// ExtractFile extracts a single file from a sandbox container
-func (s *SandboxService) ExtractFile(name string, filePath string) ([]byte, error) {
-	// Security check: prevent directory traversal
-	if strings.Contains(filePath, "..") {
-		return nil, errors.New("invalid file path")
+// GetStatus returns current status information about the sandbox
+func (s *Sandbox) GetStatus() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	status := map[string]interface{}{
+		"name":       s.Name,
+		"running":    s.IsRunning(),
+		"start_time": s.startTime,
 	}
-	
-	// Read file from sandbox workspace directory
-	fullPath := fmt.Sprintf("%s/sandboxes/%s/workspace/%s", database.DataDir(), name, filePath)
-	
-	// Check if file exists
-	if _, err := os.Stat(fullPath); err != nil {
-		if os.IsNotExist(err) {
-			// Try to read from the repo subdirectory
-			fullPath = fmt.Sprintf("%s/sandboxes/%s/workspace/repo/%s", database.DataDir(), name, filePath)
-			if _, err := os.Stat(fullPath); err != nil {
-				return nil, errors.Wrap(err, "file not found")
-			}
-		} else {
-			return nil, errors.Wrap(err, "failed to check file")
-		}
+
+	if !s.IsRunning() && !s.startTime.IsZero() {
+		status["duration"] = time.Since(s.startTime).Seconds()
+		status["exit_code"] = s.GetExitCode()
 	}
-	
-	// Read file content
-	data, err := os.ReadFile(fullPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read file")
-	}
-	
-	return data, nil
+
+	return status
 }
 
-// ListSandboxes returns info about all sandbox containers
-func (s *SandboxService) ListSandboxes() ([]*SandboxInfo, error) {
-	// List all containers with sandbox prefix
-	var stdout bytes.Buffer
-	s.host.SetStdout(&stdout)
-	err := s.host.Exec("docker", "ps", "-a", "--filter", "name=skyscape-sandbox-", "--format", "{{.Names}}|{{.Status}}|{{.CreatedAt}}")
-	if err != nil {
-		return nil, err
-	}
+// TriggerActionsByEvent triggers actions based on an event
+// This is a module-level function that controllers can call to trigger actions
+func TriggerActionsByEvent(eventType, repoID string, eventData map[string]string) error {
+	// This function would typically:
+	// 1. Query the database for actions matching the event type and repository
+	// 2. Check trigger conditions based on eventData
+	// 3. Execute matching actions
 	
-	var sandboxes []*SandboxInfo
-	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
-		if line == "" {
-			continue
-		}
-		
-		parts := strings.Split(line, "|")
-		if len(parts) < 2 {
-			continue
-		}
-		
-		name := strings.TrimPrefix(parts[0], "skyscape-sandbox-")
-		status := "stopped"
-		if strings.Contains(parts[1], "Up") {
-			status = "running"
-		} else if strings.Contains(parts[1], "Exited (0)") {
-			status = "completed"
-		} else if strings.Contains(parts[1], "Exited") {
-			status = "failed"
-		}
-		
-		info := &SandboxInfo{
-			Name:      name,
-			Status:    status,
-			IsRunning: status == "running",
-		}
-		
-		// Try to get output
-		if output, err := s.GetOutput(name); err == nil {
-			info.Output = output
-		}
-		
-		// Get exit code if not running
-		if !info.IsRunning {
-			info.ExitCode = s.GetExitCode(name)
-		}
-		
-		sandboxes = append(sandboxes, info)
-	}
+	// For now, we'll provide a stub implementation
+	// The actual implementation would need to import models package,
+	// but that would create a circular dependency
+	// This should be handled by the controller that calls this function
 	
-	return sandboxes, nil
-}
-
-// GetSandboxInfo returns info about a specific sandbox
-func (s *SandboxService) GetSandboxInfo(name string) (*SandboxInfo, error) {
-	info := &SandboxInfo{
-		Name:      name,
-		IsRunning: s.IsRunning(name),
-	}
+	log.Printf("TriggerActionsByEvent called: type=%s, repo=%s, data=%+v", 
+		eventType, repoID, eventData)
 	
-	if info.IsRunning {
-		info.Status = "running"
-	} else {
-		// Check exit code to determine status
-		info.ExitCode = s.GetExitCode(name)
-		if info.ExitCode == 0 {
-			info.Status = "completed"
-		} else {
-			info.Status = "failed"
-		}
-	}
-	
-	// Get output
-	if output, err := s.GetOutput(name); err == nil {
-		info.Output = output
-	}
-	
-	// Try to read command from script
-	scriptPath := fmt.Sprintf("%s/sandboxes/%s/run.sh", database.DataDir(), name)
-	if scriptContent, err := os.ReadFile(scriptPath); err == nil {
-		// Extract command from script (it's after "Command: " line)
-		lines := strings.Split(string(scriptContent), "\n")
-		for i, line := range lines {
-			if strings.Contains(line, "echo \"Command: ") {
-				// Next few lines after the echo contain the actual command
-				if i+4 < len(lines) {
-					// Skip the echo lines and get to the actual command
-					for j := i + 4; j < len(lines); j++ {
-						if strings.Contains(lines[j], "EXIT_CODE=") {
-							break
-						}
-						if lines[j] != "" && !strings.Contains(lines[j], "echo") {
-							info.Command = strings.TrimSpace(lines[j])
-							break
-						}
-					}
-				}
-				break
-			}
-		}
-	}
-	
-	return info, nil
+	// Return nil to indicate no error
+	// The actual execution logic should be in the controllers
+	return nil
 }

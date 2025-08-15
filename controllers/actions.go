@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"workspace/models"
 	"workspace/services"
@@ -173,7 +175,7 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run action manually using the service
+	// Run action manually
 	if action.Type != "manual" {
 		c.RenderErrorMsg(w, r, "only manual actions can be executed directly")
 		return
@@ -184,15 +186,8 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Execute asynchronously through the service
-	go func() {
-		action.LastTriggeredBy = user.ID
-		if err := services.Actions.ExecuteAction(action); err != nil {
-			log.Printf("Action %s execution failed: %v", action.ID, err)
-		} else {
-			log.Printf("Action %s executed successfully", action.ID)
-		}
-	}()
+	// Execute asynchronously
+	go c.executeAction(action, user.ID)
 
 	// Log activity
 	models.LogActivity("action_run", "Manually ran action: "+action.Title,
@@ -447,4 +442,168 @@ func (c *ActionsController) GroupedArtifacts() (map[string][]*models.ActionArtif
 		return nil, err
 	}
 	return models.GetGroupedArtifactsByAction(action.ID)
+}
+
+// executeAction executes an action by creating a sandbox
+func (c *ActionsController) executeAction(action *models.Action, userID string) {
+	// Create action run record
+	run := &models.ActionRun{
+		Model:       models.DB.NewModel(""),
+		ActionID:    action.ID,
+		Branch:      action.Branch,
+		Status:      "running",
+		TriggeredBy: userID,
+		TriggerType: "manual",
+		SandboxName: fmt.Sprintf("action-%s-%d", action.ID, time.Now().Unix()),
+	}
+
+	run, err := models.ActionRuns.Insert(run)
+	if err != nil {
+		log.Printf("Failed to create action run: %v", err)
+		return
+	}
+
+	// Get repository
+	repo, err := models.Repositories.Get(action.RepoID)
+	if err != nil {
+		run.Status = "failed"
+		run.Output = "Repository not found: " + err.Error()
+		models.ActionRuns.Update(run)
+		return
+	}
+
+	// Determine script to execute
+	scriptToRun := action.Script
+	if scriptToRun == "" && action.Command != "" {
+		// Use simplified command if no script provided
+		scriptToRun = "#!/bin/bash\nset -e\n" + action.Command
+	}
+
+	// Create and start sandbox
+	sandbox, err := services.NewSandbox(
+		run.SandboxName,
+		repo.Path(),
+		repo.Name,
+		scriptToRun,
+		600, // 10 minute timeout by default
+	)
+	if err != nil {
+		run.Status = "failed"
+		run.Output = "Failed to create sandbox: " + err.Error()
+		models.ActionRuns.Update(run)
+		return
+	}
+
+	// Start sandbox execution
+	if err := sandbox.Start(); err != nil {
+		run.Status = "failed"
+		run.Output = "Failed to start sandbox: " + err.Error()
+		models.ActionRuns.Update(run)
+		return
+	}
+
+	// Update action with last triggered info
+	action.LastTriggeredAt = time.Now()
+	action.LastTriggeredBy = userID
+	action.SandboxName = run.SandboxName
+	models.Actions.Update(action)
+
+	// Monitor sandbox completion in a goroutine
+	go c.monitorExecution(action, run, sandbox)
+}
+
+// monitorExecution monitors the sandbox and updates action status
+func (c *ActionsController) monitorExecution(action *models.Action, run *models.ActionRun, sandbox *services.Sandbox) {
+	startTime := time.Now()
+	
+	// Wait for completion
+	sandbox.WaitForCompletion()
+	
+	// Get final output
+	output, err := sandbox.GetOutput()
+	if err != nil {
+		log.Printf("Failed to get output for sandbox %s: %v", sandbox.Name, err)
+	}
+	
+	// Get exit code
+	run.ExitCode = sandbox.GetExitCode()
+	run.Output = output
+	run.Duration = int(time.Since(startTime).Seconds())
+	
+	// Update status based on exit code
+	if run.ExitCode == 0 {
+		run.Status = "success"
+		action.Status = "success"
+		action.LastSuccessAt = time.Now()
+	} else {
+		run.Status = "failed"
+		action.Status = "failed"
+	}
+	
+	// Update records
+	models.ActionRuns.Update(run)
+	models.Actions.Update(action)
+	
+	// Collect artifacts if configured
+	if action.ArtifactPaths != "" && run.Status == "success" {
+		c.collectArtifacts(action, run, sandbox)
+	}
+	
+	// Schedule cleanup after delay
+	go func() {
+		time.Sleep(5 * time.Minute)
+		if err := sandbox.Cleanup(); err != nil {
+			log.Printf("Failed to cleanup sandbox %s: %v", sandbox.Name, err)
+		}
+	}()
+	
+	// Log activity
+	status := "completed"
+	if run.Status == "failed" {
+		status = "failed"
+	}
+	models.LogActivity("action_run", 
+		fmt.Sprintf("Action '%s' %s", action.Title, status),
+		fmt.Sprintf("Action execution %s with exit code %d", status, run.ExitCode),
+		action.LastTriggeredBy, action.RepoID, "action", run.ID)
+}
+
+// collectArtifacts collects artifacts from the sandbox
+func (c *ActionsController) collectArtifacts(action *models.Action, run *models.ActionRun, sandbox *services.Sandbox) {
+	if action.ArtifactPaths == "" {
+		return
+	}
+
+	// Parse artifact paths (comma-separated)
+	paths := strings.Split(action.ArtifactPaths, ",")
+	for i, path := range paths {
+		paths[i] = strings.TrimSpace(path)
+	}
+
+	// Extract artifacts from sandbox
+	artifacts, err := sandbox.ExtractArtifacts(paths)
+	if err != nil {
+		log.Printf("Failed to extract artifacts: %v", err)
+		return
+	}
+
+	// Save each artifact
+	for path, content := range artifacts {
+		artifact := &models.ActionArtifact{
+			Model:       models.DB.NewModel(""),
+			ActionID:    action.ID,
+			RunID:       run.ID,
+			SandboxName: run.SandboxName,
+			FileName:    filepath.Base(path),
+			FilePath:    path,
+			GroupName:   filepath.Base(path), // Use filename as group for now
+			Size:        int64(len(content)),
+			Content:     content,
+		}
+
+		// Save artifact
+		if _, err := models.ActionArtifacts.Insert(artifact); err != nil {
+			log.Printf("Failed to save artifact %s: %v", path, err)
+		}
+	}
 }
