@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,6 +48,20 @@ func (c *HomeController) Setup(app *application.App) {
 	// Infinite scroll endpoints
 	http.Handle("GET /repos/more", app.Serve("repos-more.html", auth.Required))
 	http.Handle("GET /activities/more", app.Serve("activities-more.html", auth.Required))
+	
+	// Initialize Vault service on startup in background
+	go func() {
+		if err := services.Vault.Init(); err != nil {
+			log.Printf("Warning: Failed to initialize Vault service: %v", err)
+		}
+	}()
+	
+	// Initialize IPython/Jupyter service on startup in background
+	go func() {
+		if err := services.IPython.Init(); err != nil {
+			log.Printf("Warning: Failed to initialize IPython service: %v", err)
+		}
+	}()
 }
 
 // Handle is called when each request is handled
