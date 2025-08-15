@@ -242,7 +242,7 @@ func (c *CoderService) CloneRepository(repo *models.Repository, user *authentica
 		if [ -d '%s/.git' ]; then
 			echo "Repository exists, updating..." &&
 			cd '%s' &&
-			git fetch origin || true &&
+			git fetch origin || true
 		else
 			echo "Cloning repository..." &&
 			git clone '%s' '%s' &&

@@ -86,15 +86,10 @@ func (c *GitController) initGitServer(auth *authentication.Controller) {
 		}
 
 		// Now check repository access based on operation
-		// req.RepoPath contains the repository path being accessed
+		// IMPORTANT: req.RepoName contains just the repository ID (e.g., "test", "bang")
+		// because we use http.StripPrefix("/repo/", c.gitServer) in Setup()
 		// The operation is determined from the URL: "git-upload-pack" (pull/clone) or "git-receive-pack" (push)
-
-		// Extract repository ID from path (format: /repo/{id}.git or /repo/{id})
-		repoPath := strings.TrimPrefix(req.RepoPath, "/")
-		repoPath = strings.TrimSuffix(repoPath, ".git")
-		repoID := strings.TrimPrefix(repoPath, "repo/")
-
-		log.Println("repo id", repoID)
+		repoID := req.RepoName
 
 		// Get the repository to check visibility
 		repo, err := models.Repositories.Get(repoID)
