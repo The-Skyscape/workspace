@@ -3,11 +3,13 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"workspace/models"
+	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -171,12 +173,26 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run action manually
-	err = action.ExecuteManually()
-	if err != nil {
-		c.RenderError(w, r, fmt.Errorf("failed to run action: %w", err))
+	// Run action manually using the service
+	if action.Type != "manual" {
+		c.RenderErrorMsg(w, r, "only manual actions can be executed directly")
 		return
 	}
+	
+	if !action.CanExecute() {
+		c.RenderErrorMsg(w, r, "action cannot be executed at this time")
+		return
+	}
+	
+	// Execute asynchronously through the service
+	go func() {
+		action.LastTriggeredBy = user.ID
+		if err := services.Actions.ExecuteAction(action); err != nil {
+			log.Printf("Action %s execution failed: %v", action.ID, err)
+		} else {
+			log.Printf("Action %s executed successfully", action.ID)
+		}
+	}()
 
 	// Log activity
 	models.LogActivity("action_run", "Manually ran action: "+action.Title,

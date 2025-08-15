@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -75,11 +76,21 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
-		return nil, nil
+		// Not authenticated - show public repos
+		repos, err := models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20", "public")
+		if err != nil {
+			return nil, nil
+		}
+		return repos, nil
 	}
 
-	// Get first 20 repositories for initial load
-	return models.ListUserRepositoriesPaginated(user.ID, 20, 0)
+	// Admins see all repositories
+	if user.IsAdmin {
+		return models.Repositories.Search("ORDER BY UpdatedAt DESC LIMIT 20")
+	}
+
+	// Non-admins see only public repositories
+	return models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20", "public")
 }
 
 
@@ -87,9 +98,6 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, err
-	}
 	
 	// Parse offset from query params
 	offsetStr := c.Request.URL.Query().Get("offset")
@@ -100,18 +108,28 @@ func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
 		}
 	}
 	
-	// Get next batch of repos
-	repos, _, err := models.ListUserRepositoriesPaginatedWithCount(user.ID, 20, offset)
-	return repos, err
+	// Build query based on user permissions
+	if err != nil {
+		// Not authenticated - show public repos
+		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+		return models.Repositories.Search(query, "public")
+	}
+	
+	// Admins see all repositories
+	if user.IsAdmin {
+		query := fmt.Sprintf("ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+		return models.Repositories.Search(query)
+	}
+	
+	// Non-admins see only public repositories
+	query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+	return models.Repositories.Search(query, "public")
 }
 
 // HasMoreRepos checks if there are more repositories to load
 func (c *HomeController) HasMoreRepos() bool {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return false
-	}
 	
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
@@ -121,12 +139,25 @@ func (c *HomeController) HasMoreRepos() bool {
 		}
 	}
 	
-	repos, total, err := models.ListUserRepositoriesPaginatedWithCount(user.ID, 20, offset)
+	var repos []*models.Repository
+	
+	// Build query based on user permissions
 	if err != nil {
-		return false
+		// Not authenticated - check public repos
+		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+		repos, _ = models.Repositories.Search(query, "public")
+	} else if user.IsAdmin {
+		// Admins see all repositories
+		query := fmt.Sprintf("ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+		repos, _ = models.Repositories.Search(query)
+	} else {
+		// Non-admins see only public repositories
+		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+		repos, _ = models.Repositories.Search(query, "public")
 	}
 	
-	return (offset + len(repos)) < total
+	// If we got 20 repos, there might be more
+	return len(repos) == 20
 }
 
 // NextReposOffset returns the offset for the next page of repositories

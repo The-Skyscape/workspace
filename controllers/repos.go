@@ -3,10 +3,13 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"workspace/models"
+	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -47,15 +50,11 @@ func (c *ReposController) Setup(app *application.App) {
 	http.Handle("POST /repos/import", app.ProtectFunc(c.importRepository, AdminOnly()))
 	http.Handle("POST /repos/{id}/settings/update", app.ProtectFunc(c.updateRepository, AdminOnly()))
 	http.Handle("POST /repos/{id}/delete", app.ProtectFunc(c.deleteRepository, AdminOnly()))
-	http.Handle("POST /repos/{id}/clone", app.ProtectFunc(c.openInIDE, AdminOnly()))
 
 	// File operations - admin only
 	http.Handle("POST /repos/{id}/files/save", app.ProtectFunc(c.saveFile, AdminOnly()))
 	http.Handle("POST /repos/{id}/files/create", app.ProtectFunc(c.createFile, AdminOnly()))
 	http.Handle("POST /repos/{id}/files/delete/{path...}", app.ProtectFunc(c.deleteFile, AdminOnly()))
-
-	// Git server endpoint
-	http.Handle("/repo/", http.StripPrefix("/repo/", models.GitServer(auth)))
 }
 
 // Handle returns a controller instance configured for the current request
@@ -219,30 +218,18 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 		visibility = "private"
 	}
 
-	// Create repository
-	repo := &models.Repository{
-		Model:       models.DB.NewModel(""),
-		Name:        name,
-		Description: description,
-		Visibility:  visibility,
-		UserID:      user.ID,
-	}
-
-	// Insert into database
-	repo, err = models.Repositories.Insert(repo)
+	// Use models.CreateRepository to ensure URL-safe IDs and proper Git initialization
+	repo, err := models.CreateRepository(name, description, visibility, user.ID)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return
 	}
 
-	// Initialize Git repository
-	// TODO: Implement InitGit() method in Repository model
-	// if err := repo.InitGit(); err != nil {
-	// 	// Clean up on failure
-	// 	models.Repositories.Delete(repo)
-	// 	c.RenderError(w, r, err)
-	// 	return
-	// }
+	// Clone repository to Code Server workspace for easy editing
+	// Don't fail repository creation if this doesn't work
+	if err := services.Coder.CloneRepository(repo, user); err != nil {
+		log.Printf("ERROR: Failed to clone repository %s to Code Server: %v", repo.ID, err)
+	}
 
 	// Log activity
 	models.LogActivity("repo_created", fmt.Sprintf("Created repository %s", name),
@@ -300,6 +287,12 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 	c.Redirect(w, r, fmt.Sprintf("/repos/%s/settings", repo.ID))
 }
 
+// IsMarkdown checks if a filename is a markdown file
+func (c *ReposController) IsMarkdown(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	return ext == ".md" || ext == ".markdown" || ext == ".mdown" || ext == ".mkd"
+}
+
 // deleteRepository handles POST /repos/{id}/delete
 func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Request) {
 	repo, err := c.getCurrentRepoFromRequest(r)
@@ -316,15 +309,9 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Delete from filesystem
-	// TODO: Implement Delete() method in Repository model
-	// if err := repo.Delete(); err != nil {
-	// 	c.RenderError(w, r, err)
-	// 	return
-	// }
-
-	// Delete from database
-	err = models.Repositories.Delete(repo)
+	// Delete repository (handles filesystem and database)
+	// Note: We don't remove from Code Server - user may want to keep working copy
+	err = models.DeleteRepository(repo.ID)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return

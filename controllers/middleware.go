@@ -15,14 +15,14 @@ func AdminOnly() application.AccessCheck {
 		auth := app.Use("auth").(*authentication.Controller)
 		user, _, err := auth.Authenticate(r)
 		if err != nil {
-			// Not authenticated - redirect to signin
-			http.Redirect(w, r, "/signin", http.StatusSeeOther)
+			// Not authenticated - render signin page in place
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
 		if !user.IsAdmin {
-			// Not admin - show error
-			RenderErrorMessage(w, r, "Admin access required")
+			// Not admin - render signin page
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
@@ -35,13 +35,13 @@ func PublicOrAdmin() application.AccessCheck {
 	return func(app *application.App, w http.ResponseWriter, r *http.Request) bool {
 		repoID := r.PathValue("id")
 		if repoID == "" {
-			RenderErrorMessage(w, r, "Repository ID required")
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
 		repo, err := models.Repositories.Get(repoID)
 		if err != nil {
-			RenderErrorMessage(w, r, "Repository not found")
+			app.Render(w, r, "error-404.html", nil)
 			return false
 		}
 		
@@ -54,7 +54,7 @@ func PublicOrAdmin() application.AccessCheck {
 		auth := app.Use("auth").(*authentication.Controller)
 		user, _, err := auth.Authenticate(r)
 		if err != nil || !user.IsAdmin {
-			RenderErrorMessage(w, r, "Access denied - private repository")
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
@@ -68,7 +68,7 @@ func AuthorOrAdmin(getAuthorID func(r *http.Request) (string, error)) applicatio
 		auth := app.Use("auth").(*authentication.Controller)
 		user, _, err := auth.Authenticate(r)
 		if err != nil {
-			http.Redirect(w, r, "/signin", http.StatusSeeOther)
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
@@ -80,7 +80,7 @@ func AuthorOrAdmin(getAuthorID func(r *http.Request) (string, error)) applicatio
 		// Check if user is the author
 		authorID, err := getAuthorID(r)
 		if err != nil {
-			RenderErrorMessage(w, r, "Resource not found")
+			app.Render(w, r, "error-404.html", nil)
 			return false
 		}
 		
@@ -88,7 +88,7 @@ func AuthorOrAdmin(getAuthorID func(r *http.Request) (string, error)) applicatio
 			return true
 		}
 		
-		RenderErrorMessage(w, r, "Permission denied - you can only modify your own content")
+		app.Render(w, r, "signin.html", nil)
 		return false
 	}
 }
@@ -99,19 +99,19 @@ func PublicRepoOnly() application.AccessCheck {
 		auth := app.Use("auth").(*authentication.Controller)
 		user, _, err := auth.Authenticate(r)
 		if err != nil {
-			http.Redirect(w, r, "/signin", http.StatusSeeOther)
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
 		repoID := r.PathValue("id")
 		if repoID == "" {
-			RenderErrorMessage(w, r, "Repository ID required")
+			app.Render(w, r, "error-404.html", nil)
 			return false
 		}
 		
 		repo, err := models.Repositories.Get(repoID)
 		if err != nil {
-			RenderErrorMessage(w, r, "Repository not found")
+			app.Render(w, r, "error-404.html", nil)
 			return false
 		}
 		
@@ -122,17 +122,10 @@ func PublicRepoOnly() application.AccessCheck {
 		
 		// Non-admins can only access public repos
 		if repo.Visibility != "public" {
-			RenderErrorMessage(w, r, "Access denied - private repository")
+			app.Render(w, r, "signin.html", nil)
 			return false
 		}
 		
 		return true
 	}
-}
-
-// RenderErrorMessage is a helper to render error messages consistently
-func RenderErrorMessage(w http.ResponseWriter, r *http.Request, message string) {
-	// Create a simple BaseController to use its RenderErrorMsg method
-	bc := &application.BaseController{Request: r}
-	bc.RenderErrorMsg(w, r, message)
 }

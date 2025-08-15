@@ -24,6 +24,25 @@ type FileNode struct {
 	Content  string // Only for files when requested
 }
 
+// IsDir returns true if this node represents a directory
+func (n *FileNode) IsDir() bool {
+	return n.Type == "dir"
+}
+
+// IsBinary returns false for FileNode as it doesn't have content to check
+// This is mainly for compatibility with templates
+func (n *FileNode) IsBinary() bool {
+	return false
+}
+
+// Language returns the programming language based on file extension
+func (n *FileNode) Language() string {
+	if n.IsDir() {
+		return ""
+	}
+	return getLanguageFromExtension(filepath.Ext(n.Name))
+}
+
 // File represents a single file with content
 type File struct {
 	Path     string
@@ -32,6 +51,12 @@ type File struct {
 	Size     int64
 	IsBinary bool
 	Language string
+	ModTime  time.Time
+}
+
+// IsDir returns false as File always represents a file, not a directory
+func (f *File) IsDir() bool {
+	return false
 }
 
 // GetFileTree returns the file tree for a given path
@@ -182,6 +207,13 @@ func (r *Repository) GetFile(branch, path string) (*File, error) {
 		}
 	}
 	
+	// Get modification time
+	modTime, err := r.GetFileModTime(branch, path)
+	if err != nil || modTime.IsZero() {
+		// Fallback to current time if we can't get git history
+		modTime = time.Now()
+	}
+
 	file := &File{
 		Path:     path,
 		Name:     filepath.Base(path),
@@ -189,6 +221,7 @@ func (r *Repository) GetFile(branch, path string) (*File, error) {
 		Size:     size,
 		IsBinary: isBinary,
 		Language: getLanguageFromExtension(filepath.Ext(path)),
+		ModTime:  modTime,
 	}
 	
 	return file, nil

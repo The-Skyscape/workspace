@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"workspace/models"
+	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -306,7 +307,7 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 		"COMPARE_BRANCH": pr.CompareBranch,
 		"AUTHOR_ID":      user.ID,
 	}
-	go models.TriggerActionsByEvent("on_pr", repoID, eventData)
+	go services.TriggerActionsByEvent("on_pr", repoID, eventData)
 
 	// Redirect to PRs page
 	c.Redirect(w, r, "/repos/"+repoID+"/prs")
@@ -396,7 +397,7 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 		"AUTHOR_ID":      user.ID,
 		"EVENT_TYPE":     "merge",
 	}
-	go models.TriggerActionsByEvent("on_push", repoID, eventData)
+	go services.TriggerActionsByEvent("on_push", repoID, eventData)
 
 	c.Refresh(w, r)
 }

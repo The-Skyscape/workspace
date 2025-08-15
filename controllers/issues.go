@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"workspace/models"
+	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -297,7 +298,7 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 		"ISSUE_STATUS": issue.Status,
 		"AUTHOR_ID":    user.ID,
 	}
-	go models.TriggerActionsByEvent("on_issue", repoID, eventData)
+	go services.TriggerActionsByEvent("on_issue", repoID, eventData)
 
 	// Refresh to show new issue
 	c.Refresh(w, r)

@@ -7,30 +7,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"workspace/models"
 )
 
-// FileInfo represents information about a file in the repository
-type FileInfo struct {
-	Name        string
-	Path        string
-	IsDirectory bool
-	Size        int64
-	Modified    time.Time
-	Content     string // Only populated for files being viewed
-	Language    string // Programming language for syntax highlighting
-}
 
 // RepoFiles returns the files in the current repository directory
 // Used by the file browser view to display repository contents
-func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
+func (c *ReposController) RepoFiles() ([]*models.FileNode, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
 
+	// Get the current branch (default to repo's default branch)
+	branch := c.CurrentBranch()
+	
 	// Get the current path from query params (default to root)
 	currentPath := c.Request.URL.Query().Get("path")
 	if currentPath == "" {
@@ -42,49 +34,21 @@ func (c *ReposController) RepoFiles() ([]*FileInfo, error) {
 		return nil, errors.New("invalid path")
 	}
 
-	// Construct the full path
-	fullPath := filepath.Join(repo.Path(), currentPath)
-
-	// Check if the path exists and is within the repo
-	if !isSubPath(repo.Path(), fullPath) {
-		return nil, errors.New("path outside repository")
-	}
-
-	// Read directory contents
-	entries, err := os.ReadDir(fullPath)
+	// Use the Git-aware model method to get file tree
+	files, err := repo.GetFileTree(branch, currentPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var files []*FileInfo
-	for _, entry := range entries {
-		// Skip hidden files and .git directory
-		if strings.HasPrefix(entry.Name(), ".") {
-			continue
+	// Filter out hidden files (starting with .)
+	var visibleFiles []*models.FileNode
+	for _, file := range files {
+		if !strings.HasPrefix(file.Name, ".") {
+			visibleFiles = append(visibleFiles, file)
 		}
-
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
-		fileInfo := &FileInfo{
-			Name:        entry.Name(),
-			Path:        filepath.Join(currentPath, entry.Name()),
-			IsDirectory: entry.IsDir(),
-			Size:        info.Size(),
-			Modified:    info.ModTime(),
-		}
-
-		// Determine language for files
-		if !entry.IsDir() {
-			fileInfo.Language = getLanguageFromExtension(filepath.Ext(entry.Name()))
-		}
-
-		files = append(files, fileInfo)
 	}
 
-	return files, nil
+	return visibleFiles, nil
 }
 
 // FileLines returns the lines of the current file being viewed
@@ -93,6 +57,10 @@ func (c *ReposController) FileLines() ([]string, error) {
 	file, err := c.CurrentFile()
 	if err != nil {
 		return nil, err
+	}
+	// Handle empty content
+	if file.Content == "" {
+		return []string{}, nil
 	}
 	return strings.Split(file.Content, "\n"), nil
 }
@@ -115,7 +83,7 @@ func (c *ReposController) FileLinesWithNumbers() ([]struct{Number int; Content s
 
 // CurrentFile returns the file currently being viewed based on the path parameter
 // Reads the file content and determines its programming language
-func (c *ReposController) CurrentFile() (*FileInfo, error) {
+func (c *ReposController) CurrentFile() (*models.File, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
@@ -124,7 +92,11 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 	// Get the file path from URL
 	filePath := c.Request.URL.Query().Get("path")
 	if filePath == "" {
-		return nil, errors.New("no file specified")
+		// Try getting from path parameter (for routes like /repos/{id}/files/{path...})
+		filePath = c.Request.PathValue("path")
+		if filePath == "" {
+			return nil, errors.New("no file specified")
+		}
 	}
 
 	// Ensure the path is safe
@@ -132,99 +104,46 @@ func (c *ReposController) CurrentFile() (*FileInfo, error) {
 		return nil, errors.New("invalid file path")
 	}
 
-	// Construct the full path
-	fullPath := filepath.Join(repo.Path(), filePath)
+	// Get the current branch
+	branch := c.CurrentBranch()
 
-	// Check if the path is within the repo
-	if !isSubPath(repo.Path(), fullPath) {
-		return nil, errors.New("file outside repository")
-	}
-
-	// Get file info
-	info, err := os.Stat(fullPath)
+	// Use the Git-aware model method to get the file
+	file, err := repo.GetFile(branch, filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	if info.IsDir() {
-		return nil, errors.New("path is a directory")
+	// Handle large files
+	if file.Size > 10*1024*1024 {
+		file.Content = "File too large to display"
 	}
 
-	// Read file content (limit to 10MB to prevent memory issues)
-	if info.Size() > 10*1024*1024 {
-		return &FileInfo{
-			Name:     info.Name(),
-			Path:     filePath,
-			Size:     info.Size(),
-			Modified: info.ModTime(),
-			Content:  "File too large to display",
-			Language: getLanguageFromExtension(filepath.Ext(info.Name())),
-		}, nil
+	// Handle binary files - the model already sets IsBinary
+	if file.IsBinary {
+		file.Content = "Binary file cannot be displayed"
 	}
 
-	content, err := os.ReadFile(fullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if binary
-	if isBinary(content) {
-		return &FileInfo{
-			Name:     info.Name(),
-			Path:     filePath,
-			Size:     info.Size(),
-			Modified: info.ModTime(),
-			Content:  "Binary file cannot be displayed",
-			Language: "binary",
-		}, nil
-	}
-
-	return &FileInfo{
-		Name:     info.Name(),
-		Path:     filePath,
-		Size:     info.Size(),
-		Modified: info.ModTime(),
-		Content:  string(content),
-		Language: getLanguageFromExtension(filepath.Ext(info.Name())),
-	}, nil
+	return file, nil
 }
 
 // RepoReadme finds and returns the README file in the repository root
 // Checks for README.md, README.markdown, README.txt, and README
-func (c *ReposController) RepoReadme() (*FileInfo, error) {
+func (c *ReposController) RepoReadme() (*models.File, error) {
 	repo, err := c.CurrentRepo()
 	if err != nil {
 		return nil, err
 	}
 
-	// Check for common README filenames
-	readmeNames := []string{"README.md", "README.markdown", "README.txt", "README", "readme.md"}
-	
-	for _, name := range readmeNames {
-		fullPath := filepath.Join(repo.Path(), name)
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			continue // File doesn't exist, try next
-		}
+	// Get the current branch
+	branch := c.CurrentBranch()
 
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			continue
-		}
-
-		fileInfo := &FileInfo{
-			Name:     name,
-			Path:     name,
-			Size:     info.Size(),
-			Modified: info.ModTime(),
-			Content:  string(content),
-			Language: getLanguageFromExtension(filepath.Ext(name)),
-		}
-
-		return fileInfo, nil
+	// Use the model's GetREADME method which handles common README filenames
+	readme, err := repo.GetREADME(branch)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, nil // No README found
+	return readme, nil // Returns nil if no README found
 }
 
 // HasFiles checks if the repository has any files
@@ -234,14 +153,18 @@ func (c *ReposController) HasFiles() bool {
 		return false
 	}
 
-	entries, err := os.ReadDir(repo.Path())
+	// Get the current branch
+	branch := c.CurrentBranch()
+
+	// Use Git-aware method to check for files
+	files, err := repo.GetFileTree(branch, ".")
 	if err != nil {
 		return false
 	}
 
-	// Check if there are any non-hidden files
-	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), ".") {
+	// Check if there are any visible files
+	for _, file := range files {
+		if !strings.HasPrefix(file.Name, ".") {
 			return true
 		}
 	}
@@ -264,17 +187,35 @@ func (c *ReposController) RepoFileCount() (int, error) {
 		return 0, err
 	}
 
+	// Get the current branch
+	branch := c.CurrentBranch()
+
+	// Use Git-aware method to count files
 	count := 0
-	err = filepath.Walk(repo.Path(), func(path string, info os.FileInfo, err error) error {
+	var countFiles func(path string) error
+	countFiles = func(path string) error {
+		files, err := repo.GetFileTree(branch, path)
 		if err != nil {
-			return nil // Skip files with errors
+			return err
 		}
-		if !info.IsDir() && !strings.HasPrefix(info.Name(), ".") {
-			count++
+
+		for _, file := range files {
+			if strings.HasPrefix(file.Name, ".") {
+				continue
+			}
+			if file.IsDir() {
+				// Recursively count files in subdirectories
+				if err := countFiles(file.Path); err != nil {
+					return err
+				}
+			} else {
+				count++
+			}
 		}
 		return nil
-	})
+	}
 
+	err = countFiles(".")
 	return count, err
 }
 
@@ -447,34 +388,6 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// openInIDE handles opening a file in the VS Code workspace
-func (c *ReposController) openInIDE(w http.ResponseWriter, r *http.Request) {
-	repo, err := c.getCurrentRepoFromRequest(r)
-	if err != nil {
-		c.RenderError(w, r, err)
-		return
-	}
-
-	// Get file path
-	filePath := r.URL.Query().Get("path")
-	
-	// Construct the workspace URL
-	// The workspace ID is typically the repository ID
-	workspaceURL := fmt.Sprintf("/coder/%s/", repo.ID)
-	
-	// If a specific file is requested, we can append it to the URL
-	// Note: This depends on how code-server handles file opening via URL
-	if filePath != "" {
-		// Ensure the path is safe
-		if !strings.Contains(filePath, "..") {
-			// code-server can open files via query params or path
-			workspaceURL = fmt.Sprintf("/coder/%s/?folder=/workspace&open=%s", repo.ID, filePath)
-		}
-	}
-
-	// Redirect to the workspace
-	c.Redirect(w, r, workspaceURL)
-}
 
 // Helper functions
 
