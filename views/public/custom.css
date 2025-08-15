@@ -165,3 +165,94 @@ pre[class*="language-"]::-webkit-scrollbar-thumb {
 pre[class*="language-"]::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+/* Search Bar Animations and Styling */
+#navbar-search:focus {
+  box-shadow: 0 0 0 3px rgba(var(--p), 0.1);
+  transition: all 0.3s ease;
+}
+
+#navbar-search-results {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+#navbar-search-results.open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.relative.open #navbar-search-results {
+  display: block !important;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Cute gradient backgrounds for search sections */
+.bg-gradient-to-r {
+  background-size: 200% 100%;
+  animation: shimmer 3s ease infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Search result hover effects */
+#navbar-search-results a:hover,
+#mobile-search-results a:hover {
+  transform: translateX(4px);
+  transition: all 0.2s ease;
+}
+
+/* Loading spinner styling */
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inline-block;
+}
+
+.htmx-request.htmx-indicator {
+  display: inline-block;
+}
+
+/* Make search input sparkle on focus */
+#navbar-search:focus::placeholder,
+#mobile-search-input:focus::placeholder,
+#main-search-input:focus::placeholder {
+  animation: sparkle 2s ease infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Smooth dropdown animation */
+.dropdown-content {
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

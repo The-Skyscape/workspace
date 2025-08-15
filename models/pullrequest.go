@@ -27,3 +27,17 @@ func init() {
 	}()
 }
 
+// GetRepoPRsPaginated returns paginated pull requests for a repository
+func GetRepoPRsPaginated(repoID string, includeClosed bool, limit, offset int) ([]*PullRequest, int, error) {
+	condition := "WHERE RepoID = ?"
+	args := []interface{}{repoID}
+	
+	if !includeClosed {
+		condition += " AND Status = 'open'"
+	}
+	
+	condition += " ORDER BY CreatedAt DESC"
+	
+	return PullRequests.SearchPaginated(condition, limit, offset, args...)
+}
+

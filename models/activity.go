@@ -44,3 +44,9 @@ func LogActivity(activityType, title, description, userID, repoID, entityType, e
 	_, err := Activities.Insert(activity)
 	return err
 }
+
+// GetUserActivitiesPaginated returns paginated activities for a user
+func GetUserActivitiesPaginated(userID string, limit, offset int) ([]*Activity, int, error) {
+	condition := "WHERE UserID = ? ORDER BY CreatedAt DESC"
+	return Activities.SearchPaginated(condition, limit, offset, userID)
+}

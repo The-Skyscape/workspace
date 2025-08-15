@@ -36,6 +36,7 @@ func (c *PullRequestsController) Setup(app *application.App) {
 	// Pull Requests
 	http.Handle("GET /repos/{id}/prs", app.Serve("repo-prs.html", auth.Required))
 	http.Handle("GET /repos/{id}/prs/search", app.ProtectFunc(c.searchPRs, auth.Required))
+	http.Handle("GET /repos/{id}/prs/more", app.Serve("prs-more.html", auth.Required))
 	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", auth.Required))
 	http.Handle("POST /repos/{id}/prs/create", app.ProtectFunc(c.createPR, auth.Required))
 	http.Handle("POST /repos/{id}/prs/{prID}/merge", app.ProtectFunc(c.mergePR, auth.Required))
@@ -76,6 +77,9 @@ func (c *PullRequestsController) RepoPullRequests() ([]*models.PullRequest, erro
 		args = append(args, searchPattern, searchPattern)
 	}
 
+	// Add ordering and limit for initial load
+	condition += " ORDER BY CreatedAt DESC LIMIT 20"
+
 	// Search pull requests
 	prs, err := models.PullRequests.Search(condition, args...)
 	if err != nil {
@@ -83,6 +87,60 @@ func (c *PullRequestsController) RepoPullRequests() ([]*models.PullRequest, erro
 	}
 
 	return prs, nil
+}
+
+// MorePRs returns the next page of PRs for infinite scroll
+func (c *PullRequestsController) MorePRs() ([]*models.PullRequest, error) {
+	repo, err := c.getCurrentRepo()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse offset from query params
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		fmt.Sscanf(offsetStr, "%d", &offset)
+	}
+	
+	// Get filter options
+	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
+	
+	// Get next batch of PRs
+	prs, _, err := models.GetRepoPRsPaginated(repo.ID, includeClosed, 20, offset)
+	return prs, err
+}
+
+// HasMorePRs checks if there are more PRs to load
+func (c *PullRequestsController) HasMorePRs() bool {
+	repo, err := c.getCurrentRepo()
+	if err != nil {
+		return false
+	}
+	
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		fmt.Sscanf(offsetStr, "%d", &offset)
+	}
+	
+	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
+	prs, total, err := models.GetRepoPRsPaginated(repo.ID, includeClosed, 20, offset)
+	if err != nil {
+		return false
+	}
+	
+	return (offset + len(prs)) < total
+}
+
+// NextPRsOffset returns the offset for the next page of PRs
+func (c *PullRequestsController) NextPRsOffset() int {
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		fmt.Sscanf(offsetStr, "%d", &offset)
+	}
+	return offset + 20
 }
 
 // CurrentPullRequest returns the pull request from the request
@@ -148,7 +206,7 @@ func (c *PullRequestsController) SearchQuery() string {
 	return c.Request.URL.Query().Get("search")
 }
 
-// IncludeClosed returns whether to include closed PRs
+// IncludeClosed returns whether closed PRs should be included
 func (c *PullRequestsController) IncludeClosed() bool {
 	return c.Request.URL.Query().Get("includeClosed") == "true"
 }
@@ -419,3 +477,4 @@ func (c *PullRequestsController) createPRComment(w http.ResponseWriter, r *http.
 
 	c.Refresh(w, r)
 }
+

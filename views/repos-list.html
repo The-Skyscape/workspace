@@ -27,57 +27,54 @@
         <!-- Search Input -->
         <div class="flex-1">
           <div class="relative">
-            <input type="text" 
+            <input type="search" 
                    id="repo-search" 
                    placeholder="Search repositories..." 
                    class="input input-bordered w-full pl-10"
                    hx-get="{{host}}/repos/search"
-                   hx-trigger="keyup changed delay:300ms, search"
-                   hx-target="#repos-list"
-                   hx-include="#visibility-filter"
-                   hx-indicator="#repos-list .htmx-indicator"
+                   hx-trigger="input delay:300ms, search"
+                   hx-target="#repos-content"
+                   hx-include="[name=filter]:checked"
+                   hx-indicator="#search-spinner"
                    name="q">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <button class="btn btn-ghost btn-sm absolute right-1 top-1/2 transform -translate-y-1/2" 
-                    _="on click set #repo-search.value to '' then trigger search on #repo-search">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <span id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 transform -translate-y-1/2">
+              <span class="loading loading-spinner loading-sm"></span>
+            </span>
           </div>
         </div>
 
         <!-- Filter Tabs -->
         <div class="tabs tabs-boxed">
-          <input type="radio" name="filter" id="visibility-filter" value="all" class="hidden" checked
+          <input type="radio" name="filter" id="filter-all" value="all" class="hidden" checked
                  hx-get="{{host}}/repos/search"
                  hx-trigger="change"
-                 hx-target="#repos-list"
+                 hx-target="#repos-content"
                  hx-include="#repo-search"
-                 hx-indicator="#repos-list .htmx-indicator">
-          <label for="filter-all" class="tab tab-active" _="on click set <[name=filter][value=all]/>.checked to true then trigger change on <[name=filter][value=all]/>">
+                 hx-indicator="#search-spinner">
+          <label for="filter-all" class="tab tab-active" _="on click set #filter-all.checked to true then trigger change on #filter-all">
             All
           </label>
           
-          <input type="radio" name="filter" value="public" class="hidden"
+          <input type="radio" name="filter" id="filter-public" value="public" class="hidden"
                  hx-get="{{host}}/repos/search"
                  hx-trigger="change"
-                 hx-target="#repos-list"
+                 hx-target="#repos-content"
                  hx-include="#repo-search"
-                 hx-indicator="#repos-list .htmx-indicator">
-          <label for="filter-public" class="tab" _="on click set <[name=filter][value=public]/>.checked to true then trigger change on <[name=filter][value=public]/>">
+                 hx-indicator="#search-spinner">
+          <label for="filter-public" class="tab" _="on click set #filter-public.checked to true then trigger change on #filter-public">
             Public
           </label>
           
-          <input type="radio" name="filter" value="private" class="hidden"
+          <input type="radio" name="filter" id="filter-private" value="private" class="hidden"
                  hx-get="{{host}}/repos/search"
                  hx-trigger="change"
-                 hx-target="#repos-list"
+                 hx-target="#repos-content"
                  hx-include="#repo-search"
-                 hx-indicator="#repos-list .htmx-indicator">
-          <label for="filter-private" class="tab" _="on click set <[name=filter][value=private]/>.checked to true then trigger change on <[name=filter][value=private]/>">
+                 hx-indicator="#search-spinner">
+          <label for="filter-private" class="tab" _="on click set #filter-private.checked to true then trigger change on #filter-private">
             Private
           </label>
         </div>
@@ -86,12 +83,10 @@
   </div>
 
   <!-- Repository List -->
-  <div id="repos-list" class="relative">
-    <!-- Loading indicator -->
-    <div class="htmx-indicator absolute inset-0 bg-base-100/80 flex items-center justify-center z-10 rounded-lg">
-      <span class="loading loading-spinner loading-lg text-primary"></span>
+  <div id="repos-list">
+    <div id="repos-content">
+      {{template "repos-list-partial.html" home.UserRepos}}
     </div>
-    {{template "repos-list-partial.html" home.UserRepos}}
   </div>
 </div>
 

@@ -29,7 +29,7 @@
         </div>
 
         <!-- Diff Stats -->
-        {{with $diff := repos.RepoPRDiff}}
+        {{with $diff := prs.RepoPRDiff}}
         {{if $diff}}
         <div class="stats shadow mb-6">
           <div class="stat">
@@ -136,7 +136,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h3 class="card-title text-lg">Diff Summary</h3>
-        {{with $diff := repos.RepoPRDiff}}
+        {{with $diff := prs.RepoPRDiff}}
         <div class="flex flex-col gap-3">
           <div class="flex justify-between">
             <span class="text-base-content/70">Files changed</span>

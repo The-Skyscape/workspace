@@ -36,6 +36,8 @@ func (c *IssuesController) Setup(app *application.App) {
 	// Issues
 	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", auth.Required))
 	http.Handle("GET /repos/{id}/issues/search", app.ProtectFunc(c.searchIssues, auth.Required))
+	http.Handle("GET /repos/{id}/issues/more", app.Serve("issues-more.html", auth.Required))
+	http.Handle("GET /repos/{id}/issues/{issueID}", app.Serve("repo-issue-view.html", auth.Required))
 	http.Handle("POST /repos/{id}/issues/create", app.ProtectFunc(c.createIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/close", app.ProtectFunc(c.closeIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/reopen", app.ProtectFunc(c.reopenIssue, auth.Required))
@@ -77,6 +79,9 @@ func (c *IssuesController) RepoIssues() ([]*models.Issue, error) {
 		args = append(args, searchPattern, searchPattern)
 	}
 
+	// Add ordering and limit for initial load
+	condition += " ORDER BY CreatedAt DESC LIMIT 20"
+
 	// Search issues
 	issues, err := models.Issues.Search(condition, args...)
 	if err != nil {
@@ -84,6 +89,60 @@ func (c *IssuesController) RepoIssues() ([]*models.Issue, error) {
 	}
 
 	return issues, nil
+}
+
+// MoreIssues returns the next page of issues for infinite scroll
+func (c *IssuesController) MoreIssues() ([]*models.Issue, error) {
+	repo, err := c.getCurrentRepo()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse offset from query params
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		fmt.Sscanf(offsetStr, "%d", &offset)
+	}
+	
+	// Get filter options
+	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
+	
+	// Get next batch of issues
+	issues, _, err := models.GetRepoIssuesPaginated(repo.ID, includeClosed, 20, offset)
+	return issues, err
+}
+
+// HasMoreIssues checks if there are more issues to load
+func (c *IssuesController) HasMoreIssues() bool {
+	repo, err := c.getCurrentRepo()
+	if err != nil {
+		return false
+	}
+	
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		fmt.Sscanf(offsetStr, "%d", &offset)
+	}
+	
+	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
+	issues, total, err := models.GetRepoIssuesPaginated(repo.ID, includeClosed, 20, offset)
+	if err != nil {
+		return false
+	}
+	
+	return (offset + len(issues)) < total
+}
+
+// NextIssuesOffset returns the offset for the next page of issues
+func (c *IssuesController) NextIssuesOffset() int {
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		fmt.Sscanf(offsetStr, "%d", &offset)
+	}
+	return offset + 20
 }
 
 // SearchQuery returns the current search query for issues
@@ -431,3 +490,4 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 
 	c.Refresh(w, r)
 }
+

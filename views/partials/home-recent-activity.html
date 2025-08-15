@@ -13,7 +13,7 @@
     <div class="flex flex-col gap-3">
       {{range home.RecentActivity}}
       <div class="flex items-start gap-3 p-3 bg-base-200 rounded-lg">
-        <div class="avatar placeholder avatar-placeholder">
+        <div class="avatar avatar-placeholder">
           <div class="{{if eq .Type "repo_created"}}bg-primary text-primary-content{{else if eq .Type "workspace_launched"}}bg-info text-info-content{{else if eq .Type "action_created"}}bg-secondary text-secondary-content{{else if eq .Type "issue_created"}}bg-warning text-warning-content{{else if eq .Type "pr_created"}}bg-success text-success-content{{else}}bg-neutral text-neutral-content{{end}} rounded w-8">
             <span class="text-xs font-bold">
               {{if eq .Type "repo_created"}}R

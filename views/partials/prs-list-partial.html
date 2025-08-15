@@ -3,75 +3,75 @@
 {{if $prs}}
 <div class="flex flex-col gap-4">
   {{range $prs}}
-  <div class="card bg-base-100 shadow-lg border border-base-300">
-    <div class="card-body">
-      <div class="flex items-start justify-between">
+  <a href="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}" class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer block hover:no-underline">
+    <div class="card-body p-4">
+      <div class="flex items-center gap-3">
+        <!-- Avatar -->
+        <div class="avatar avatar-placeholder flex-shrink-0">
+          <div class="bg-info text-info-content rounded w-14 h-14">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+        </div>
+        
+        <!-- PR Info -->
         <div class="flex-1">
-          <div class="flex items-center space-x-3 mb-2">
-            <h3 class="font-semibold text-lg">{{.Title}}</h3>
-            {{if eq .Status "open"}}
-            <div class="badge badge-success">Open</div>
-            {{else if eq .Status "merged"}}
-            <div class="badge badge-primary">Merged</div>
-            {{else if eq .Status "draft"}}
-            <div class="badge badge-warning">Draft</div>
-            {{else}}
-            <div class="badge badge-neutral">Closed</div>
-            {{end}}
-          </div>
-          {{if .Body}}
-          <p class="text-base-content/70 mb-3">{{.Body}}</p>
-          {{end}}
-          <div class="flex items-center space-x-4 text-sm text-base-content/50">
-            <div class="flex items-center space-x-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-              <span>{{.CompareBranch}} → {{.BaseBranch}}</span>
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-lg hover:text-primary transition-colors">{{.Title}}</h3>
+              </div>
+              {{if .Body}}
+              <p class="text-base-content/70 text-sm mt-1 line-clamp-2">{{.Body}}</p>
+              {{else}}
+              <p class="text-base-content/50 text-sm mt-1 italic">No description provided</p>
+              {{end}}
+              <div class="flex items-center gap-4 text-xs text-base-content/60 mt-2">
+                <span class="flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                  {{.CompareBranch}} → {{.BaseBranch}}
+                </span>
+                <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
+              </div>
             </div>
-            <div class="flex items-center space-x-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            
+            <!-- Status Badge and Chevron -->
+            <div class="flex items-center gap-2 flex-shrink-0">
+              {{if eq .Status "open"}}
+              <div class="badge badge-success badge-sm">Open</div>
+              {{else if eq .Status "merged"}}
+              <div class="badge badge-primary badge-sm">Merged</div>
+              {{else if eq .Status "draft"}}
+              <div class="badge badge-warning badge-sm">Draft</div>
+              {{else}}
+              <div class="badge badge-neutral badge-sm">Closed</div>
+              {{end}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
-              <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
             </div>
           </div>
         </div>
-        <div class="flex items-center space-x-2">
-          {{if eq .Status "open"}}
-          <button class="btn btn-success btn-sm"
-                  hx-post="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}/merge"
-                  hx-target="body"
-                  hx-swap="outerHTML"
-                  hx-confirm="Are you sure you want to merge this pull request?">
-            Merge
-          </button>
-          <button class="btn btn-outline btn-sm"
-                  hx-post="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}/close"
-                  hx-target="body"
-                  hx-swap="outerHTML">
-            Close
-          </button>
-          {{else if eq .Status "closed"}}
-          <button class="btn btn-outline btn-sm" disabled>Closed</button>
-          {{else if eq .Status "merged"}}
-          <button class="btn btn-success btn-sm" disabled>Merged</button>
-          {{end}}
-          <div class="dropdown dropdown-end">
-            <button class="btn btn-ghost btn-sm" tabindex="0">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-              </svg>
-            </button>
-            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-              <li><a href="{{host}}/repos/{{$repo.ID}}/prs/{{.ID}}/diff">View Changes</a></li>
-              <li><a>Edit Pull Request</a></li>
-              <li><a>Add Comment</a></li>
-              <li class="menu-title">Danger Zone</li>
-              <li><a class="text-error">Delete PR</a></li>
-            </ul>
-          </div>
-        </div>
+      </div>
+    </div>
+  </a>
+  {{end}}
+  
+  <!-- Infinite scroll trigger if we have exactly 20 PRs (initial load limit) -->
+  {{if eq (len $prs) 20}}
+  <div id="scroll-trigger-20"
+       hx-get="/repos/{{$repo.ID}}/prs/more?offset=20&includeClosed={{prs.IncludeClosed}}" 
+       hx-trigger="revealed"
+       hx-swap="afterend"
+       hx-indicator="#loading-spinner-20"
+       class="w-full py-4">
+    <div id="loading-spinner-20" class="htmx-indicator">
+      <div class="flex justify-center items-center gap-2 text-base-content/60">
+        <span class="loading loading-spinner loading-sm"></span>
+        <span class="text-sm">Loading more pull requests...</span>
       </div>
     </div>
   </div>

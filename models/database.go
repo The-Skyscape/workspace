@@ -35,7 +35,17 @@ var (
 )
 
 func init() {
-	// Initialize FTS5 search
-	// Note: FTS5 initialization happens separately when needed
-	// since we need the underlying sql.DB, not the DynamicDB wrapper
+	// Initialize FTS5 search tables
+	// We need to access the underlying sql.DB for FTS5 operations
+	// Using a goroutine to ensure DB is initialized first
+	go func() {
+		// Get the underlying connection through a query
+		iter := DB.Query("SELECT 1")
+		if iter.Conn != nil {
+			if err := InitFileSearch(); err != nil {
+				// Log the error but don't panic - search will be disabled if tables don't exist
+				println("Warning: Failed to initialize file search:", err.Error())
+			}
+		}
+	}()
 }

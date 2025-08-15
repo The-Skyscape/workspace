@@ -1,10 +1,11 @@
 package models
 
 import (
-	"database/sql"
 	"fmt"
 	"path/filepath"
 	"strings"
+	
+	"github.com/The-Skyscape/devtools/pkg/database"
 )
 
 // FileSearchResult represents a search result from the FTS index
@@ -19,15 +20,13 @@ type FileSearchResult struct {
 }
 
 // FileSearch provides full-text search functionality for repository files
-type FileSearch struct {
-	db *sql.DB
-}
+type FileSearch struct{}
 
 var Search *FileSearch
 
 // InitFileSearch initializes the FTS5 table for file search
-func InitFileSearch(db *sql.DB) error {
-	Search = &FileSearch{db: db}
+func InitFileSearch() error {
+	Search = &FileSearch{}
 	
 	// Create FTS5 virtual table for file indexing
 	query := `
@@ -40,7 +39,7 @@ func InitFileSearch(db *sql.DB) error {
 		tokenize = 'porter unicode61'
 	);`
 	
-	if _, err := db.Exec(query); err != nil {
+	if err := DB.Query(query).Exec(); err != nil {
 		return fmt.Errorf("failed to create FTS5 table: %w", err)
 	}
 	
@@ -57,13 +56,13 @@ func InitFileSearch(db *sql.DB) error {
 		UNIQUE(repo_id, file_path)
 	);`
 	
-	if _, err := db.Exec(metaQuery); err != nil {
+	if err := DB.Query(metaQuery).Exec(); err != nil {
 		return fmt.Errorf("failed to create metadata table: %w", err)
 	}
 	
 	// Create index for faster lookups
 	indexQuery := `CREATE INDEX IF NOT EXISTS idx_file_metadata_repo ON file_metadata(repo_id);`
-	if _, err := db.Exec(indexQuery); err != nil {
+	if err := DB.Query(indexQuery).Exec(); err != nil {
 		return fmt.Errorf("failed to create index: %w", err)
 	}
 	
@@ -75,8 +74,10 @@ func (fs *FileSearch) IndexFile(repoID, filePath, content string) error {
 	fileName := filepath.Base(filePath)
 	language := getLanguageFromPath(filePath)
 	
-	// Start transaction
-	tx, err := fs.db.Begin()
+	// Get the underlying connection for transaction support
+	// Note: FTS5 requires transactions, so we need the underlying sql.DB
+	iter := DB.Query("SELECT 1")
+	tx, err := iter.Conn.Begin()
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (fs *FileSearch) IndexFile(repoID, filePath, content string) error {
 		WHERE repo_id = ? AND file_path = ?
 	`, repoID, filePath).Scan(&existingRowID)
 	
-	if err == sql.ErrNoRows {
+	if err != nil && err.Error() == "sql: no rows in result set" {
 		// Insert new file
 		result, err := tx.Exec(`
 			INSERT INTO file_metadata (repo_id, file_path, file_name, language, size)
@@ -141,7 +142,9 @@ func (fs *FileSearch) IndexFile(repoID, filePath, content string) error {
 
 // DeleteFile removes a file from the search index
 func (fs *FileSearch) DeleteFile(repoID, filePath string) error {
-	tx, err := fs.db.Begin()
+	// Get the underlying connection for transaction support
+	iter := DB.Query("SELECT 1")
+	tx, err := iter.Conn.Begin()
 	if err != nil {
 		return err
 	}
@@ -174,7 +177,9 @@ func (fs *FileSearch) DeleteFile(repoID, filePath string) error {
 
 // DeleteRepository removes all files for a repository from the index
 func (fs *FileSearch) DeleteRepository(repoID string) error {
-	tx, err := fs.db.Begin()
+	// Get the underlying connection for transaction support
+	iter := DB.Query("SELECT 1")
+	tx, err := iter.Conn.Begin()
 	if err != nil {
 		return err
 	}
@@ -213,6 +218,82 @@ func (fs *FileSearch) DeleteRepository(repoID string) error {
 	return tx.Commit()
 }
 
+// SearchInRepo searches for files within a specific repository
+func (fs *FileSearch) SearchInRepo(repoID, query string, limit int) ([]*FileSearchResult, error) {
+	if fs == nil {
+		return nil, fmt.Errorf("file search not initialized")
+	}
+
+	var results []*FileSearchResult
+	err := DB.Query(`
+		SELECT 
+			fs.repo_id,
+			fs.file_path,
+			fs.file_name,
+			fs.language,
+			snippet(file_search, 4, '<mark>', '</mark>', '...', 20) as snippet,
+			bm25(file_search) as score
+		FROM file_search fs
+		WHERE fs.repo_id = ? AND file_search MATCH ?
+		ORDER BY score DESC
+		LIMIT ?
+	`, repoID, query, limit).All(func(scan database.ScanFunc) error {
+		var r FileSearchResult
+		err := scan(&r.RepoID, &r.FilePath, &r.FileName, &r.Language, &r.Snippet, &r.Score)
+		if err != nil {
+			return nil // Continue on scan errors
+		}
+		results = append(results, &r)
+		return nil
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("search query failed: %w", err)
+	}
+
+	return results, nil
+}
+
+// SearchGlobal searches across all repositories accessible to the user
+func (fs *FileSearch) SearchGlobal(query, userID string, limit int) ([]*FileSearchResult, error) {
+	if fs == nil {
+		return nil, fmt.Errorf("file search not initialized")
+	}
+
+	// First get accessible repository IDs
+	// For simplicity, we'll search all public repos and user's private repos
+	var results []*FileSearchResult
+	err := DB.Query(`
+		SELECT 
+			fs.repo_id,
+			fs.file_path,
+			fs.file_name,
+			fs.language,
+			snippet(file_search, 4, '<mark>', '</mark>', '...', 20) as snippet,
+			bm25(file_search) as score
+		FROM file_search fs
+		JOIN repositories r ON fs.repo_id = r.ID
+		WHERE file_search MATCH ? 
+		  AND (r.Visibility = 'public' OR r.UserID = ?)
+		ORDER BY score DESC
+		LIMIT ?
+	`, query, userID, limit).All(func(scan database.ScanFunc) error {
+		var r FileSearchResult
+		err := scan(&r.RepoID, &r.FilePath, &r.FileName, &r.Language, &r.Snippet, &r.Score)
+		if err != nil {
+			return nil // Continue on scan errors
+		}
+		results = append(results, &r)
+		return nil
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("global search query failed: %w", err)
+	}
+
+	return results, nil
+}
+
 // SearchFiles performs a full-text search across all indexed files
 func (fs *FileSearch) SearchFiles(query string, repoID string, limit int) ([]FileSearchResult, error) {
 	if limit <= 0 {
@@ -220,55 +301,57 @@ func (fs *FileSearch) SearchFiles(query string, repoID string, limit int) ([]Fil
 	}
 	
 	var results []FileSearchResult
-	var rows *sql.Rows
 	var err error
 	
 	// Build the search query
-	searchQuery := fmt.Sprintf(`
-		SELECT 
-			fs.repo_id,
-			fs.file_path,
-			fs.file_name,
-			fs.language,
-			snippet(file_search, 4, '<mark>', '</mark>', '...', 32) as snippet,
-			bm25(file_search) as score
-		FROM file_search fs
-		WHERE file_search MATCH ?
-		%s
-		ORDER BY score
-		LIMIT ?
-	`, func() string {
-		if repoID != "" {
-			return "AND fs.repo_id = ?"
-		}
-		return ""
-	}())
-	
 	if repoID != "" {
-		rows, err = fs.db.Query(searchQuery, query, repoID, limit)
+		err = DB.Query(`
+			SELECT 
+				fs.repo_id,
+				fs.file_path,
+				fs.file_name,
+				fs.language,
+				snippet(file_search, 4, '<mark>', '</mark>', '...', 32) as snippet,
+				bm25(file_search) as score
+			FROM file_search fs
+			WHERE file_search MATCH ? AND fs.repo_id = ?
+			ORDER BY score
+			LIMIT ?
+		`, query, repoID, limit).All(func(scan database.ScanFunc) error {
+			var result FileSearchResult
+			err := scan(&result.RepoID, &result.FilePath, &result.FileName, &result.Language, &result.Snippet, &result.Score)
+			if err != nil {
+				return err
+			}
+			results = append(results, result)
+			return nil
+		})
 	} else {
-		rows, err = fs.db.Query(searchQuery, query, limit)
+		err = DB.Query(`
+			SELECT 
+				fs.repo_id,
+				fs.file_path,
+				fs.file_name,
+				fs.language,
+				snippet(file_search, 4, '<mark>', '</mark>', '...', 32) as snippet,
+				bm25(file_search) as score
+			FROM file_search fs
+			WHERE file_search MATCH ?
+			ORDER BY score
+			LIMIT ?
+		`, query, limit).All(func(scan database.ScanFunc) error {
+			var result FileSearchResult
+			err := scan(&result.RepoID, &result.FilePath, &result.FileName, &result.Language, &result.Snippet, &result.Score)
+			if err != nil {
+				return err
+			}
+			results = append(results, result)
+			return nil
+		})
 	}
 	
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
-	}
-	defer rows.Close()
-	
-	for rows.Next() {
-		var result FileSearchResult
-		err := rows.Scan(
-			&result.RepoID,
-			&result.FilePath,
-			&result.FileName,
-			&result.Language,
-			&result.Snippet,
-			&result.Score,
-		)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, result)
 	}
 	
 	return results, nil
@@ -281,51 +364,56 @@ func (fs *FileSearch) SearchFilesByPath(pattern string, repoID string, limit int
 	}
 	
 	var results []FileSearchResult
-	query := `
-		SELECT 
-			repo_id,
-			file_path,
-			file_name,
-			language,
-			'' as snippet,
-			0 as score
-		FROM file_metadata
-		WHERE file_path LIKE ?
-		%s
-		ORDER BY file_path
-		LIMIT ?
-	`
-	
-	var rows *sql.Rows
 	var err error
 	
 	if repoID != "" {
-		query = fmt.Sprintf(query, "AND repo_id = ?")
-		rows, err = fs.db.Query(query, "%"+pattern+"%", repoID, limit)
+		err = DB.Query(`
+			SELECT 
+				repo_id,
+				file_path,
+				file_name,
+				language,
+				'' as snippet,
+				0 as score
+			FROM file_metadata
+			WHERE file_path LIKE ? AND repo_id = ?
+			ORDER BY file_path
+			LIMIT ?
+		`, "%"+pattern+"%", repoID, limit).All(func(scan database.ScanFunc) error {
+			var result FileSearchResult
+			err := scan(&result.RepoID, &result.FilePath, &result.FileName, &result.Language, &result.Snippet, &result.Score)
+			if err != nil {
+				return err
+			}
+			results = append(results, result)
+			return nil
+		})
 	} else {
-		query = fmt.Sprintf(query, "")
-		rows, err = fs.db.Query(query, "%"+pattern+"%", limit)
+		err = DB.Query(`
+			SELECT 
+				repo_id,
+				file_path,
+				file_name,
+				language,
+				'' as snippet,
+				0 as score
+			FROM file_metadata
+			WHERE file_path LIKE ?
+			ORDER BY file_path
+			LIMIT ?
+		`, "%"+pattern+"%", limit).All(func(scan database.ScanFunc) error {
+			var result FileSearchResult
+			err := scan(&result.RepoID, &result.FilePath, &result.FileName, &result.Language, &result.Snippet, &result.Score)
+			if err != nil {
+				return err
+			}
+			results = append(results, result)
+			return nil
+		})
 	}
 	
 	if err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-	
-	for rows.Next() {
-		var result FileSearchResult
-		err := rows.Scan(
-			&result.RepoID,
-			&result.FilePath,
-			&result.FileName,
-			&result.Language,
-			&result.Snippet,
-			&result.Score,
-		)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, result)
 	}
 	
 	return results, nil
@@ -334,7 +422,7 @@ func (fs *FileSearch) SearchFilesByPath(pattern string, repoID string, limit int
 // GetIndexedFileCount returns the number of indexed files for a repository
 func (fs *FileSearch) GetIndexedFileCount(repoID string) (int, error) {
 	var count int
-	err := fs.db.QueryRow(`
+	err := DB.Query(`
 		SELECT COUNT(*) FROM file_metadata WHERE repo_id = ?
 	`, repoID).Scan(&count)
 	return count, err

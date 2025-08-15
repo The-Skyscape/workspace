@@ -7,12 +7,13 @@
   </div>
 
   <!-- Activities List -->
-  <div class="flex flex-col gap-4">
-    {{range home.AllActivities}}
+  <div class="flex flex-col gap-4" id="activities-list">
+    {{with $activities := home.AllActivities}}
+    {{range $activities}}
     <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md hover:border-primary/20 transition-all">
       <div class="card-body p-4">
         <div class="flex items-center gap-3">
-          <div class="avatar placeholder avatar-placeholder flex-shrink-0">
+          <div class="avatar avatar-placeholder flex-shrink-0">
             <div class="{{if eq .Type "repo_created"}}bg-primary text-primary-content{{else if eq .Type "workspace_launched"}}bg-info text-info-content{{else if eq .Type "action_created"}}bg-secondary text-secondary-content{{else if eq .Type "issue_created"}}bg-warning text-warning-content{{else if eq .Type "pr_created"}}bg-success text-success-content{{else}}bg-neutral text-neutral-content{{end}} rounded w-14 h-14">
               <span class="text-lg font-bold">
                 {{if eq .Type "repo_created"}}R
@@ -71,6 +72,24 @@
         </div>
       </div>
     </div>
+    {{end}}
+    
+    <!-- Infinite scroll trigger if we have exactly 20 activities (initial load limit) -->
+    {{if eq (len $activities) 20}}
+    <div id="scroll-trigger-20"
+         hx-get="/activities/more?offset=20" 
+         hx-trigger="revealed"
+         hx-swap="afterend"
+         hx-indicator="#loading-spinner-20"
+         class="w-full py-4">
+      <div id="loading-spinner-20" class="htmx-indicator">
+        <div class="flex justify-center items-center gap-2 text-base-content/60">
+          <span class="loading loading-spinner loading-sm"></span>
+          <span class="text-sm">Loading more activities...</span>
+        </div>
+      </div>
+    </div>
+    {{end}}
     {{else}}
     <div class="card bg-base-100 shadow-sm border border-base-300">
       <div class="card-body">

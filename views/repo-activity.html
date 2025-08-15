@@ -23,7 +23,7 @@
         {{range .}}
         <div class="flex items-start gap-4 p-4 bg-base-200 rounded-lg hover:bg-base-300 transition-colors">
           <!-- Activity Icon -->
-          <div class="avatar placeholder">
+          <div class="avatar avatar-placeholder">
             <div class="{{if eq .Type "repo_created"}}bg-success{{else if eq .Type "issue_created"}}bg-warning{{else if eq .Type "pr_created"}}bg-info{{else if eq .Type "file_created"}}bg-primary{{else if eq .Type "action_run"}}bg-secondary{{else}}bg-neutral{{end}} text-{{if eq .Type "repo_created"}}success{{else if eq .Type "issue_created"}}warning{{else if eq .Type "pr_created"}}info{{else if eq .Type "file_created"}}primary{{else if eq .Type "action_run"}}secondary{{else}}neutral{{end}}-content rounded-full w-10 h-10">
               <span class="text-base font-bold">
                 {{if eq .Type "repo_created"}}

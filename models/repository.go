@@ -270,6 +270,26 @@ func ListUserRepositories(userID string) ([]*Repository, error) {
 	return Repositories.Search("WHERE UserID = ? ORDER BY UpdatedAt DESC", userID)
 }
 
+// ListUserRepositoriesPaginated returns paginated repositories for a user
+func ListUserRepositoriesPaginated(userID string, limit, offset int) ([]*Repository, error) {
+	query := fmt.Sprintf("WHERE UserID = ? ORDER BY UpdatedAt DESC LIMIT %d OFFSET %d", limit, offset)
+	return Repositories.Search(query, userID)
+}
+
+// ListUserRepositoriesPaginatedWithCount returns paginated repositories with total count
+func ListUserRepositoriesPaginatedWithCount(userID string, limit, offset int) ([]*Repository, int, error) {
+	// Get total count first
+	totalRepos, err := Repositories.Search("WHERE UserID = ?", userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := len(totalRepos)
+	
+	// Get paginated results
+	repos, err := ListUserRepositoriesPaginated(userID, limit, offset)
+	return repos, total, err
+}
+
 // DeleteRepository removes a repository and its git directory
 func DeleteRepository(id string) error {
 	repo, err := Repositories.Get(id)

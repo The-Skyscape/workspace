@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
+	
 	"workspace/models"
+	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -28,6 +31,10 @@ func (c *HomeController) Setup(app *application.App) {
 	http.Handle("GET /signin", app.ProtectFunc(c.signinPage, nil))
 	http.Handle("GET /signup", app.ProtectFunc(c.signupPage, nil))
 	http.Handle("GET /activities", app.Serve("activities.html", auth.Required))
+	
+	// Infinite scroll endpoints
+	http.Handle("GET /repos/more", app.Serve("repos-more.html", auth.Required))
+	http.Handle("GET /activities/more", app.Serve("activities-more.html", auth.Required))
 }
 
 // Handle is called when each request is handled
@@ -60,8 +67,78 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 		return nil, nil
 	}
 
-	// Get all repositories for the user
-	return models.ListUserRepositories(user.ID)
+	// Get first 20 repositories for initial load
+	return models.ListUserRepositoriesPaginated(user.ID, 20, 0)
+}
+
+// UserReposPaginated returns paginated repositories for the current user
+func (c *HomeController) UserReposPaginated(limit, offset int) ([]*models.Repository, int, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated repositories
+	return models.ListUserRepositoriesPaginatedWithCount(user.ID, limit, offset)
+}
+
+// MoreRepos returns the next page of repositories for infinite scroll
+func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse offset from query params
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	
+	// Get next batch of repos
+	repos, _, err := models.ListUserRepositoriesPaginatedWithCount(user.ID, 20, offset)
+	return repos, err
+}
+
+// HasMoreRepos checks if there are more repositories to load
+func (c *HomeController) HasMoreRepos() bool {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return false
+	}
+	
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	
+	repos, total, err := models.ListUserRepositoriesPaginatedWithCount(user.ID, 20, offset)
+	if err != nil {
+		return false
+	}
+	
+	return (offset + len(repos)) < total
+}
+
+// NextReposOffset returns the offset for the next page of repositories
+func (c *HomeController) NextReposOffset() int {
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	return offset + 20
 }
 
 
@@ -151,13 +228,77 @@ func (c *HomeController) AllActivities() ([]*models.Activity, error) {
 		return nil, err
 	}
 
-	// Get all activities for the current user (limited to 100 for performance)
-	return models.Activities.Search("WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 100", user.ID)
+	// Get first 20 activities for initial load
+	return models.Activities.Search("WHERE UserID = ? ORDER BY CreatedAt DESC LIMIT 20", user.ID)
+}
+
+// MoreActivities returns the next page of activities for infinite scroll
+func (c *HomeController) MoreActivities() ([]*models.Activity, error) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse offset from query params
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	
+	// Get next batch of activities
+	activities, _, err := models.GetUserActivitiesPaginated(user.ID, 20, offset)
+	return activities, err
+}
+
+// HasMoreActivities checks if there are more activities to load
+func (c *HomeController) HasMoreActivities() bool {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(c.Request)
+	if err != nil {
+		return false
+	}
+	
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	
+	activities, total, err := models.GetUserActivitiesPaginated(user.ID, 20, offset)
+	if err != nil {
+		return false
+	}
+	
+	return (offset + len(activities)) < total
+}
+
+// NextActivitiesOffset returns the offset for the next page of activities
+func (c *HomeController) NextActivitiesOffset() int {
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	return offset + 20
 }
 
 // ActiveWorkspaces returns the count of active workspaces (admin only)
 func (c *HomeController) ActiveWorkspaces() int {
-	// This is a placeholder - implement actual workspace counting
+	// Count Docker containers that are workspace containers
+	// Workspace containers are identified by having 'workspace' in the name
+	if services.Coder.IsRunning() {
+		// For now, return 1 if the coder service is running
+		// In the future, we can count actual workspace containers
+		return 1
+	}
 	return 0
 }
 
@@ -219,3 +360,4 @@ func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
 	// Show home page (public or dashboard based on auth status)
 	c.Render(w, r, "home.html", nil)
 }
+

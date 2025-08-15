@@ -3,65 +3,70 @@
 {{if $issues}}
 <div class="flex flex-col gap-4">
   {{range $issues}}
-  <div class="card bg-base-100 shadow-lg border border-base-300">
-    <div class="card-body">
-    <div class="flex items-start justify-between">
-      <div class="flex-1">
-        <div class="flex items-center space-x-3 mb-2">
-          <h3 class="font-semibold text-lg">{{.Title}}</h3>
-          {{if eq .Status "open"}}
-          <div class="badge badge-success">Open</div>
-          {{else}}
-          <div class="badge badge-neutral">Closed</div>
-          {{end}}
-        </div>
-        {{if .Body}}
-        <p class="text-base-content/70 mb-3">{{.Body}}</p>
-        {{end}}
-        <div class="flex items-center space-x-4 text-sm text-base-content/50">
-          <div class="flex items-center space-x-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  <a href="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}" class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer block hover:no-underline" hx-boost="true">
+    <div class="card-body p-4">
+      <div class="flex items-center gap-3">
+        <!-- Avatar -->
+        <div class="avatar avatar-placeholder flex-shrink-0">
+          <div class="bg-warning text-warning-content rounded w-14 h-14">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
-            <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
           </div>
-          {{if .Tags}}
-          <div class="badge badge-outline badge-sm">{{.Tags}}</div>
-          {{end}}
         </div>
-      </div>
-      <div class="flex items-center space-x-2">
-        {{if eq .Status "open"}}
-        <button class="btn btn-outline btn-sm"
-                hx-post="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}/close"
-                hx-target="body"
-                hx-swap="outerHTML">
-          Close
-        </button>
-        {{else}}
-        <button class="btn btn-outline btn-sm"
-                hx-post="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}/reopen"
-                hx-target="body"
-                hx-swap="outerHTML">
-          Reopen
-        </button>
-        {{end}}
-        <div class="dropdown dropdown-end">
-          <button class="btn btn-ghost btn-sm" tabindex="0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </button>
-          <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-            <li><a>Edit Issue</a></li>
-            <li><a>Add Comment</a></li>
-            <li class="menu-title">Danger Zone</li>
-            <li><a class="text-error">Delete Issue</a></li>
-          </ul>
+        
+        <!-- Issue Info -->
+        <div class="flex-1">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-lg hover:text-primary transition-colors">{{.Title}}</h3>
+              </div>
+              {{if .Body}}
+              <p class="text-base-content/70 text-sm mt-1 line-clamp-2">{{.Body}}</p>
+              {{else}}
+              <p class="text-base-content/50 text-sm mt-1 italic">No description provided</p>
+              {{end}}
+              <div class="flex items-center gap-4 text-xs text-base-content/60 mt-2">
+                <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
+                {{if .Tags}}
+                <span class="badge badge-outline badge-xs">{{.Tags}}</span>
+                {{end}}
+              </div>
+            </div>
+            
+            <!-- Status Badge and Chevron -->
+            <div class="flex items-center gap-2 flex-shrink-0">
+              {{if eq .Status "open"}}
+              <div class="badge badge-success badge-sm">Open</div>
+              {{else}}
+              <div class="badge badge-neutral badge-sm">Closed</div>
+              {{end}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </a>
+  {{end}}
+  
+  <!-- Infinite scroll trigger if we have exactly 20 issues (initial load limit) -->
+  {{if eq (len $issues) 20}}
+  <div id="scroll-trigger-20"
+       hx-get="/repos/{{$repo.ID}}/issues/more?offset=20&includeClosed={{issues.IncludeClosed}}" 
+       hx-trigger="revealed"
+       hx-swap="afterend"
+       hx-indicator="#loading-spinner-20"
+       class="w-full py-4">
+    <div id="loading-spinner-20" class="htmx-indicator">
+      <div class="flex justify-center items-center gap-2 text-base-content/60">
+        <span class="loading loading-spinner loading-sm"></span>
+        <span class="text-sm">Loading more issues...</span>
+      </div>
+    </div>
   </div>
   {{end}}
 </div>

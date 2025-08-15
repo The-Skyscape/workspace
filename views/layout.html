@@ -49,8 +49,53 @@
             {{end}}
         </div>
         
+        <!-- Search Bar (Center on desktop, hidden on mobile) -->
+        {{if auth.CurrentUser}}
+        <div class="navbar-center hidden lg:flex">
+            <div class="relative" _="on keydown[key=='Escape'] remove .open from me">
+                <div class="form-control">
+                    <div class="input-group">
+                        <input type="search" 
+                               id="navbar-search"
+                               placeholder="✨ Search repos, issues, code..." 
+                               class="input input-bordered input-sm w-64 xl:w-96 pr-10"
+                               hx-get="{{host}}/search/navbar"
+                               hx-trigger="input changed delay:300ms, search"
+                               hx-target="#navbar-search-results"
+                               hx-indicator="#navbar-search-spinner"
+                               _="on focus add .open to closest .relative
+                                  on blur wait 200ms then remove .open from closest .relative"
+                               autocomplete="off">
+                        <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                            <!-- Search icon / Spinner -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <span id="navbar-search-spinner" class="htmx-indicator">
+                                <span class="loading loading-spinner loading-xs"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Search Results Dropdown -->
+                <div class="absolute top-full mt-2 w-full min-w-[400px] max-w-[600px] bg-base-100 rounded-lg shadow-xl border border-base-300 hidden open:block z-50 max-h-[70vh] overflow-y-auto"
+                     id="navbar-search-results">
+                    <!-- Results will be loaded here via HTMX -->
+                </div>
+            </div>
+        </div>
+        {{end}}
+        
         <div class="navbar-end">
             {{if auth.CurrentUser}}
+                <!-- Mobile Search Button -->
+                <button class="btn btn-ghost btn-circle lg:hidden" _="on click toggle .hidden on #mobile-search-container then focus() #mobile-search-input">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </button>
+                
                 <!-- User menu -->
                 <div class="dropdown dropdown-end">
                     <label tabindex="0" class="btn btn-ghost btn-circle avatar">
@@ -105,6 +150,35 @@
             {{end}}
         </div>
     </div>
+    
+    <!-- Mobile Search Container -->
+    {{if auth.CurrentUser}}
+    <div id="mobile-search-container" class="hidden lg:hidden bg-base-100 border-b border-base-300 px-4 py-3">
+        <div class="relative">
+            <input type="search" 
+                   id="mobile-search-input"
+                   placeholder="✨ Search repos, issues, code..." 
+                   class="input input-bordered w-full pr-10"
+                   hx-get="{{host}}/search/navbar"
+                   hx-trigger="input changed delay:300ms, search"
+                   hx-target="#mobile-search-results"
+                   hx-indicator="#mobile-search-spinner"
+                   autocomplete="off">
+            <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span id="mobile-search-spinner" class="htmx-indicator">
+                    <span class="loading loading-spinner loading-xs"></span>
+                </span>
+            </div>
+        </div>
+        <!-- Mobile Search Results -->
+        <div id="mobile-search-results" class="mt-3">
+            <!-- Results will be loaded here via HTMX -->
+        </div>
+    </div>
+    {{end}}
 
     <!-- Main Content Area -->
     <main class="flex-1 container mx-auto px-4 py-8">

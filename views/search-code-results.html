@@ -1,0 +1,46 @@
+{{with $code := search.SearchCodeFiles}}
+{{if $code}}
+<div class="space-y-4">
+    {{range $code}}
+    <div class="card bg-base-100 shadow-md border border-base-300">
+        <div class="card-body p-4">
+            <div class="flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-1 text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div class="flex-1 min-w-0">
+                    <a href="{{host}}/repos/{{.RepoID}}/files/{{.FilePath}}" 
+                       class="font-medium font-mono text-sm hover:text-primary transition-colors"
+                       hx-boost="true">
+                        {{.FileName}}
+                    </a>
+                    <p class="text-xs text-base-content/60 font-mono">{{.FilePath}}</p>
+                    {{if .Snippet}}
+                    <div class="bg-base-200 rounded mt-2 p-2 overflow-x-auto">
+                        <pre class="text-xs font-mono">{{.Snippet}}</pre>
+                    </div>
+                    {{end}}
+                    <div class="flex items-center gap-3 mt-2 text-xs text-base-content/50">
+                        <span>Repository: {{.RepoID}}</span>
+                        {{if .Language}}<span class="badge badge-ghost badge-xs">{{.Language}}</span>{{end}}
+                        {{if .Score}}<span>Score: {{printf "%.2f" .Score}}</span>{{end}}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="text-center py-8 text-base-content/50">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+    </svg>
+    <p class="text-sm">No code results found</p>
+</div>
+{{end}}
+{{else}}
+<div class="text-center py-8 text-base-content/50">
+    <p class="text-sm">Enter a search query to find code</p>
+</div>
+{{end}}

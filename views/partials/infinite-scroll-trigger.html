@@ -1,0 +1,27 @@
+<!-- Infinite Scroll Trigger Component -->
+<!-- Usage: include this at the end of a list that should load more content -->
+<!-- Params: 
+  - .Endpoint: The URL to fetch more content from (e.g., "/repos/more")
+  - .NextPage: The next page/offset to load
+  - .HasMore: Boolean indicating if there are more items to load
+-->
+{{if .HasMore}}
+<div id="scroll-trigger-{{.NextPage}}"
+     hx-get="{{.Endpoint}}?offset={{.NextPage}}" 
+     hx-trigger="revealed"
+     hx-swap="afterend"
+     hx-indicator="#loading-spinner-{{.NextPage}}"
+     class="w-full py-4">
+  <div id="loading-spinner-{{.NextPage}}" class="htmx-indicator">
+    <div class="flex justify-center items-center gap-2 text-base-content/60">
+      <span class="loading loading-spinner loading-sm"></span>
+      <span class="text-sm">Loading more...</span>
+    </div>
+  </div>
+</div>
+{{else}}
+<!-- End of list -->
+<div class="text-center py-4 text-base-content/60 text-sm">
+  No more items to load
+</div>
+{{end}}

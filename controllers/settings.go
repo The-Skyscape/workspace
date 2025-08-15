@@ -188,8 +188,8 @@ func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request)
 	models.LogActivity("theme_updated", "Updated UI theme to " + theme, 
 		"Administrator changed theme to " + theme, user.ID, "", "settings", "")
 
-	// Return success (HTMX will reload the page)
-	w.WriteHeader(http.StatusOK)
+	// Refresh the page to apply the new theme
+	s.Refresh(w, r)
 }
 
 // GetProfile returns the admin user's profile for settings page
