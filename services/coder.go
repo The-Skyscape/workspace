@@ -347,8 +347,8 @@ func (c *CoderService) CloneRepository(repo *models.Repository, user *authentica
 		gitUserName = user.Name
 	}
 
-	// Build clone command
-	cloneCmd := c.buildCloneCommand(repo.Name, cloneURL, gitUserName, gitUserEmail)
+	// Build clone command (use repo.ID for directory name to avoid conflicts)
+	cloneCmd := c.buildCloneCommand(repo.ID, cloneURL, gitUserName, gitUserEmail)
 
 	// Execute using container abstraction
 	if err := c.service.ExecInContainer("bash", "-c", cloneCmd); err != nil {
@@ -378,8 +378,8 @@ func (c *CoderService) UpdateRepository(repoID string) error {
 		return errors.Wrap(err, "failed to get repository owner")
 	}
 
-	// Check if repository exists in Code Server
-	checkCmd := c.buildCheckCommand(repo.Name)
+	// Check if repository exists in Code Server (use repo.ID for directory)
+	checkCmd := c.buildCheckCommand(repo.ID)
 	output, err := c.service.ExecInContainerWithOutput("bash", "-c", checkCmd)
 	if err != nil {
 		log.Printf("Failed to check repository existence: %v", err)
@@ -392,8 +392,8 @@ func (c *CoderService) UpdateRepository(repoID string) error {
 		return c.CloneRepository(repo, user)
 	}
 
-	// Update existing repository
-	updateCmd := c.buildUpdateCommand(repo.Name)
+	// Update existing repository (use repo.ID for directory)
+	updateCmd := c.buildUpdateCommand(repo.ID)
 	if err := c.service.ExecInContainer("bash", "-c", updateCmd); err != nil {
 		log.Printf("Update failed for %s: %v", repoID, err)
 		// If update fails, try to re-clone
@@ -414,13 +414,17 @@ func (c *CoderService) RemoveRepository(repoID string) error {
 		return nil
 	}
 
+	// If repository doesn't exist in DB, still try to remove directory using the ID
+	var removeID string
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		// Repository might already be deleted, use the ID as name
-		repo = &models.Repository{Name: repoID}
+		// Repository might already be deleted, use the ID directly
+		removeID = repoID
+	} else {
+		removeID = repo.ID
 	}
 
-	removeCmd := c.buildRemoveCommand(repo.Name)
+	removeCmd := c.buildRemoveCommand(removeID)
 	if err := c.service.ExecInContainer("bash", "-c", removeCmd); err != nil {
 		log.Printf("Failed to remove %s from Code Server: %v", repoID, err)
 		// Don't return error as this is cleanup
@@ -431,9 +435,9 @@ func (c *CoderService) RemoveRepository(repoID string) error {
 }
 
 // buildCloneCommand builds the git clone command
-func (c *CoderService) buildCloneCommand(repoName, cloneURL, gitUserName, gitUserEmail string) string {
-	// Escape repository name for shell
-	escapedName := strings.ReplaceAll(repoName, "'", "'\\''")
+func (c *CoderService) buildCloneCommand(repoID, cloneURL, gitUserName, gitUserEmail string) string {
+	// Escape repository ID for shell
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
 
 	return fmt.Sprintf(`
 		cd /home/coder/project && 
@@ -448,23 +452,23 @@ func (c *CoderService) buildCloneCommand(repoName, cloneURL, gitUserName, gitUse
 			git config user.name "%s" &&
 			git config user.email "%s"
 		fi
-	`, escapedName, escapedName, cloneURL, escapedName, escapedName,
+	`, escapedID, escapedID, cloneURL, escapedID, escapedID,
 		gitUserName, gitUserEmail)
 }
 
 // buildCheckCommand builds the command to check if repository exists
-func (c *CoderService) buildCheckCommand(repoName string) string {
-	escapedName := strings.ReplaceAll(repoName, "'", "'\\''")
+func (c *CoderService) buildCheckCommand(repoID string) string {
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
 
 	return fmt.Sprintf(`
 		cd /home/coder/project && 
 		[ -d '%s/.git' ] && echo "exists" || echo "not-exists"
-	`, escapedName)
+	`, escapedID)
 }
 
 // buildUpdateCommand builds the git pull command
-func (c *CoderService) buildUpdateCommand(repoName string) string {
-	escapedName := strings.ReplaceAll(repoName, "'", "'\\''")
+func (c *CoderService) buildUpdateCommand(repoID string) string {
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
 
 	return fmt.Sprintf(`
 		cd /home/coder/project/%s &&
@@ -472,11 +476,11 @@ func (c *CoderService) buildUpdateCommand(repoName string) string {
 		git fetch origin &&
 		git pull origin $(git symbolic-ref --short HEAD 2>/dev/null || echo 'master') &&
 		git stash pop || true
-	`, escapedName)
+	`, escapedID)
 }
 
 // buildRemoveCommand builds the rm command
-func (c *CoderService) buildRemoveCommand(repoName string) string {
-	escapedName := strings.ReplaceAll(repoName, "'", "'\\''")
-	return fmt.Sprintf(`rm -rf '/home/coder/project/%s'`, escapedName)
+func (c *CoderService) buildRemoveCommand(repoID string) string {
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
+	return fmt.Sprintf(`rm -rf '/home/coder/project/%s'`, escapedID)
 }

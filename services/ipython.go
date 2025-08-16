@@ -1,11 +1,17 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
+	"time"
 
+	"workspace/models"
+
+	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/containers"
 	"github.com/The-Skyscape/devtools/pkg/database"
 	"github.com/pkg/errors"
@@ -62,14 +68,19 @@ func (i *IPythonService) Init() error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	// Check if already running
-	if i.IsRunning() {
+	// Check if service already exists and is running
+	existing := containers.Local().Service(i.config.ContainerName)
+	if existing != nil && existing.IsRunning() {
 		log.Println("IPython service already running")
+		i.service = existing
 		return nil
 	}
 
-	// Ensure notebooks directory exists
-	if err := os.MkdirAll(i.config.NotebooksDir, 0755); err != nil {
+	// Start the service
+	log.Println("Initializing IPython service...")
+	
+	// Ensure notebooks directory exists with proper permissions
+	if err := os.MkdirAll(i.config.NotebooksDir, 0777); err != nil {
 		return errors.Wrap(err, "failed to create notebooks directory")
 	}
 
@@ -86,17 +97,15 @@ func (i *IPythonService) Init() error {
 	command += " --NotebookApp.allow_origin='*'"
 	command += " --NotebookApp.ip='0.0.0.0'"
 	command += " --NotebookApp.port=8888"
+	command += " --NotebookApp.base_url='/ipython/'"
 
 	i.service = &containers.Service{
 		Host:          host,
 		Name:          i.config.ContainerName,
 		Image:         "jupyter/datascience-notebook:latest",
-		Network:       "bridge",
+		Network:       "host",
 		RestartPolicy: "always",
 		Command:       command,
-		Ports: map[int]int{
-			8888: i.config.Port,
-		},
 		Mounts: map[string]string{
 			i.config.NotebooksDir: "/home/jovyan/work",
 		},
@@ -108,20 +117,24 @@ func (i *IPythonService) Init() error {
 		},
 	}
 
-	// Start the service
-	return i.Start()
+	// Start the service WITHOUT calling i.Start() to avoid deadlock
+	if err := i.startInternal(); err != nil {
+		return err
+	}
+	return nil
 }
 
-// Start starts the IPython service
-func (i *IPythonService) Start() error {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
+// startInternal starts the IPython service without acquiring the lock
+func (i *IPythonService) startInternal() error {
 	if i.service == nil {
 		return errors.New("IPython service not initialized")
 	}
 
-	if i.IsRunning() {
+	// Check if already running
+	var stdout bytes.Buffer
+	i.service.Host.SetStdout(&stdout)
+	err := i.service.Host.Exec("docker", "inspect", "-f", "{{.State.Status}}", i.config.ContainerName)
+	if err == nil && strings.TrimSpace(stdout.String()) == "running" {
 		return nil
 	}
 
@@ -133,7 +146,7 @@ func (i *IPythonService) Start() error {
 	}
 
 	// Wait for Jupyter to be ready
-	if err := i.service.WaitForReady(60, func() error {
+	if err := i.service.WaitForReady(60*time.Second, func() error {
 		// Check if Jupyter is responding
 		return i.service.Host.Exec("curl", "-f", fmt.Sprintf("http://localhost:%d/api", i.config.Port))
 	}); err != nil {
@@ -141,12 +154,20 @@ func (i *IPythonService) Start() error {
 	}
 
 	log.Printf("IPython/Jupyter service started successfully")
-	log.Printf("Access Jupyter Lab at: http://localhost:%d", i.config.Port)
+	log.Printf("Access Jupyter Lab at: http://localhost:%d/ipython/", i.config.Port)
 	if !i.config.EnableAuth {
 		log.Printf("Warning: Authentication is disabled for development")
 	}
 
 	return nil
+}
+
+// Start starts the IPython service
+func (i *IPythonService) Start() error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	
+	return i.startInternal()
 }
 
 // Stop stops the IPython service
@@ -263,4 +284,170 @@ func (i *IPythonService) CreateNotebook(name string) error {
 
 	notebookPath := fmt.Sprintf("%s/%s.ipynb", i.config.NotebooksDir, name)
 	return os.WriteFile(notebookPath, []byte(notebookContent), 0644)
+}
+
+// ====== Repository Operations ======
+
+// CloneRepository creates a working copy of the repository in the Jupyter workspace
+func (i *IPythonService) CloneRepository(repo *models.Repository, user *authentication.User) error {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	if i.service == nil || !i.IsRunning() {
+		return errors.New("IPython service is not running")
+	}
+
+	// Create access token for cloning
+	token, err := models.CreateAccessToken(repo.ID, user.ID, 100*365*24*time.Hour)
+	if err != nil {
+		return errors.Wrap(err, "failed to create access token")
+	}
+
+	// Build clone URL for localhost (port 80 in production)
+	cloneURL := fmt.Sprintf("http://%s:%s@localhost/repo/%s", token.ID, token.Token, repo.ID)
+
+	// Get user details for git config
+	gitUserName := user.Email // Default to email
+	gitUserEmail := user.Email
+	if user.Name != "" {
+		gitUserName = user.Name
+	}
+
+	// Build clone command (use repo.ID for directory name to avoid conflicts)
+	cloneCmd := i.buildCloneCommand(repo.ID, cloneURL, gitUserName, gitUserEmail)
+
+	// Execute using container abstraction
+	if err := i.service.ExecInContainer("bash", "-c", cloneCmd); err != nil {
+		return errors.Wrapf(err, "failed to clone repository %s", repo.ID)
+	}
+
+	log.Printf("Repository %s cloned in Jupyter workspace", repo.ID)
+	return nil
+}
+
+// UpdateRepository updates the working copy after a git push
+func (i *IPythonService) UpdateRepository(repoID string) error {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	if i.service == nil || !i.IsRunning() {
+		return errors.New("IPython service is not running")
+	}
+
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		return errors.Wrap(err, "repository not found")
+	}
+
+	user, err := models.Auth.Users.Get(repo.UserID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get repository owner")
+	}
+
+	// Check if repository exists in Jupyter workspace (use repo.ID for directory)
+	checkCmd := i.buildCheckCommand(repo.ID)
+	output, err := i.service.ExecInContainerWithOutput("bash", "-c", checkCmd)
+	if err != nil {
+		log.Printf("Failed to check repository existence: %v", err)
+		// Try to clone if check fails
+		return i.CloneRepository(repo, user)
+	}
+
+	if strings.TrimSpace(output) == "not-exists" {
+		// Repository doesn't exist, clone it
+		return i.CloneRepository(repo, user)
+	}
+
+	// Update existing repository (use repo.ID for directory)
+	updateCmd := i.buildUpdateCommand(repo.ID)
+	if err := i.service.ExecInContainer("bash", "-c", updateCmd); err != nil {
+		log.Printf("Update failed for %s: %v", repoID, err)
+		// If update fails, try to re-clone
+		return i.CloneRepository(repo, user)
+	}
+
+	log.Printf("Repository %s updated in Jupyter workspace", repoID)
+	return nil
+}
+
+// RemoveRepository removes the working copy when a repository is deleted
+func (i *IPythonService) RemoveRepository(repoID string) error {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	if i.service == nil || !i.IsRunning() {
+		// Service not running, nothing to remove
+		return nil
+	}
+
+	// If repository doesn't exist in DB, still try to remove directory using the ID
+	var removeID string
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		// Repository might already be deleted, use the ID directly
+		removeID = repoID
+	} else {
+		removeID = repo.ID
+	}
+
+	removeCmd := i.buildRemoveCommand(removeID)
+	if err := i.service.ExecInContainer("bash", "-c", removeCmd); err != nil {
+		log.Printf("Failed to remove %s from Jupyter workspace: %v", repoID, err)
+		// Don't return error as this is cleanup
+	}
+
+	log.Printf("Repository %s removed from Jupyter workspace", repoID)
+	return nil
+}
+
+// buildCloneCommand builds the git clone command for Jupyter environment
+func (i *IPythonService) buildCloneCommand(repoID, cloneURL, gitUserName, gitUserEmail string) string {
+	// Escape repository ID for shell
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
+
+	// Note: In Jupyter container, the work directory is /home/jovyan/work
+	return fmt.Sprintf(`
+		cd /home/jovyan/work && 
+		if [ -d '%s/.git' ]; then
+			echo "Repository exists, updating..." &&
+			cd '%s' &&
+			git fetch origin || true
+		else
+			echo "Cloning repository..." &&
+			git clone '%s' '%s' &&
+			cd '%s' &&
+			git config user.name "%s" &&
+			git config user.email "%s"
+		fi
+	`, escapedID, escapedID, cloneURL, escapedID, escapedID,
+		gitUserName, gitUserEmail)
+}
+
+// buildCheckCommand builds the command to check if repository exists
+func (i *IPythonService) buildCheckCommand(repoID string) string {
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
+
+	return fmt.Sprintf(`
+		cd /home/jovyan/work && 
+		[ -d '%s/.git' ] && echo "exists" || echo "not-exists"
+	`, escapedID)
+}
+
+// buildUpdateCommand builds the git pull command
+func (i *IPythonService) buildUpdateCommand(repoID string) string {
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
+
+	return fmt.Sprintf(`
+		cd /home/jovyan/work/%s &&
+		git stash save "Auto-stash before update" &&
+		git fetch origin &&
+		git pull origin $(git symbolic-ref --short HEAD 2>/dev/null || echo 'master') &&
+		git stash pop || true
+	`, escapedID)
+}
+
+// buildRemoveCommand builds the rm command
+func (i *IPythonService) buildRemoveCommand(repoID string) string {
+	escapedID := strings.ReplaceAll(repoID, "'", "'\\''")
+	return fmt.Sprintf(`rm -rf '/home/jovyan/work/%s'`, escapedID)
 }

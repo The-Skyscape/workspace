@@ -59,11 +59,16 @@ func (v *VaultService) Init() error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	// Check if already running
-	if v.IsRunning() {
+	// Check if service already exists and is running
+	existing := containers.Local().Service(v.config.ContainerName)
+	if existing != nil && existing.IsRunning() {
 		log.Println("Vault service already running")
+		v.service = existing
 		return nil
 	}
+	
+	// Start the service
+	log.Println("Initializing Vault service...")
 
 	// Create the service configuration
 	host := containers.Local()

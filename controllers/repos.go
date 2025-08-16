@@ -231,6 +231,12 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 		log.Printf("ERROR: Failed to clone repository %s to Code Server: %v", repo.ID, err)
 	}
 
+	// Also clone to IPython/Jupyter workspace for data science work
+	// Don't fail repository creation if this doesn't work
+	if err := services.IPython.CloneRepository(repo, user); err != nil {
+		log.Printf("ERROR: Failed to clone repository %s to Jupyter workspace: %v", repo.ID, err)
+	}
+
 	// Log activity
 	models.LogActivity("repo_created", fmt.Sprintf("Created repository %s", name),
 		fmt.Sprintf("Repository %s was created", name),
@@ -315,6 +321,11 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		c.RenderError(w, r, err)
 		return
+	}
+
+	// Also remove from IPython/Jupyter workspace (best effort, don't fail on error)
+	if err := services.IPython.RemoveRepository(repo.ID); err != nil {
+		log.Printf("WARNING: Failed to remove repository %s from Jupyter workspace: %v", repo.ID, err)
 	}
 
 	// Log activity

@@ -2,13 +2,15 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
-	"github.com/The-Skyscape/devtools/pkg/containers"
 )
 
 // IPython is a factory function that returns the URL prefix and controller instance.
@@ -28,8 +30,9 @@ func (c *IPythonController) Setup(app *application.App) {
 	auth := app.Use("auth").(*authentication.Controller)
 	
 	// Register IPython/Jupyter proxy handler (admin only)
-	http.Handle("/ipython/", http.StripPrefix("/ipython/", 
-		auth.ProtectFunc(c.proxyToJupyter, true)))
+	// Don't strip prefix - Jupyter is configured with base_url=/ipython/
+	// The trailing slash makes this a catch-all for /ipython/* paths
+	http.Handle("/ipython/", auth.ProtectFunc(c.proxyToJupyter, true))
 
 	// Initialize the IPython service on startup in background
 	go func() {
@@ -52,13 +55,17 @@ func (c *IPythonController) proxyToJupyter(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Path is already stripped by http.StripPrefix
-	service := &containers.Service{
-		Host: containers.Local(),
-		Name: "skyscape-ipython",
+	// Create reverse proxy
+	target, err := url.Parse(fmt.Sprintf("http://localhost:%d", services.IPython.GetPort()))
+	if err != nil {
+		c.Render(w, r, "error-message.html", errors.New("failed to create proxy"))
+		return
 	}
 	
-	proxy := service.Proxy(services.IPython.GetPort())
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	
+	// Jupyter is configured with base_url=/ipython/ and expects the full path
+	// The request path already includes /ipython/ prefix since we don't strip it
 	proxy.ServeHTTP(w, r)
 }
 
