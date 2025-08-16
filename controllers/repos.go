@@ -299,6 +299,12 @@ func (c *ReposController) IsMarkdown(filename string) bool {
 	return ext == ".md" || ext == ".markdown" || ext == ".mdown" || ext == ".mkd"
 }
 
+// IsNotebook checks if a filename is a Jupyter notebook file
+func (c *ReposController) IsNotebook(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	return ext == ".ipynb"
+}
+
 // deleteRepository handles POST /repos/{id}/delete
 func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Request) {
 	repo, err := c.getCurrentRepoFromRequest(r)

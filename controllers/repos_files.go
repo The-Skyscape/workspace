@@ -453,6 +453,7 @@ func getLanguageFromExtension(ext string) string {
 		".vue":    "vue",
 		".jsx":    "javascript",
 		".tsx":    "typescript",
+		".ipynb":  "jupyter",
 	}
 
 	if lang, ok := languages[strings.ToLower(ext)]; ok {

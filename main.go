@@ -36,6 +36,7 @@ func main() {
 		application.WithController(controllers.Coder()),
 		application.WithController(controllers.IPython()),
 		application.WithController(controllers.Markdown()),
+		application.WithController(controllers.Notebook()),
 		application.WithController(controllers.Public()),
 		application.WithController(controllers.Settings()),
 		application.WithController(controllers.Monitoring()),
