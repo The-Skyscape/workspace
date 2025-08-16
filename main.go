@@ -34,11 +34,9 @@ func main() {
 		application.WithController(controllers.Actions()),
 		application.WithController(controllers.Integrations()),
 		application.WithController(controllers.Workspaces()),
-		application.WithController(controllers.Public()),
 		application.WithController(controllers.Settings()),
 		application.WithController(controllers.Monitoring()),
 		application.WithController(controllers.Users()),
-		application.WithController(controllers.Git()),
 		application.WithHostPrefix(cmp.Or(os.Getenv("PREFIX"), "")),
 		application.WithDaisyTheme(theme),
 	)

@@ -23,7 +23,7 @@ type MonitoringController struct {
 	
 	// Container monitoring state
 	containers             []monitoring.ContainerStats
-	containersMu           sync.RWMutex
+	containersMu           *sync.RWMutex
 	containerUpdateInterval time.Duration
 	stopContainerMonitor   chan struct{}
 }
@@ -32,6 +32,7 @@ type MonitoringController struct {
 func Monitoring() (string, *MonitoringController) {
 	return "monitoring", &MonitoringController{
 		collector:               monitoring.NewCollector(false, 100), // Don't include containers in main collector
+		containersMu:            &sync.RWMutex{},
 		containerUpdateInterval: 15 * time.Second,
 		stopContainerMonitor:    make(chan struct{}),
 	}

@@ -33,6 +33,13 @@ func (c *ReposController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 	auth := app.Use("auth").(*authentication.Controller)
 
+	// Initialize Git server for HTTP clone/push/pull operations
+	gitServer := c.InitGitServer(auth)
+	
+	// Register Git HTTP endpoints
+	// These handle git clone, push, pull operations
+	http.Handle("/repo/", http.StripPrefix("/repo/", gitServer))
+
 	// Repository browsing/reading
 	http.Handle("GET /repos", app.Serve("repos-list.html", auth.Required))
 	http.Handle("GET /repos/search", app.ProtectFunc(c.searchRepositories, auth.Required))
