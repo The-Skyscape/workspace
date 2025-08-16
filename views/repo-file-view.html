@@ -173,13 +173,13 @@
         {{if repos.IsNotebook .Name}}
         <!-- Jupyter Notebook Content -->
         <div class="p-6">
-          {{notebook.RenderNotebook .Content}}
+          {{repos.RenderNotebook .Content}}
         </div>
         {{else if repos.IsMarkdown .Name}}
         <!-- Markdown Content -->
         <div class="p-6">
           <div class="prose prose-lg max-w-none">
-            {{markdown.RenderMarkdown .Content}}
+            {{repos.RenderMarkdown .Content}}
           </div>
         </div>
         {{else}}
