@@ -2,40 +2,7 @@
 <div class="flex flex-col gap-4" hx-boost="true">
   {{range .}}
   <a href="{{host}}/repos/{{.ID}}" class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer block hover:no-underline">
-    <div class="card-body p-4">
-        <div class="flex items-center gap-3">
-          <!-- Avatar -->
-          <div class="avatar avatar-placeholder flex-shrink-0">
-            <div class="bg-primary text-primary-content rounded w-14 h-14">
-              <span class="text-lg font-bold">{{printf "%.2s" .Name}}</span>
-            </div>
-          </div>
-          
-          <!-- Repository Info -->
-          <div class="flex-1">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <h3 class="font-semibold text-lg lg:min-w-48">{{.Name}}</h3>
-                  {{if eq .Visibility "private"}}
-                  <div class="badge badge-neutral badge-sm">Private</div>
-                  {{else}}
-                  <div class="badge badge-success badge-sm">Public</div>
-                  {{end}}
-                </div>
-                <p class="text-base-content/70 text-sm mt-1">
-                  {{if .Description}}{{.Description}}{{else}}No description provided{{end}}
-                </p>
-              </div>
-              
-              <!-- Chevron -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/30 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
+    {{template "repo-card" .}}
   </a>
   {{else}}
   <!-- No Repositories Found -->

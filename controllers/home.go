@@ -84,21 +84,30 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
-		// Not authenticated - show public repos
-		repos, err := models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20", "public")
+		// Not authenticated - show public repos with pagination support
+		offsetStr := c.Request.URL.Query().Get("offset")
+		offset := 0
+		if offsetStr != "" {
+			if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+				offset = parsed
+			}
+		}
+		
+		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
+		repos, err := models.Repositories.Search(query, "public")
 		if err != nil {
 			return nil, nil
 		}
 		return repos, nil
 	}
 
-	// Admins see all repositories
+	// Logged in users see only 10 repos on dashboard
 	if user.IsAdmin {
-		return models.Repositories.Search("ORDER BY UpdatedAt DESC LIMIT 20")
+		return models.Repositories.Search("ORDER BY UpdatedAt DESC LIMIT 10")
 	}
 
-	// Non-admins see only public repositories
-	return models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20", "public")
+	// Non-admins see only public repositories (limited to 10)
+	return models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 10", "public")
 }
 
 
@@ -185,6 +194,41 @@ func (c *HomeController) NextReposOffset() int {
 func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 	// Get all public repositories (no authentication required)
 	return models.Repositories.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
+}
+
+// HasMorePublicRepos checks if there are more public repos for logged out users
+func (c *HomeController) HasMorePublicRepos() bool {
+	auth := c.Use("auth").(*authentication.Controller)
+	_, _, err := auth.Authenticate(c.Request)
+	if err == nil {
+		// User is logged in, no pagination needed
+		return false
+	}
+	
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	
+	// Check if there are more public repos after current offset
+	query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 1 OFFSET %d", offset + 20)
+	repos, _ := models.Repositories.Search(query, "public")
+	return len(repos) > 0
+}
+
+// NextPublicReposOffset returns the offset for the next page of public repos
+func (c *HomeController) NextPublicReposOffset() int {
+	offsetStr := c.Request.URL.Query().Get("offset")
+	offset := 0
+	if offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
+			offset = parsed
+		}
+	}
+	return offset + 20
 }
 
 // AdminProfile returns the admin user's profile information for the homepage

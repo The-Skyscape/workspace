@@ -20,21 +20,8 @@
         </div>
       </div>
       
-      <!-- My Repositories Card -->
-      <div class="card bg-base-100 shadow-sm border border-base-300">
-        <div class="card-body" hx-boost="true">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="card-title">My Repositories</h2>
-            <a href="{{host}}/repos" class="btn btn-ghost btn-sm text-info">
-              View all
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </a>
-          </div>
-          {{template "home-repo-list.html" .}}
-        </div>
-      </div>
+      <!-- Repository List -->
+      {{template "home-repo-list.html" .}}
     </div>
 
     <!-- Right Column: Quick Actions + Recent Activity -->

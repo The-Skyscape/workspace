@@ -23,20 +23,17 @@
   </div>
   {{end}}
   
-  <!-- Infinite scroll trigger if we have exactly 20 repos (initial load limit) -->
-  {{if eq (len home.UserRepos) 20}}
-  <div id="scroll-trigger-20"
-       hx-get="/repos/more?offset=20" 
-       hx-trigger="revealed"
-       hx-swap="afterend"
-       hx-indicator="#loading-spinner-20"
-       class="w-full py-4">
-    <div id="loading-spinner-20" class="htmx-indicator">
-      <div class="flex justify-center items-center gap-2 text-base-content/60">
-        <span class="loading loading-spinner loading-sm"></span>
-        <span class="text-sm">Loading more repositories...</span>
-      </div>
+  <!-- Pagination for logged out users viewing public repos -->
+  {{if not auth.CurrentUser}}
+    {{if home.HasMorePublicRepos}}
+    <div id="public-repos-pagination" class="flex justify-center mt-6">
+      <a href="{{host}}/?offset={{home.NextPublicReposOffset}}" class="btn btn-outline">
+        Load More Repositories
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7 7" />
+        </svg>
+      </a>
     </div>
-  </div>
+    {{end}}
   {{end}}
 </div>
