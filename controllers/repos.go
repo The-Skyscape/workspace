@@ -131,6 +131,21 @@ func (c *ReposController) CanCreateRepo() bool {
 	return c.IsAdmin()
 }
 
+// HostURL returns the full URL with protocol and host for the current request
+func (c *ReposController) HostURL() string {
+	if c.Request == nil {
+		return "https://test.theskyscape.com"
+	}
+	
+	// Build the URL from the request
+	scheme := "http"
+	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	
+	return fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+}
+
 // RepoActivities returns recent activities for the current repository
 // Limit is determined by the current page context (activity page vs dashboard)
 func (c *ReposController) RepoActivities() ([]*models.Activity, error) {

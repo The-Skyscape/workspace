@@ -43,6 +43,12 @@ func (c *IntegrationsController) Setup(app *application.App) {
 }
 
 
+// CurrentRepo returns the current repository from the request
+func (c *IntegrationsController) CurrentRepo() (*models.Repository, error) {
+	reposController := c.Use("repos").(*ReposController)
+	return reposController.CurrentRepo()
+}
+
 // setupGitHub handles GitHub integration setup
 func (c *IntegrationsController) setupGitHub(w http.ResponseWriter, r *http.Request) {
 	// Admin access already verified by route middleware

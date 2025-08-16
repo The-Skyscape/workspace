@@ -179,6 +179,24 @@ func (c *ReposController) CurrentBranch() string {
 	return strings.TrimSpace(string(output))
 }
 
+// RepoCommitCount returns the total number of commits in the current branch
+func (c *ReposController) RepoCommitCount() int {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return 0
+	}
+
+	// Get the current branch (default to repo's default branch)
+	branch := c.CurrentBranch()
+
+	count, err := repo.GetCommitCount(branch)
+	if err != nil {
+		return 0
+	}
+
+	return count
+}
+
 // importRepository handles importing an existing Git repository
 func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Request) {
 	// Parse form data

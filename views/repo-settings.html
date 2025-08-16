@@ -76,7 +76,7 @@
           <div class="flex justify-between">
             <span class="text-base-content/70">Clone URL</span>
             <button class="btn btn-ghost btn-xs"
-                    _="on click writeText('git clone {{host}}/repo/{{.ID}}.git') to navigator.clipboard">
+                    _="on click writeText('git clone {{repos.HostURL}}/repo/{{.ID}}') to navigator.clipboard">
               Copy
             </button>
           </div>

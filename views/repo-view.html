@@ -28,7 +28,7 @@
         <h2 class="card-title">Getting Started</h2>
         
         <div class="mockup-code mb-4">
-          <pre data-prefix="$"><code>git clone {{host}}/repo/{{.ID}}.git</code></pre>
+          <pre data-prefix="$"><code>git clone {{repos.HostURL}}/repo/{{.ID}}</code></pre>
           <pre data-prefix=">" class="text-warning"><code>Cloning into '{{.Name}}'...</code></pre>
           <pre data-prefix=">" class="text-success"><code>done.</code></pre>
         </div>
@@ -39,7 +39,7 @@
         
         <p class="text-sm text-base-content/60">Push an existing repository from the command line:</p>
         <div class="mockup-code">
-          <pre data-prefix="$"><code>git remote add origin {{host}}/repo/{{.ID}}.git</code></pre>
+          <pre data-prefix="$"><code>git remote add origin {{repos.HostURL}}/repo/{{.ID}}</code></pre>
           <pre data-prefix="$"><code>git branch -M master</code></pre>
           <pre data-prefix="$"><code>git push -u origin master</code></pre>
         </div>
