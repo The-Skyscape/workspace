@@ -34,6 +34,7 @@ func main() {
 		application.WithController(controllers.Actions()),
 		application.WithController(controllers.Integrations()),
 		application.WithController(controllers.Coder()),
+		application.WithController(controllers.IPython()),
 		application.WithController(controllers.Markdown()),
 		application.WithController(controllers.Public()),
 		application.WithController(controllers.Settings()),

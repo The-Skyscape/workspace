@@ -55,13 +55,6 @@ func (c *HomeController) Setup(app *application.App) {
 			log.Printf("Warning: Failed to initialize Vault service: %v", err)
 		}
 	}()
-	
-	// Initialize IPython/Jupyter service on startup in background
-	go func() {
-		if err := services.IPython.Init(); err != nil {
-			log.Printf("Warning: Failed to initialize IPython service: %v", err)
-		}
-	}()
 }
 
 // Handle is called when each request is handled

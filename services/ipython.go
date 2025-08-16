@@ -166,14 +166,12 @@ func (i *IPythonService) Stop() error {
 func (i *IPythonService) IsRunning() bool {
 	if i.service == nil {
 		// Check if container exists from a previous run
-		host := containers.Local()
-		service := &containers.Service{
-			Host: host,
-			Name: i.config.ContainerName,
+		existing := containers.Local().Service(i.config.ContainerName)
+		if existing != nil {
+			i.service = existing
 		}
-		return service.IsRunning()
 	}
-	return i.service.IsRunning()
+	return i.service != nil && i.service.IsRunning()
 }
 
 // Restart restarts the IPython service
@@ -185,11 +183,11 @@ func (i *IPythonService) Restart() error {
 }
 
 // GetStatus returns the current status of the IPython service
-func (i *IPythonService) GetStatus() IPythonStatus {
+func (i *IPythonService) GetStatus() *IPythonStatus {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 
-	status := IPythonStatus{
+	status := &IPythonStatus{
 		Running:      i.IsRunning(),
 		Port:         i.config.Port,
 		URL:          fmt.Sprintf("http://localhost:%d", i.config.Port),
@@ -204,6 +202,14 @@ func (i *IPythonService) GetStatus() IPythonStatus {
 	}
 
 	return status
+}
+
+// GetPort returns the port the service is running on
+func (i *IPythonService) GetPort() int {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	
+	return i.config.Port
 }
 
 // GetConfig returns the current configuration
