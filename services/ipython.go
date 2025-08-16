@@ -83,6 +83,13 @@ func (i *IPythonService) Init() error {
 	if err := os.MkdirAll(i.config.NotebooksDir, 0777); err != nil {
 		return errors.Wrap(err, "failed to create notebooks directory")
 	}
+	
+	// Change ownership to Jupyter user (UID 1000, GID 100)
+	// This is required because Jupyter runs as jovyan user, not root
+	if err := os.Chown(i.config.NotebooksDir, 1000, 100); err != nil {
+		log.Printf("Warning: Failed to change ownership of notebooks directory: %v", err)
+		// Don't fail here as it might work anyway if permissions are already correct
+	}
 
 	// Create the service configuration
 	host := containers.Local()
