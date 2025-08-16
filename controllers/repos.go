@@ -244,10 +244,7 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 		log.Printf("ERROR: Failed to clone repository %s to Jupyter workspace: %v", repo.ID, err)
 	}
 
-	// Log activity
-	models.LogActivity("repo_created", fmt.Sprintf("Created repository %s", name),
-		fmt.Sprintf("Repository %s was created", name),
-		user.ID, repo.ID, "repository", "")
+	// Activity is already logged in models.CreateRepository()
 
 	// Redirect to new repository
 	c.Redirect(w, r, fmt.Sprintf("/repos/%s", repo.ID))
