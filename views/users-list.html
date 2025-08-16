@@ -20,8 +20,8 @@
     <div class="lg:col-span-2">
 
   <!-- Stats Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="stat bg-base-100 shadow-sm border border-base-300 rounded-box">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="stat bg-base-100 shadow-lg border border-base-300 rounded-box">
       <div class="stat-figure text-primary">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -29,9 +29,10 @@
       </div>
       <div class="stat-title">Total Users</div>
       <div class="stat-value">{{len users.GetAllUsers}}</div>
+      <div class="stat-desc">All registered users</div>
     </div>
 
-    <div class="stat bg-base-100 shadow-sm border border-base-300 rounded-box">
+    <div class="stat bg-base-100 shadow-lg border border-base-300 rounded-box">
       <div class="stat-figure text-success">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -39,21 +40,12 @@
       </div>
       <div class="stat-title">Admins</div>
       <div class="stat-value">{{users.GetAdminCount}}</div>
-    </div>
-
-    <div class="stat bg-base-100 shadow-sm border border-base-300 rounded-box">
-      <div class="stat-figure text-info">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-      </div>
-      <div class="stat-title">Developers</div>
-      <div class="stat-value">{{users.GetDeveloperCount}}</div>
+      <div class="stat-desc">Can manage repositories and settings</div>
     </div>
   </div>
 
   <!-- Users Table -->
-  <div class="card bg-base-100 shadow-sm border border-base-300">
+  <div class="card bg-base-100 shadow-lg border border-base-300">
     <div class="card-body p-0">
       <div class="overflow-x-auto">
         <table class="table">
@@ -86,12 +78,8 @@
               <td>
                 {{if .IsAdmin}}
                   <span class="badge badge-primary">Admin</span>
-                {{else if eq .Role "developer"}}
-                  <span class="badge badge-secondary">Developer</span>
-                {{else if eq .Role "guest"}}
-                  <span class="badge badge-outline">Guest</span>
                 {{else}}
-                  <span class="badge">Unknown</span>
+                  <span class="badge badge-outline">Guest</span>
                 {{end}}
               </td>
               <td>
@@ -99,29 +87,30 @@
               </td>
               <td>
                 <div class="flex gap-2">
-                  <button class="btn btn-ghost btn-sm" _="on click call edit_user_{{.ID}}_modal.showModal()">
+                  <label for="edit_user_{{.ID}}_modal" class="btn btn-ghost btn-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Edit
-                  </button>
+                  </label>
                   {{if not .IsAdmin}}
-                  {{if eq .Role "guest"}}
-                  <form hx-post="{{host}}/settings/users/{{.ID}}/enable" hx-target="body" hx-swap="outerHTML" class="inline">
-                    <button type="submit" class="btn btn-success btn-sm">Enable</button>
+                  <form hx-post="{{host}}/settings/users/{{.ID}}/role" hx-target="body" hx-swap="outerHTML" class="inline">
+                    <input type="hidden" name="make_admin" value="true">
+                    <button type="submit" class="btn btn-primary btn-sm">Make Admin</button>
                   </form>
-                  {{else}}
-                  <form hx-post="{{host}}/settings/users/{{.ID}}/disable" hx-target="body" hx-swap="outerHTML" class="inline">
-                    <button type="submit" class="btn btn-error btn-sm">Disable</button>
+                  {{else if ne auth.CurrentUser.ID .ID}}
+                  <form hx-post="{{host}}/settings/users/{{.ID}}/role" hx-target="body" hx-swap="outerHTML" class="inline">
+                    <input type="hidden" name="make_admin" value="false">
+                    <button type="submit" class="btn btn-outline btn-sm">Remove Admin</button>
                   </form>
-                  {{end}}
                   {{end}}
                 </div>
               </td>
             </tr>
 
             <!-- Edit User Modal -->
-            <dialog id="edit_user_{{.ID}}_modal" class="modal">
+            <input type="checkbox" id="edit_user_{{.ID}}_modal" class="modal-toggle" />
+            <div class="modal" role="dialog">
               <div class="modal-box max-w-2xl">
                 <h3 class="font-bold text-lg mb-4">Edit User: {{.Name}}</h3>
                 
@@ -141,33 +130,41 @@
                   </div>
                 </div>
 
-                <!-- Role Selection -->
+                <!-- Admin Status -->
+                <div class="form-control mb-4">
+                  <label class="label">
+                    <span class="label-text">Admin Status</span>
+                  </label>
+                  <div class="flex items-center gap-4">
+                    {{if .IsAdmin}}
+                      <span class="badge badge-primary badge-lg">Admin User</span>
+                    {{else}}
+                      <span class="badge badge-outline badge-lg">Guest User</span>
+                    {{end}}
+                  </div>
+                  <label class="label">
+                    <span class="label-text-alt">Admins can create repositories, access IDEs, and manage settings</span>
+                  </label>
+                </div>
+                
+                {{if ne auth.CurrentUser.ID .ID}}
                 <form hx-post="{{host}}/settings/users/{{.ID}}/role" hx-target="body" hx-swap="outerHTML">
-                  <div class="form-control mb-4">
-                    <label class="label">
-                      <span class="label-text">User Role</span>
-                    </label>
-                    <select name="role" class="select select-bordered">
-                      <option value="admin" {{if or .IsAdmin (eq .Role "admin")}}selected{{end}}>Admin - Full system access</option>
-                      <option value="developer" {{if eq .Role "developer"}}selected{{end}}>Developer - Standard access</option>
-                      <option value="guest" {{if eq .Role "guest"}}selected{{end}}>Guest - Read only</option>
-                    </select>
-                    <label class="label">
-                      <span class="label-text-alt">Admins can create repositories and manage all content</span>
-                    </label>
-                  </div>
-                  
-                  {{if ne auth.CurrentUser.ID .ID}}
-                  <button type="submit" class="btn btn-primary">Update Role</button>
+                  {{if .IsAdmin}}
+                  <input type="hidden" name="make_admin" value="false">
+                  <button type="submit" class="btn btn-outline">Remove Admin Rights</button>
                   {{else}}
-                  <div class="alert alert-warning">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span>You cannot change your own role</span>
-                  </div>
+                  <input type="hidden" name="make_admin" value="true">
+                  <button type="submit" class="btn btn-primary">Grant Admin Rights</button>
                   {{end}}
                 </form>
+                {{else}}
+                <div class="alert alert-warning">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>You cannot change your own admin status</span>
+                </div>
+                {{end}}
 
                 <div class="divider"></div>
 
@@ -218,15 +215,11 @@
                 </div>
 
                 <div class="modal-action">
-                  <form method="dialog">
-                    <button class="btn">Close</button>
-                  </form>
+                  <label for="edit_user_{{.ID}}_modal" class="btn">Close</label>
                 </div>
               </div>
-              <form method="dialog" class="modal-backdrop">
-                <button>close</button>
-              </form>
-            </dialog>
+              <label class="modal-backdrop" for="edit_user_{{.ID}}_modal">Close</label>
+            </div>
             {{end}}
           </tbody>
         </table>

@@ -43,9 +43,9 @@ func (c *GitController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for the current request
-func (c *GitController) Handle(req *http.Request) application.Controller {
+func (c GitController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // initGitServer initializes the gitkit server with authentication

@@ -58,9 +58,9 @@ func (c *HomeController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (c *HomeController) Handle(req *http.Request) application.Controller {
+func (c HomeController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // AppName returns the application name for templates

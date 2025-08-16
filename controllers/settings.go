@@ -2,18 +2,22 @@ package controllers
 
 import (
 	"cmp"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
+	"github.com/The-Skyscape/devtools/pkg/database"
 	"workspace/models"
 )
 
 type SettingsController struct {
 	application.BaseController
-	Request *http.Request
-	App     *application.App
 }
 
 func Settings() (string, *SettingsController) {
@@ -21,7 +25,6 @@ func Settings() (string, *SettingsController) {
 }
 
 func (s *SettingsController) Setup(app *application.App) {
-	s.App = app
 	s.BaseController.Setup(app)
 	auth := app.Use("auth").(*authentication.Controller)
 
@@ -40,8 +43,8 @@ func (s *SettingsController) Setup(app *application.App) {
 			return false
 		}
 		if !user.IsAdmin {
-			// Non-admins get redirected to profile page
-			s.Redirect(w, r, "/settings/profile")
+			// Non-admins get redirected to account page
+			s.Redirect(w, r, "/settings/account")
 			return false
 		}
 		return true
@@ -52,14 +55,23 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, adminRequired))
 	http.Handle("POST /settings/theme", app.ProtectFunc(s.updateTheme, adminRequired))
 	
-	// Profile settings - GET is for all authenticated users, POST is admin only
-	http.Handle("GET /settings/profile", app.Serve("settings-profile.html", auth.Required))
-	http.Handle("POST /settings/profile", app.ProtectFunc(s.updateProfile, adminRequired))
+	// User Account settings - for individual users
+	http.Handle("GET /settings/account", app.Serve("settings-account.html", auth.Required))
+	http.Handle("POST /settings/account", app.ProtectFunc(s.updateAccount, auth.Required))
+	http.Handle("POST /settings/account/password", app.ProtectFunc(s.updatePassword, auth.Required))
+	http.Handle("POST /settings/account/avatar", app.ProtectFunc(s.uploadAvatar, auth.Required))
+	
+	// Serve avatar images
+	http.HandleFunc("GET /avatar/{filename}", s.serveAvatar)
+	
+	// Workspace Profile settings - GET is for all authenticated users, POST is admin only
+	http.Handle("GET /settings/workspace", app.Serve("settings-workspace.html", auth.Required))
+	http.Handle("POST /settings/workspace", app.ProtectFunc(s.updateWorkspace, adminRequired))
 }
 
-func (s *SettingsController) Handle(req *http.Request) application.Controller {
+func (s SettingsController) Handle(req *http.Request) application.Controller {
 	s.Request = req
-	return s
+	return &s
 }
 
 
@@ -183,8 +195,200 @@ func (s *SettingsController) GetProfile() (*models.Profile, error) {
 	return models.GetAdminProfile()
 }
 
-// updateProfile handles profile settings form submission
-func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Request) {
+// GetWorkspace returns the workspace profile for settings page
+func (s *SettingsController) GetWorkspace() (*models.Profile, error) {
+	return models.GetAdminProfile()
+}
+
+// updateAccount handles user account settings form submission
+func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Request) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "authentication required")
+		return
+	}
+
+	// Parse form to get values
+	if err := r.ParseForm(); err != nil {
+		s.RenderError(w, r, err)
+		return
+	}
+
+	// Update user fields that are present
+	if r.Form.Has("name") {
+		user.Name = r.FormValue("name")
+	}
+	if r.Form.Has("email") {
+		user.Email = r.FormValue("email")
+	}
+	if r.Form.Has("handle") {
+		user.Handle = r.FormValue("handle")
+	}
+	if r.Form.Has("avatar") {
+		user.Avatar = r.FormValue("avatar")
+	}
+
+	// Save user updates
+	err = auth.Users.Update(user)
+	if err != nil {
+		s.RenderError(w, r, err)
+		return
+	}
+
+	// Log activity
+	models.LogActivity("account_updated", "Updated account settings",
+		"User updated their account settings", user.ID, "", "account", "")
+
+	// For HTMX requests, return success
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// updatePassword handles password change requests
+func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Request) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "authentication required")
+		return
+	}
+
+	currentPassword := r.FormValue("current_password")
+	newPassword := r.FormValue("new_password")
+	confirmPassword := r.FormValue("confirm_password")
+
+	// Validate passwords match
+	if newPassword != confirmPassword {
+		s.RenderErrorMsg(w, r, "passwords do not match")
+		return
+	}
+
+	// Verify current password
+	if !user.VerifyPassword(currentPassword) {
+		s.RenderErrorMsg(w, r, "current password is incorrect")
+		return
+	}
+
+	// Update password
+	err = user.SetupPassword(newPassword)
+	if err != nil {
+		s.RenderError(w, r, err)
+		return
+	}
+
+	// Save user
+	err = auth.Users.Update(user)
+	if err != nil {
+		s.RenderError(w, r, err)
+		return
+	}
+
+	// Log activity
+	models.LogActivity("password_changed", "Changed password",
+		"User changed their password", user.ID, "", "account", "")
+
+	// Redirect to account page with success message
+	s.Redirect(w, r, "/settings/account")
+}
+
+// uploadAvatar handles avatar image upload
+func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "authentication required")
+		return
+	}
+
+	// Parse multipart form (max 10MB)
+	err = r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "failed to parse upload")
+		return
+	}
+
+	// Get the uploaded file
+	file, handler, err := r.FormFile("avatar")
+	if err != nil {
+		s.RenderErrorMsg(w, r, "no file uploaded")
+		return
+	}
+	defer file.Close()
+
+	// Validate file type
+	contentType := handler.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		s.RenderErrorMsg(w, r, "file must be an image")
+		return
+	}
+
+	// Create avatars directory
+	avatarDir := filepath.Join(database.DataDir(), "avatars")
+	os.MkdirAll(avatarDir, 0755)
+
+	// Generate filename based on user ID and file extension
+	ext := filepath.Ext(handler.Filename)
+	if ext == "" {
+		// Default to .jpg if no extension
+		ext = ".jpg"
+	}
+	filename := fmt.Sprintf("%s%s", user.ID, ext)
+	filePath := filepath.Join(avatarDir, filename)
+
+	// Create the destination file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "failed to save avatar")
+		return
+	}
+	defer dst.Close()
+
+	// Copy the uploaded file to the destination
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "failed to save avatar")
+		return
+	}
+
+	// Update user's avatar URL to internal path
+	user.Avatar = fmt.Sprintf("/avatar/%s", filename)
+	err = auth.Users.Update(user)
+	if err != nil {
+		s.RenderErrorMsg(w, r, "failed to update profile")
+		return
+	}
+
+	// Log activity
+	models.LogActivity("avatar_uploaded", "Uploaded new avatar",
+		"User uploaded a new avatar image", user.ID, "", "account", "")
+
+	// Redirect back to account page
+	s.Redirect(w, r, "/settings/account")
+}
+
+// serveAvatar serves uploaded avatar images
+func (s *SettingsController) serveAvatar(w http.ResponseWriter, r *http.Request) {
+	filename := r.PathValue("filename")
+	if filename == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Build the full path to the avatar file
+	avatarPath := filepath.Join(database.DataDir(), "avatars", filename)
+	
+	// Check if file exists
+	if _, err := os.Stat(avatarPath); os.IsNotExist(err) {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Serve the file
+	http.ServeFile(w, r, avatarPath)
+}
+
+// updateWorkspace handles workspace profile settings form submission
+func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Request) {
 	auth := s.App.Use("auth").(*authentication.Controller)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -245,8 +449,8 @@ func (s *SettingsController) updateProfile(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Log activity
-	models.LogActivity("profile_updated", "Updated public profile", 
-		"Administrator updated public profile settings", user.ID, "", "profile", "")
+	models.LogActivity("workspace_updated", "Updated workspace profile", 
+		"Administrator updated workspace profile settings", user.ID, "", "workspace", "")
 
 	// For HTMX requests, just return success (204 No Content)
 	// This prevents unnecessary page refreshes

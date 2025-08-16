@@ -31,9 +31,9 @@ func (c *NotebookController) Setup(app *application.App) {
 }
 
 // Handle returns controller instance for request
-func (c *NotebookController) Handle(req *http.Request) application.Controller {
+func (c NotebookController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // Notebook represents a Jupyter notebook structure

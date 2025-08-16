@@ -83,8 +83,9 @@ func (m *MonitoringController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for each request
-func (m *MonitoringController) Handle(req *http.Request) application.Controller {
-	return m
+func (m MonitoringController) Handle(req *http.Request) application.Controller {
+	m.Request = req
+	return &m
 }
 
 // GetCurrentStats returns current system statistics for templates

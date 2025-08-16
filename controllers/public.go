@@ -38,9 +38,9 @@ func (c *PublicController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (c *PublicController) Handle(req *http.Request) application.Controller {
+func (c PublicController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // CurrentRepo returns the public repository from the URL path

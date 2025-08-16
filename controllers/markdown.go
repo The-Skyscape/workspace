@@ -32,9 +32,9 @@ func (c *MarkdownController) Setup(app *application.App) {
 }
 
 // Handle returns controller instance for request
-func (c *MarkdownController) Handle(req *http.Request) application.Controller {
+func (c MarkdownController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // RenderMarkdown converts markdown content to HTML using goldmark

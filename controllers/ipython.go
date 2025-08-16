@@ -43,9 +43,9 @@ func (c *IPythonController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (c *IPythonController) Handle(req *http.Request) application.Controller {
+func (c IPythonController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // proxyToJupyter handles requests to the Jupyter notebook instance

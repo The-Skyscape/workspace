@@ -40,9 +40,9 @@ func (c *CoderController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (c *CoderController) Handle(req *http.Request) application.Controller {
+func (c CoderController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // proxyToCodeServer handles requests to the code-server instance

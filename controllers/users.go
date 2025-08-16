@@ -11,8 +11,6 @@ import (
 
 type UsersController struct {
 	application.BaseController
-	Request *http.Request
-	App     *application.App
 }
 
 func Users() (string, *UsersController) {
@@ -20,7 +18,6 @@ func Users() (string, *UsersController) {
 }
 
 func (c *UsersController) Setup(app *application.App) {
-	c.App = app
 	c.BaseController.Setup(app)
 	auth := app.Use("auth").(*authentication.Controller)
 
@@ -46,9 +43,9 @@ func (c *UsersController) Setup(app *application.App) {
 	http.Handle("POST /settings/users/{id}/enable", app.ProtectFunc(c.enableUser, adminRequired))
 }
 
-func (c *UsersController) Handle(req *http.Request) application.Controller {
+func (c UsersController) Handle(req *http.Request) application.Controller {
 	c.Request = req
-	return c
+	return &c
 }
 
 // GetAllUsers returns all users for the users list
@@ -73,7 +70,13 @@ func (c *UsersController) GetAdminCount() int {
 	return count
 }
 
-// GetGuestCount returns the count of non-admin (guest) users
+// GetDeveloperCount returns the count of admin users (admins ARE developers)
+func (c *UsersController) GetDeveloperCount() int {
+	// This is the same as GetAdminCount since admins are developers
+	return c.GetAdminCount()
+}
+
+// GetGuestCount returns the count of non-admin users
 func (c *UsersController) GetGuestCount() int {
 	users, err := c.GetAllUsers()
 	if err != nil {
@@ -82,6 +85,7 @@ func (c *UsersController) GetGuestCount() int {
 	
 	count := 0
 	for _, user := range users {
+		// All non-admin users are guests
 		if !user.IsAdmin {
 			count++
 		}
