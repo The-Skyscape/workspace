@@ -39,11 +39,11 @@ func (c *UsersController) Setup(app *application.App) {
 	}
 
 	// User management pages (admin only)
-	http.Handle("GET /users", app.Serve("users-list.html", adminRequired))
-	http.Handle("GET /users/{id}", app.Serve("user-detail.html", adminRequired))
-	http.Handle("POST /users/{id}/role", app.ProtectFunc(c.updateUserRole, adminRequired))
-	http.Handle("POST /users/{id}/disable", app.ProtectFunc(c.disableUser, adminRequired))
-	http.Handle("POST /users/{id}/enable", app.ProtectFunc(c.enableUser, adminRequired))
+	http.Handle("GET /settings/users", app.Serve("users-list.html", adminRequired))
+	http.Handle("GET /settings/users/{id}", app.Serve("user-detail.html", adminRequired))
+	http.Handle("POST /settings/users/{id}/role", app.ProtectFunc(c.updateUserRole, adminRequired))
+	http.Handle("POST /settings/users/{id}/disable", app.ProtectFunc(c.disableUser, adminRequired))
+	http.Handle("POST /settings/users/{id}/enable", app.ProtectFunc(c.enableUser, adminRequired))
 }
 
 func (c *UsersController) Handle(req *http.Request) application.Controller {

@@ -21,9 +21,6 @@
                 <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52" hx-boost="true">
                     <li><a href="{{host}}/">Dashboard</a></li>
                     <li><a href="{{host}}/repos">Repositories</a></li>
-                    {{if auth.CurrentUser.IsAdmin}}
-                    <li><a href="{{host}}/settings/monitoring">Monitoring</a></li>
-                    {{end}}
                 </ul>
             </div>
             {{end}}
@@ -40,9 +37,6 @@
                 <ul class="menu menu-horizontal px-1 gap-1" hx-boost="true">
                     <li><a href="{{host}}/" {{if path_eq ""}}class="active"{{end}}>Dashboard</a></li>
                     <li><a href="{{host}}/repos" {{if path_eq "repos"}}class="active"{{end}}>Repositories</a></li>
-                    {{if auth.CurrentUser.IsAdmin}}
-                    <li><a href="{{host}}/settings/monitoring" {{if path_eq "settings" "monitoring"}}class="active"{{end}}>Monitoring</a></li>
-                    {{end}}
                 </ul>
             </div>
             {{end}}
