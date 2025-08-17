@@ -26,8 +26,10 @@
             </div>
           </div>
           
-          {{if .GitHubURL}}
-          <!-- Connected State -->
+          {{with github.CurrentUserGitHub}}
+          <!-- User has GitHub OAuth connected -->
+          {{if $repo.GitHubURL}}
+          <!-- Repository is connected to GitHub -->
           <div class="bg-success/10 border border-success/20 rounded-lg p-4 mb-4">
             <div class="flex items-center gap-2 mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,7 +90,7 @@
             </button>
           </div>
           {{else}}
-          <!-- Disconnected State -->
+          <!-- Repository not connected to GitHub -->
           <div class="bg-base-200 rounded-lg p-8 text-center">
             <svg class="w-16 h-16 mx-auto mb-4 text-base-content/30" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -96,12 +98,28 @@
             <h3 class="text-lg font-semibold mb-2">Not connected to GitHub</h3>
             <p class="text-base-content/70 mb-6">Connect your repository to GitHub to enable backup and collaboration features</p>
             <button class="btn btn-primary"
-                    _="on click call github_connect_modal.showModal()">
+                    _="on click call github_link_modal.showModal()">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
-              Connect to GitHub
+              Link to GitHub Repository
             </button>
+          </div>
+          {{end}}
+          {{else}}
+          <!-- User needs to connect GitHub OAuth first -->
+          <div class="bg-base-200 rounded-lg p-8 text-center">
+            <svg class="w-16 h-16 mx-auto mb-4 text-base-content/30" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            <h3 class="text-lg font-semibold mb-2">Connect GitHub Account First</h3>
+            <p class="text-base-content/70 mb-6">You need to connect your GitHub account before you can link repositories</p>
+            <a href="{{host}}/auth/github" class="btn btn-primary">
+              <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              Connect GitHub Account
+            </a>
           </div>
           {{end}}
         </div>
@@ -197,7 +215,7 @@
           <div class="flex flex-col gap-3">
             <div>
               <h4 class="font-semibold text-sm mb-1">GitHub Integration</h4>
-              <p class="text-xs text-base-content/70">Sync your repository with GitHub for version control and collaboration. Requires a personal access token with repo permissions.</p>
+              <p class="text-xs text-base-content/70">Sync your repository with GitHub for version control and collaboration. Uses secure OAuth authentication - no tokens needed.</p>
             </div>
             <div class="divider my-2"></div>
             <div>
@@ -213,41 +231,64 @@
   </div>
 </div>
 
-<!-- GitHub Connect Modal -->
-<dialog id="github_connect_modal" class="modal">
+<!-- GitHub Link Repository Modal -->
+<dialog id="github_link_modal" class="modal">
   <div class="modal-box">
-    <h3 class="text-2xl font-bold mb-6">Connect to GitHub</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/github/setup" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+    <h3 class="text-2xl font-bold mb-6">Link GitHub Repository</h3>
+    <form hx-post="{{host}}/repos/{{.ID}}/github/link" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
       
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">GitHub Repository URL</span>
-          <span class="label-text-alt text-xs">Required</span>
-        </div>
-        <input type="url" name="github_url" class="input input-bordered w-full" 
-               placeholder="https://github.com/username/repository" 
-               required />
-        <div class="label">
-          <span class="label-text-alt text-xs">Full URL to your GitHub repository</span>
-        </div>
-      </label>
+      <div class="alert alert-info mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span>Select an existing GitHub repository or create a new one</span>
+      </div>
 
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">Personal Access Token</span>
-          <span class="label-text-alt text-xs">Required</span>
+      <!-- Repository Selection -->
+      <div class="tabs tabs-boxed mb-4">
+        <input type="radio" name="link_mode" value="existing" class="hidden" id="link-existing" checked />
+        <label for="link-existing" class="tab tab-active"
+               _="on click 
+                  add .hidden to #create-github-fields
+                  remove .hidden from #select-github-fields
+                  remove .tab-active from .tab
+                  add .tab-active to me">
+          Select Existing
+        </label>
+        <input type="radio" name="link_mode" value="create" class="hidden" id="link-create" />
+        <label for="link-create" class="tab"
+               _="on click 
+                  add .hidden to #select-github-fields
+                  remove .hidden from #create-github-fields
+                  remove .tab-active from .tab
+                  add .tab-active to me">
+          Create New
+        </label>
+      </div>
+
+      <div id="select-github-fields">
+        <!-- GitHub repository picker loaded via HTMX -->
+        <div hx-get="/github/repos" 
+             hx-trigger="load" 
+             hx-target="this">
+          <div class="text-center py-4">
+            <span class="loading loading-spinner loading-sm"></span>
+            <p class="text-sm text-base-content/60 mt-2">Loading repositories...</p>
+          </div>
         </div>
-        <input type="password" name="github_token" class="input input-bordered w-full" 
-               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" 
-               required />
-        <div class="label">
-          <span class="label-text-alt text-xs">
-            <a href="https://github.com/settings/tokens/new" target="_blank" class="link link-primary">
-              Create a token with repo permissions
-            </a>
-          </span>
-        </div>
-      </label>
+      </div>
+
+      <div id="create-github-fields" class="hidden">
+        <label class="form-control w-full">
+          <div class="label">
+            <span class="label-text text-sm font-medium">Repository Name</span>
+            <span class="label-text-alt text-xs">Will be created on GitHub</span>
+          </div>
+          <input type="text" name="new_repo_name" class="input input-bordered w-full" 
+                 placeholder="my-repository" 
+                 pattern="[a-zA-Z0-9-_]+" />
+        </label>
+      </div>
 
       <label class="form-control w-full">
         <div class="label">
@@ -269,9 +310,9 @@
 
       <div class="modal-action mt-4">
         <button type="submit" class="btn btn-primary">
-          Connect to GitHub
+          Link Repository
         </button>
-        <button type="button" class="btn" _="on click call github_connect_modal.close()">Cancel</button>
+        <button type="button" class="btn" _="on click call github_link_modal.close()">Cancel</button>
       </div>
     </form>
   </div>
@@ -283,43 +324,34 @@
 <!-- GitHub Settings Modal -->
 <dialog id="github_settings_modal" class="modal">
   <div class="modal-box">
-    <h3 class="text-2xl font-bold mb-6">GitHub Settings</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/github/setup" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+    <h3 class="text-2xl font-bold mb-6">GitHub Sync Settings</h3>
+    <form hx-post="{{host}}/repos/{{$repo.ID}}/github/settings" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
       
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">GitHub Repository URL</span>
+      <div class="alert alert-info mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <div>
+          <div class="font-semibold">Connected Repository</div>
+          <a href="{{$repo.GitHubURL}}" target="_blank" class="link link-primary text-sm">{{$repo.GitHubURL}}</a>
         </div>
-        <input type="url" name="github_url" class="input input-bordered w-full" 
-               value="{{.GitHubURL}}"
-               placeholder="https://github.com/username/repository" 
-               required />
-      </label>
-
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">Personal Access Token</span>
-          <span class="label-text-alt text-xs">Leave blank to keep current token</span>
-        </div>
-        <input type="password" name="github_token" class="input input-bordered w-full" 
-               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
-      </label>
+      </div>
 
       <label class="form-control w-full">
         <div class="label">
           <span class="label-text text-sm font-medium">Sync Direction</span>
         </div>
         <select name="sync_direction" class="select select-bordered w-full">
-          <option value="push" {{if eq .SyncDirection "push"}}selected{{end}}>Push only - Send changes to GitHub</option>
-          <option value="pull" {{if eq .SyncDirection "pull"}}selected{{end}}>Pull only - Receive changes from GitHub</option>
-          <option value="both" {{if eq .SyncDirection "both"}}selected{{end}}>Bidirectional - Sync both ways</option>
+          <option value="push" {{if eq $repo.SyncDirection "push"}}selected{{end}}>Push only - Send changes to GitHub</option>
+          <option value="pull" {{if eq $repo.SyncDirection "pull"}}selected{{end}}>Pull only - Receive changes from GitHub</option>
+          <option value="both" {{if eq $repo.SyncDirection "both"}}selected{{end}}>Bidirectional - Sync both ways</option>
         </select>
       </label>
 
       <div class="form-control">
         <label class="label cursor-pointer">
           <span class="label-text">Enable automatic sync</span>
-          <input type="checkbox" name="auto_sync" value="true" class="checkbox checkbox-primary" {{if .AutoSync}}checked{{end}} />
+          <input type="checkbox" name="auto_sync" value="true" class="checkbox checkbox-primary" {{if $repo.AutoSync}}checked{{end}} />
         </label>
       </div>
 

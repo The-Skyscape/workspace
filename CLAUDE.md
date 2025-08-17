@@ -194,7 +194,7 @@ results, err := Models.Search("WHERE field = ?", value)
 
 ### Template Helpers
 ```go
-// Make data available to templates
+// Make data available to templates via controller methods
 func (c *Controller) PublicData() string {
     return "This is accessible as {{controller.PublicData}} in templates"
 }
@@ -203,6 +203,24 @@ func (c *Controller) PublicData() string {
 func (c *Controller) ComplexData() ([]Model, error) {
     return Models.All()
 }
+```
+
+### Important Template Rendering Patterns
+```go
+// CORRECT: Use Render with template name only (no path)
+c.Render(w, r, "template-name.html", nil)
+
+// CORRECT: Pass single values or nil
+c.Render(w, r, "error-message.html", "Error message here")
+c.RenderErrorMsg(w, r, "Error message")
+
+// WRONG: Don't use JSON-like structures
+// BAD: c.Render(w, r, "template.html", map[string]interface{}{"key": value})
+
+// CORRECT: Store data in controller for template access
+c.myData = fetchedData
+c.Render(w, r, "template.html", nil)
+// Then access in template via: {{controller.MyData}}
 ```
 
 ## Monitoring System

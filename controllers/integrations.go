@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"workspace/models"
+	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -34,6 +35,16 @@ func (c IntegrationsController) Handle(req *http.Request) application.Controller
 // Setup registers routes
 func (c *IntegrationsController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
+
+	// Initialize Vault service on startup
+	if err := services.Vault.Init(); err != nil {
+		log.Printf("Warning: Failed to initialize Vault service: %v", err)
+	}
+
+	// Initialize IPython/Jupyter service on startup
+	if err := services.IPython.Init(); err != nil {
+		log.Printf("Warning: Failed to initialize IPython service: %v", err)
+	}
 
 	// GitHub Integration - admin only
 	http.Handle("GET /repos/{id}/integrations", app.Serve("repo-integrations.html", AdminOnly()))

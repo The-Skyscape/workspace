@@ -3,6 +3,7 @@ package models
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,9 +178,12 @@ func CreateRepository(name, description, visibility, userID string) (*Repository
 		return nil, errors.Wrap(err, "failed to create repository record")
 	}
 
-	// Note: We don't need to create the git directory
-	// The gitkit server with AutoCreate=true will handle creating the bare repo
-	// when it's first accessed via git clone/push
+	// Ensure the Git repository directory exists
+	// This is especially important for GitHub imports where we immediately run Git commands
+	if err := repo.EnsureGitRepository(); err != nil {
+		// Log the error but don't fail - gitkit will create it on first access
+		log.Printf("Warning: Failed to initialize Git repository for %s: %v", repo.ID, err)
+	}
 
 	// Note: Repository cloning to Code Server is handled by the controller
 	// to avoid circular dependencies
@@ -194,6 +198,69 @@ func CreateRepository(name, description, visibility, userID string) (*Repository
 // Path returns the filesystem path for this repository
 func (r *Repository) Path() string {
 	return filepath.Join(database.DataDir(), "repos", r.ID)
+}
+
+// EnsureGitRepository ensures the Git repository directory exists and is initialized
+func (r *Repository) EnsureGitRepository() error {
+	repoPath := r.Path()
+	
+	// Check if directory exists
+	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
+		// Create directory
+		if err := os.MkdirAll(repoPath, 0755); err != nil {
+			return errors.Wrap(err, "failed to create repository directory")
+		}
+		
+		// Initialize as bare repository (matching gitkit's behavior)
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = repoPath
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(err, "failed to initialize git repository")
+		}
+		
+		log.Printf("Initialized bare Git repository at %s", repoPath)
+	}
+	
+	return nil
+}
+
+// CloneFromGitHub clones a GitHub repository as a bare repository with full history
+func (r *Repository) CloneFromGitHub(cloneURL string) error {
+	repoPath := r.Path()
+	
+	// Remove directory if it exists (to ensure clean clone)
+	if err := os.RemoveAll(repoPath); err != nil {
+		log.Printf("Warning: Failed to remove existing directory: %v", err)
+	}
+	
+	// Clone as bare repository directly
+	// This gets all branches, tags, and complete history
+	log.Printf("Cloning from GitHub: %s to %s", cloneURL, repoPath)
+	cmd := exec.Command("git", "clone", "--bare", cloneURL, repoPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return errors.Wrapf(err, "failed to clone from GitHub: %s", string(output))
+	}
+	
+	// Rename origin to github for consistency
+	// Note: git clone --bare doesn't set up remotes the same way as regular clone
+	// We need to update the config to have a proper remote
+	cmd = exec.Command("git", "config", "remote.github.url", cloneURL)
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		// Not critical, just log it
+		log.Printf("Warning: Failed to set GitHub remote URL: %v", err)
+	}
+	
+	// Set fetch refspec for the github remote
+	cmd = exec.Command("git", "config", "remote.github.fetch", "+refs/heads/*:refs/remotes/github/*")
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		log.Printf("Warning: Failed to set GitHub fetch refspec: %v", err)
+	}
+	
+	log.Printf("Successfully cloned repository from GitHub with full history")
+	return nil
 }
 
 // Git executes a git command in the repository directory

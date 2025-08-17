@@ -1,0 +1,14 @@
+<!-- GitHub Repository Picker Component (HTMX Version) -->
+<div id="github-repo-picker" 
+     hx-get="/github/repos" 
+     hx-trigger="load" 
+     hx-indicator="#github-loading">
+  
+  <!-- Loading State -->
+  <div id="github-loading" class="htmx-indicator text-center py-8">
+    <span class="loading loading-spinner loading-lg text-primary"></span>
+    <p class="mt-4 text-base-content/70">Loading your GitHub repositories...</p>
+  </div>
+  
+  <!-- Content will be loaded here via HTMX -->
+</div>

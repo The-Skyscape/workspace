@@ -6,7 +6,13 @@
     <!-- Tabs -->
     <div class="tabs tabs-boxed mb-6">
       <input type="radio" name="create_mode" value="create" class="hidden" id="tab-create" checked />
-      <label for="tab-create" class="tab" _="on click add .hidden to #import-form then remove .hidden from #create-form">
+      <label for="tab-create" class="tab tab-active" 
+             _="on click 
+                add .hidden to #import-form 
+                add .hidden to #github-connect-prompt
+                remove .hidden from #create-form
+                remove .tab-active from .tab
+                add .tab-active to me">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
@@ -14,7 +20,16 @@
       </label>
       
       <input type="radio" name="create_mode" value="import" class="hidden" id="tab-import" />
-      <label for="tab-import" class="tab" _="on click add .hidden to #create-form then remove .hidden from #import-form">
+      <label for="tab-import" class="tab" 
+             _="on click 
+                add .hidden to #create-form 
+                remove .hidden from #import-form
+                remove .tab-active from .tab
+                add .tab-active to me"
+             hx-get="/github/repos"
+             hx-target="#github-repo-container"
+             hx-trigger="click once"
+             hx-indicator="#github-loading">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
         </svg>
@@ -75,6 +90,14 @@
         </label>
       </div>
 
+      <!-- GitHub Integration -->
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text">Also create on GitHub</span>
+          <input type="checkbox" name="create_on_github" class="checkbox checkbox-primary" />
+        </label>
+      </div>
+
       <!-- Modal Actions -->
       <div class="modal-action">
         <button type="submit" class="btn btn-primary">
@@ -92,57 +115,22 @@
     </form>
 
     <!-- Import from GitHub Form -->
-    <form id="import-form" hx-post="{{host}}/repos/import" hx-target="body" hx-swap="outerHTML" 
+    <form id="import-form" hx-post="{{host}}/github/import" hx-target="body" hx-swap="outerHTML" 
           hx-indicator="#import-submit-indicator" class="flex flex-col gap-4 hidden">
-      <!-- GitHub URL -->
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">GitHub Repository URL</span>
-          <span class="label-text-alt text-xs">Required</span>
-        </div>
-        <input type="url" name="github_url" class="input input-bordered w-full"
-               placeholder="https://github.com/username/repository"
-               pattern="https://github\.com/[^/]+/[^/]+"
-               title="Enter a valid GitHub repository URL"
-               required />
-        <div class="label">
-          <span class="label-text-alt text-xs">Enter the full GitHub repository URL</span>
-        </div>
-      </label>
-
-      <!-- Repository Name (override) -->
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">Local Repository Name</span>
-          <span class="label-text-alt text-xs">Optional - defaults to GitHub name</span>
-        </div>
-        <input type="text" name="name" class="input input-bordered w-full"
-               placeholder="Leave blank to use GitHub repository name"
-               pattern="[a-zA-Z0-9][a-zA-Z0-9-_]{0,38}[a-zA-Z0-9]?" />
-      </label>
-
-      <!-- Visibility -->
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text text-sm font-medium">Visibility</span>
-        </div>
-        <select name="visibility" class="select select-bordered w-full">
-          <option value="private" selected>
-            🔒 Private - Only you and collaborators can access
-          </option>
-          <option value="public">
-            🌍 Public - Anyone can view this repository
-          </option>
-        </select>
-      </label>
-
-      <!-- Setup Integration -->
-      <div class="form-control">
-        <label class="label cursor-pointer">
-          <span class="label-text">Set up GitHub integration for automatic sync</span>
-          <input type="checkbox" name="setup_integration" checked="checked" class="checkbox checkbox-primary" />
-        </label>
+      
+      <!-- Loading indicator -->
+      <div id="github-loading" class="htmx-indicator text-center py-8">
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+        <p class="mt-4 text-base-content/70">Loading your GitHub repositories...</p>
       </div>
+      
+      <!-- GitHub Repository Container - Content loaded via HTMX -->
+      <div id="github-repo-container">
+        <!-- Will be populated when tab is clicked with repos list and form fields -->
+      </div>
+      
+      <!-- Hidden field for selected repository URL -->
+      <input type="hidden" id="selected_github_url" name="github_url" />
 
       <!-- Modal Actions -->
       <div class="modal-action">

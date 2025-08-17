@@ -31,5 +31,8 @@ var (
 	
 	// User profiles
 	Profiles = database.Manage(DB, new(Profile))
+	
+	// GitHub integration
+	GitHubUsers = database.Manage(DB, new(UserGitHub))
 )
 
