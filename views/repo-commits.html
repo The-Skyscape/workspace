@@ -20,7 +20,34 @@
             </svg>
             Commit History
           </h2>
-          <div class="badge badge-outline">main</div>
+          
+          <!-- Branch Selector -->
+          <div class="dropdown dropdown-end">
+            <button class="btn btn-outline btn-sm min-w-32" tabindex="0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+              </svg>
+              <span class="flex-1 text-left">{{repos.CurrentBranch}}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+              {{range repos.RepoBranches}}
+              <li>
+                <a href="{{host}}/repos/{{$repo.ID}}/commits?branch={{.Name}}" 
+                   class="{{if eq .Name (repos.CurrentBranch)}}bg-base-300{{end}}"
+                   hx-boost="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                  </svg>
+                  {{.Name}}
+                  {{if eq .Name (repos.CurrentBranch)}}<span class="text-success ml-2">(current)</span>{{end}}
+                </a>
+              </li>
+              {{end}}
+            </ul>
+          </div>
         </div>
 
         <!-- Commits List -->
@@ -29,12 +56,12 @@
         <div class="flex flex-col gap-1.5">
           {{range .}}
           <a href="{{host}}/repos/{{$repo.ID}}/files?commit={{.Hash}}" class="group flex items-center gap-3 px-2 py-2 rounded-lg transition-colors hover:bg-base-200/50 cursor-pointer" hx-boost="true">
-            <!-- Commit Icon with colored background -->
+            <!-- Author Avatar -->
             <div class="flex-shrink-0">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center bg-secondary/20 text-secondary">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div class="avatar">
+                <div class="w-9 h-9 rounded-full">
+                  <img src="{{.GravatarURL}}" alt="{{.Author}}" />
+                </div>
               </div>
             </div>
             <!-- Commit Details -->
@@ -42,7 +69,7 @@
               <div class="flex items-center justify-between">
                 <p class="text-sm font-medium truncate">{{.Message}}</p>
                 <div class="flex items-center gap-2">
-                  <span class="text-xs text-base-content/50">{{.Date}}</span>
+                  <span class="text-xs text-base-content/50">{{.RelativeTime}}</span>
                   <div class="badge badge-ghost badge-xs font-mono">{{.ShortHash}}</div>
                 </div>
               </div>
@@ -92,7 +119,7 @@
           </div>
           <div class="flex justify-between">
             <span class="text-base-content/70">Last Commit</span>
-            <span class="text-sm">{{with repos.RepoCommits}}{{if .}}{{(index . 0).Date}}{{else}}Never{{end}}{{else}}Never{{end}}</span>
+            <span class="text-sm">{{with repos.RepoCommits}}{{if .}}{{(index . 0).RelativeTime}}{{else}}Never{{end}}{{else}}Never{{end}}</span>
           </div>
         </div>
         
@@ -104,9 +131,9 @@
           {{range .}}
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <div class="avatar placeholder">
-                <div class="bg-neutral text-neutral-content rounded-full w-6 h-6">
-                  <span class="text-xs">{{printf "%.2s" .Name}}</span>
+              <div class="avatar">
+                <div class="w-6 h-6 rounded-full">
+                  <img src="{{.GravatarURL}}" alt="{{.Name}}" />
                 </div>
               </div>
               <span class="text-sm">{{.Name}}</span>

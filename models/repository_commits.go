@@ -2,6 +2,8 @@ package models
 
 import (
 	"bytes"
+	"crypto/md5"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +19,84 @@ type Commit struct {
 	Email     string
 	Date      time.Time
 	ShortHash string
+}
+
+// RelativeTime returns a human-readable relative time string (e.g., "2 hours ago")
+func (c *Commit) RelativeTime() string {
+	if c.Date.IsZero() {
+		return "never"
+	}
+
+	duration := time.Since(c.Date)
+	
+	switch {
+	case duration < time.Minute:
+		return "just now"
+	case duration < time.Hour:
+		minutes := int(duration.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	case duration < 24*time.Hour:
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	case duration < 30*24*time.Hour:
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	case duration < 365*24*time.Hour:
+		months := int(duration.Hours() / 24 / 30)
+		if months == 1 {
+			return "1 month ago"
+		}
+		return fmt.Sprintf("%d months ago", months)
+	default:
+		years := int(duration.Hours() / 24 / 365)
+		if years == 1 {
+			return "1 year ago"
+		}
+		return fmt.Sprintf("%d years ago", years)
+	}
+}
+
+// GravatarURL returns the Gravatar URL for the commit author's email
+func (c *Commit) GravatarURL() string {
+	if c.Email == "" {
+		// Return a default avatar for unknown emails
+		return fmt.Sprintf("https://www.gravatar.com/avatar/?d=identicon&s=40")
+	}
+	
+	// Generate MD5 hash of the lowercase email
+	email := strings.ToLower(strings.TrimSpace(c.Email))
+	hash := md5.Sum([]byte(email))
+	return fmt.Sprintf("https://www.gravatar.com/avatar/%x?d=identicon&s=40", hash)
+}
+
+// AuthorInitials returns the first two letters of the author's name for avatar placeholders
+func (c *Commit) AuthorInitials() string {
+	if c.Author == "" {
+		return "?"
+	}
+	
+	// Split name and get initials
+	parts := strings.Fields(c.Author)
+	if len(parts) >= 2 {
+		// Use first letter of first and last name
+		return fmt.Sprintf("%c%c", parts[0][0], parts[len(parts)-1][0])
+	}
+	
+	// Single name or word, use first two characters
+	name := strings.TrimSpace(c.Author)
+	if len(name) >= 2 {
+		return strings.ToUpper(name[:2])
+	}
+	return strings.ToUpper(name[:1])
 }
 
 // Diff represents changes in a commit

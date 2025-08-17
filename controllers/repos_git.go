@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -33,37 +32,11 @@ func (c *ReposController) RepoCommits() ([]*models.Commit, error) {
 		branch = c.CurrentBranch()
 	}
 
-	// Use git log to get commits
-	cmd := exec.Command("git", "log", branch, "--pretty=format:%H|%an|%ae|%at|%s", "-n", "50")
-	cmd.Dir = repo.Path()
-	
-	output, err := cmd.Output()
+	// Use the repository's GetCommits method which properly formats everything
+	commits, err := repo.GetCommits(branch, 50)
 	if err != nil {
 		// Repository might be empty
 		return []*models.Commit{}, nil
-	}
-
-	var commits []*models.Commit
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		parts := strings.Split(line, "|")
-		if len(parts) >= 5 {
-			// Parse timestamp
-			timestamp, _ := strconv.ParseInt(parts[3], 10, 64)
-			commitDate := time.Unix(timestamp, 0)
-			
-			commit := &models.Commit{
-				Hash:    parts[0],
-				Author:  parts[1],
-				Email:   parts[2],
-				Date:    commitDate,
-				Message: parts[4],
-			}
-			commits = append(commits, commit)
-		}
 	}
 
 	return commits, nil

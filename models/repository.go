@@ -2,6 +2,7 @@ package models
 
 import (
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"log"
 	"os"
@@ -537,6 +538,19 @@ type Contributor struct {
 	Email   string
 	Commits int
 	Avatar  string
+}
+
+// GravatarURL returns the Gravatar URL for the contributor's email
+func (c *Contributor) GravatarURL() string {
+	if c.Email == "" {
+		// Return a default avatar for unknown emails
+		return fmt.Sprintf("https://www.gravatar.com/avatar/?d=identicon&s=40")
+	}
+	
+	// Generate MD5 hash of the lowercase email
+	email := strings.ToLower(strings.TrimSpace(c.Email))
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(email)))
+	return fmt.Sprintf("https://www.gravatar.com/avatar/%s?d=identicon&s=40", hash)
 }
 
 // GetLanguageStats returns language statistics for the repository
