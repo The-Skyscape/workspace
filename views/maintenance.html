@@ -1,0 +1,90 @@
+{{template "layout/start"}}
+
+<div class="container mx-auto px-4 py-16 max-w-4xl">
+  <div class="text-center">
+    <!-- Maintenance Icon -->
+    <div class="mb-8">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-32 w-32 mx-auto text-warning/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    </div>
+    
+    <!-- Maintenance Message -->
+    <h1 class="text-4xl font-bold mb-4">Scheduled Maintenance</h1>
+    <h2 class="text-2xl font-semibold mb-4">We'll Be Right Back!</h2>
+    <p class="text-lg text-base-content/70 mb-8">
+      We're currently performing scheduled maintenance to improve your experience.
+    </p>
+    
+    <!-- Progress Indicator -->
+    <div class="mb-8">
+      <progress class="progress progress-primary w-56 mx-auto"></progress>
+    </div>
+    
+    <!-- Expected Time -->
+    <div class="stats shadow mb-8">
+      <div class="stat">
+        <div class="stat-title">Expected Downtime</div>
+        <div class="stat-value text-primary">30 min</div>
+        <div class="stat-desc">We'll be back soon</div>
+      </div>
+    </div>
+    
+    <!-- What We're Doing -->
+    <div class="card bg-base-200 max-w-2xl mx-auto mb-8">
+      <div class="card-body">
+        <h3 class="card-title justify-center mb-4">What We're Working On</h3>
+        <ul class="space-y-2 text-left">
+          <li class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Performance improvements</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Security updates</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-warning animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Database optimization</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Auto Refresh -->
+    <div class="text-sm text-base-content/60 mb-4">
+      This page will automatically refresh when we're back online.
+    </div>
+    
+    <!-- Manual Refresh -->
+    <button onclick="window.location.reload()" class="btn btn-outline btn-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Check Now
+    </button>
+    
+    <!-- Contact Support -->
+    <div class="mt-12 text-sm text-base-content/60">
+      <p>Need urgent assistance?</p>
+      <a href="mailto:support@theskyscape.com" class="link link-hover">support@theskyscape.com</a>
+    </div>
+  </div>
+</div>
+
+<!-- Auto-refresh script -->
+<script>
+  // Refresh page every 30 seconds to check if maintenance is complete
+  setTimeout(function() {
+    window.location.reload();
+  }, 30000);
+</script>
+
+{{template "layout/end"}}

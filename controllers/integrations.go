@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"workspace/internal/crypto"
 	"workspace/models"
 	"workspace/services"
 
@@ -110,7 +111,7 @@ func (c *IntegrationsController) setupGitHub(w http.ResponseWriter, r *http.Requ
 
 	// Update GitHub settings
 	repo.GitHubURL = githubURL // Store original URL without token
-	repo.GitHubToken = githubToken // TODO: Encrypt this
+	repo.GitHubToken = crypto.EncryptField(githubToken) // Encrypted storage
 	repo.SyncDirection = syncDirection
 	repo.AutoSync = autoSync
 
@@ -177,7 +178,8 @@ func (c *IntegrationsController) syncGitHub(w http.ResponseWriter, r *http.Reque
 	// Add token authentication to URL for HTTPS
 	var authenticatedURL string
 	if parsedURL.Scheme == "https" && repo.GitHubToken != "" {
-		parsedURL.User = url.User(repo.GitHubToken)
+		decryptedToken := crypto.DecryptField(repo.GitHubToken)
+		parsedURL.User = url.User(decryptedToken)
 		authenticatedURL = parsedURL.String()
 	} else {
 		// For SSH URLs or no token, use as-is
@@ -302,7 +304,7 @@ func (c *IntegrationsController) disconnectGitHub(w http.ResponseWriter, r *http
 
 	// Clear GitHub settings
 	repo.GitHubURL = ""
-	repo.GitHubToken = ""
+	repo.GitHubToken = "" // Clear encrypted token
 	repo.SyncDirection = ""
 	repo.AutoSync = false
 
