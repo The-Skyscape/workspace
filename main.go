@@ -27,6 +27,8 @@ func main() {
 	// Start application immediately
 	application.Serve(views,
 		application.WithController("auth", models.Auth.Controller()),
+		application.WithController(controllers.RateLimit()),  // Add rate limiting before other controllers
+		application.WithController(controllers.Logs()),       // Add logs controller
 		application.WithController(controllers.Home()),
 		application.WithController(controllers.Repos()),
 		application.WithController(controllers.Issues()),

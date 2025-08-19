@@ -1,0 +1,360 @@
+{{template "layout/start"}}
+
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <!-- Progress Steps -->
+  <ul class="steps steps-horizontal w-full mb-8">
+    <li class="step" data-step="1" id="step-1">Welcome</li>
+    <li class="step" data-step="2" id="step-2">Import or Create</li>
+    <li class="step" data-step="3" id="step-3">Setup Workspace</li>
+    <li class="step" data-step="4" id="step-4">Ready to Build!</li>
+  </ul>
+
+  <!-- Step 1: Welcome -->
+  <div id="welcome-step" class="step-content">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-3xl mb-4">Welcome to Skyscape! 🚀</h2>
+        <p class="text-lg mb-6">
+          Let's get you set up in just 3 minutes. Skyscape gives you everything you need to build, 
+          deploy, and collaborate on your projects.
+        </p>
+        
+        <div class="grid md:grid-cols-3 gap-4 mb-8">
+          <div class="card bg-base-200">
+            <div class="card-body compact">
+              <div class="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                <div>
+                  <h3 class="font-semibold">Git Hosting</h3>
+                  <p class="text-sm text-base-content/70">Your code, your control</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card bg-base-200">
+            <div class="card-body compact">
+              <div class="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <div>
+                  <h3 class="font-semibold">Cloud IDE</h3>
+                  <p class="text-sm text-base-content/70">VS Code in browser</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card bg-base-200">
+            <div class="card-body compact">
+              <div class="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <div>
+                  <h3 class="font-semibold">CI/CD</h3>
+                  <p class="text-sm text-base-content/70">Automated workflows</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card-actions justify-end">
+          <button onclick="nextStep()" class="btn btn-primary btn-lg">
+            Let's Get Started
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Import or Create -->
+  <div id="import-step" class="step-content hidden">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-3xl mb-4">How would you like to start?</h2>
+        <p class="text-lg mb-6">
+          Import your existing projects from GitHub or create a fresh repository.
+        </p>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Import from GitHub -->
+          <div class="card border-2 border-base-200 hover:border-primary transition-colors cursor-pointer" onclick="selectOption('import')">
+            <div class="card-body">
+              <div class="flex items-center gap-3 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <h3 class="card-title">Import from GitHub</h3>
+              </div>
+              <p class="text-base-content/70 mb-4">
+                Bring your existing repositories with full history, branches, and issues.
+              </p>
+              <ul class="text-sm space-y-1">
+                <li class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  One-click import
+                </li>
+                <li class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Keep all history
+                </li>
+                <li class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Import multiple repos
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <!-- Create New -->
+          <div class="card border-2 border-base-200 hover:border-secondary transition-colors cursor-pointer" onclick="selectOption('create')">
+            <div class="card-body">
+              <div class="flex items-center gap-3 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <h3 class="card-title">Create New Repository</h3>
+              </div>
+              <p class="text-base-content/70 mb-4">
+                Start fresh with a new repository and optional starter templates.
+              </p>
+              <ul class="text-sm space-y-1">
+                <li class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Quick setup
+                </li>
+                <li class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Starter templates
+                </li>
+                <li class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Instant workspace
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <div class="divider">OR</div>
+        
+        <button onclick="skipToExplore()" class="btn btn-ghost">
+          Skip for now - I'll explore first
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Setup Workspace -->
+  <div id="workspace-step" class="step-content hidden">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title text-3xl mb-4">Setting up your workspace...</h2>
+        
+        <div class="space-y-4">
+          <div class="flex items-center gap-4">
+            <span class="loading loading-spinner loading-sm" id="repo-spinner"></span>
+            <span class="text-success hidden" id="repo-check">✓</span>
+            <span id="repo-status">Creating repository...</span>
+          </div>
+          
+          <div class="flex items-center gap-4">
+            <span class="loading loading-spinner loading-sm" id="workspace-spinner"></span>
+            <span class="text-success hidden" id="workspace-check">✓</span>
+            <span id="workspace-status">Preparing VS Code environment...</span>
+          </div>
+          
+          <div class="flex items-center gap-4">
+            <span class="loading loading-spinner loading-sm" id="actions-spinner"></span>
+            <span class="text-success hidden" id="actions-check">✓</span>
+            <span id="actions-status">Configuring CI/CD actions...</span>
+          </div>
+        </div>
+        
+        <div class="alert alert-info mt-6 hidden" id="workspace-ready">
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Your workspace is ready!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Ready -->
+  <div id="ready-step" class="step-content hidden">
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="text-center mb-6">
+          <div class="text-6xl mb-4">🎉</div>
+          <h2 class="text-3xl font-bold mb-2">You're All Set!</h2>
+          <p class="text-lg text-base-content/70">
+            Your Skyscape workspace is ready. Time to build something amazing!
+          </p>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-4 mb-6">
+          <a href="{{host}}/repos" class="card bg-base-200 hover:bg-base-300 transition-colors">
+            <div class="card-body compact">
+              <h3 class="font-semibold">View Your Repositories</h3>
+              <p class="text-sm text-base-content/70">Browse and manage your code</p>
+            </div>
+          </a>
+          
+          <a href="{{host}}/coder" class="card bg-base-200 hover:bg-base-300 transition-colors">
+            <div class="card-body compact">
+              <h3 class="font-semibold">Open VS Code</h3>
+              <p class="text-sm text-base-content/70">Start coding in your browser</p>
+            </div>
+          </a>
+        </div>
+        
+        <div class="divider">Quick Tips</div>
+        
+        <div class="space-y-2 text-sm">
+          <div class="flex items-start gap-2">
+            <span class="text-primary">💡</span>
+            <span>Press <kbd class="kbd kbd-sm">/</kbd> anywhere to search repositories</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-primary">💡</span>
+            <span>Use <kbd class="kbd kbd-sm">Ctrl</kbd> + <kbd class="kbd kbd-sm">K</kbd> for quick actions</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-primary">💡</span>
+            <span>Check out the <a href="{{host}}/docs" class="link link-primary">documentation</a> for advanced features</span>
+          </div>
+        </div>
+        
+        <div class="card-actions justify-center mt-6">
+          <a href="{{host}}/repos" class="btn btn-primary btn-lg">
+            Go to Dashboard
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentStep = 1;
+let selectedOption = null;
+
+function updateSteps() {
+  document.querySelectorAll('.step').forEach(step => {
+    const stepNum = parseInt(step.dataset.step);
+    if (stepNum <= currentStep) {
+      step.classList.add('step-primary');
+    } else {
+      step.classList.remove('step-primary');
+    }
+  });
+}
+
+function showStep(step) {
+  document.querySelectorAll('.step-content').forEach(content => {
+    content.classList.add('hidden');
+  });
+  
+  switch(step) {
+    case 1:
+      document.getElementById('welcome-step').classList.remove('hidden');
+      break;
+    case 2:
+      document.getElementById('import-step').classList.remove('hidden');
+      break;
+    case 3:
+      document.getElementById('workspace-step').classList.remove('hidden');
+      simulateSetup();
+      break;
+    case 4:
+      document.getElementById('ready-step').classList.remove('hidden');
+      break;
+  }
+  
+  updateSteps();
+}
+
+function nextStep() {
+  currentStep++;
+  showStep(currentStep);
+}
+
+function selectOption(option) {
+  selectedOption = option;
+  
+  // Add visual feedback
+  document.querySelectorAll('.card').forEach(card => {
+    card.classList.remove('border-primary', 'border-secondary');
+  });
+  
+  if (option === 'import') {
+    // Redirect to GitHub integration
+    window.location.href = '{{host}}/repos/github-import';
+  } else {
+    // Continue to workspace setup
+    nextStep();
+  }
+}
+
+function skipToExplore() {
+  window.location.href = '{{host}}/repos';
+}
+
+function simulateSetup() {
+  // Simulate repository creation
+  setTimeout(() => {
+    document.getElementById('repo-spinner').classList.add('hidden');
+    document.getElementById('repo-check').classList.remove('hidden');
+    document.getElementById('repo-status').textContent = 'Repository created successfully!';
+    
+    // Simulate workspace setup
+    setTimeout(() => {
+      document.getElementById('workspace-spinner').classList.add('hidden');
+      document.getElementById('workspace-check').classList.remove('hidden');
+      document.getElementById('workspace-status').textContent = 'VS Code environment ready!';
+      
+      // Simulate actions setup
+      setTimeout(() => {
+        document.getElementById('actions-spinner').classList.add('hidden');
+        document.getElementById('actions-check').classList.remove('hidden');
+        document.getElementById('actions-status').textContent = 'CI/CD configured!';
+        document.getElementById('workspace-ready').classList.remove('hidden');
+        
+        // Auto-proceed to final step
+        setTimeout(() => {
+          nextStep();
+        }, 1500);
+      }, 1000);
+    }, 1000);
+  }, 1000);
+}
+
+// Initialize
+updateSteps();
+</script>
+
+{{template "layout/end"}}

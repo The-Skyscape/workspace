@@ -1,0 +1,236 @@
+{{template "layout/start" .}}
+
+<div class="container mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold">Application Logs</h1>
+      <p class="text-base-content/70 mt-2">Real-time application monitoring and logging</p>
+    </div>
+    <div class="flex gap-2">
+      <button hx-get="{{host}}/logs" hx-target="body" hx-swap="outerHTML" class="btn btn-sm btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Refresh
+      </button>
+      <a href="{{host}}/monitoring" class="btn btn-sm btn-outline">
+        System Monitoring
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats Overview -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    {{with logs.GetLogStats}}
+      {{with .counts}}
+        <div class="stat bg-base-200 rounded-lg">
+          <div class="stat-title">Total</div>
+          <div class="stat-value text-2xl">{{.total}}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-lg">
+          <div class="stat-title">Info</div>
+          <div class="stat-value text-2xl text-info">{{.info}}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-lg">
+          <div class="stat-title">Warnings</div>
+          <div class="stat-value text-2xl text-warning">{{.warn}}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-lg">
+          <div class="stat-title">Errors</div>
+          <div class="stat-value text-2xl text-error">{{.error}}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-lg">
+          <div class="stat-title">Debug</div>
+          <div class="stat-value text-2xl text-base-content/50">{{.debug}}</div>
+        </div>
+      {{end}}
+    {{end}}
+  </div>
+
+  <!-- Rate Limiting Stats -->
+  <div class="card border border-base-300 shadow-lg mb-8">
+    <div class="card-body">
+      <h2 class="card-title text-lg">Rate Limiting Status</h2>
+      {{with ratelimit.GetRateLimitStats}}
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-semibold mb-2">Authentication Endpoints</h3>
+            {{with .auth}}
+              <div class="text-sm space-y-1">
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">IPs Tracked:</span>
+                  <span class="font-mono">{{.total_tracked}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">Currently Blocked:</span>
+                  <span class="font-mono text-error">{{.currently_blocked}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">Max Attempts:</span>
+                  <span class="font-mono">{{.max_attempts}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">Window:</span>
+                  <span class="font-mono">{{.window_seconds}}s</span>
+                </div>
+              </div>
+            {{end}}
+          </div>
+          <div>
+            <h3 class="font-semibold mb-2">Signup Endpoints</h3>
+            {{with .signup}}
+              <div class="text-sm space-y-1">
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">IPs Tracked:</span>
+                  <span class="font-mono">{{.total_tracked}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">Currently Blocked:</span>
+                  <span class="font-mono text-error">{{.currently_blocked}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">Max Attempts:</span>
+                  <span class="font-mono">{{.max_attempts}}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-base-content/70">Window:</span>
+                  <span class="font-mono">{{.window_seconds}}s</span>
+                </div>
+              </div>
+            {{end}}
+          </div>
+        </div>
+      {{end}}
+    </div>
+  </div>
+
+  <!-- Recent Logs -->
+  <div class="card border border-base-300 shadow-lg">
+    <div class="card-body">
+      <h2 class="card-title text-lg mb-4">Recent Logs</h2>
+      
+      <!-- Filter Controls -->
+      <div class="flex gap-2 mb-4">
+        <select class="select select-sm select-bordered" onchange="filterLogs(this.value)">
+          <option value="all">All Levels</option>
+          <option value="ERROR">Errors Only</option>
+          <option value="WARN">Warnings & Errors</option>
+          <option value="INFO">Info & Above</option>
+          <option value="DEBUG">Debug & Above</option>
+        </select>
+        <input type="search" placeholder="Search logs..." class="input input-sm input-bordered flex-1" 
+               onkeyup="searchLogs(this.value)" />
+      </div>
+      
+      <!-- Logs Table -->
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Level</th>
+              <th>Message</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="logs-tbody">
+            {{range logs.GetRecentLogs 100}}
+              <tr class="log-entry" data-level="{{.Level}}">
+                <td class="font-mono text-xs">{{.Timestamp.Format "15:04:05"}}</td>
+                <td>
+                  {{if eq .Level "ERROR"}}
+                    <span class="badge badge-error badge-sm">{{.Level}}</span>
+                  {{else if eq .Level "WARN"}}
+                    <span class="badge badge-warning badge-sm">{{.Level}}</span>
+                  {{else if eq .Level "INFO"}}
+                    <span class="badge badge-info badge-sm">{{.Level}}</span>
+                  {{else if eq .Level "DEBUG"}}
+                    <span class="badge badge-ghost badge-sm">{{.Level}}</span>
+                  {{else}}
+                    <span class="badge badge-sm">{{.Level}}</span>
+                  {{end}}
+                </td>
+                <td class="max-w-md truncate">
+                  {{if .Path}}
+                    <span class="font-mono text-xs">{{.Method}} {{.Path}}</span>
+                  {{else}}
+                    {{.Message}}
+                  {{end}}
+                </td>
+                <td class="text-xs">
+                  {{if .StatusCode}}
+                    <span class="badge badge-sm {{if ge .StatusCode 500}}badge-error{{else if ge .StatusCode 400}}badge-warning{{else}}badge-success{{end}}">
+                      {{.StatusCode}}
+                    </span>
+                  {{end}}
+                  {{if .Duration}}
+                    <span class="text-base-content/50">{{printf "%.2f" .Duration}}ms</span>
+                  {{end}}
+                  {{if .IP}}
+                    <span class="text-base-content/50">{{.IP}}</span>
+                  {{end}}
+                  {{if .Error}}
+                    <details class="dropdown">
+                      <summary class="btn btn-xs btn-ghost text-error">Error</summary>
+                      <div class="dropdown-content z-[1] p-2 shadow bg-base-100 rounded-box w-96">
+                        <pre class="text-xs whitespace-pre-wrap">{{.Error}}</pre>
+                      </div>
+                    </details>
+                  {{end}}
+                </td>
+              </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      
+      {{if not (logs.GetRecentLogs 1)}}
+        <div class="text-center py-8 text-base-content/50">
+          No logs available yet
+        </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<script>
+function filterLogs(level) {
+  const rows = document.querySelectorAll('.log-entry');
+  const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+  
+  rows.forEach(row => {
+    const rowLevel = row.dataset.level;
+    if (level === 'all') {
+      row.style.display = '';
+    } else if (level === 'ERROR') {
+      row.style.display = rowLevel === 'ERROR' ? '' : 'none';
+    } else if (level === 'WARN') {
+      row.style.display = (rowLevel === 'ERROR' || rowLevel === 'WARN') ? '' : 'none';
+    } else if (level === 'INFO') {
+      row.style.display = rowLevel !== 'DEBUG' ? '' : 'none';
+    } else {
+      row.style.display = '';
+    }
+  });
+}
+
+function searchLogs(query) {
+  const rows = document.querySelectorAll('.log-entry');
+  const lowerQuery = query.toLowerCase();
+  
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(lowerQuery) ? '' : 'none';
+  });
+}
+
+// Auto-refresh every 10 seconds
+setInterval(() => {
+  if (document.visibilityState === 'visible') {
+    htmx.trigger(document.body, 'refresh');
+  }
+}, 10000);
+</script>
+
+{{template "layout/end" .}}
