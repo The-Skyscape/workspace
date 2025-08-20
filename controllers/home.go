@@ -64,6 +64,7 @@ func (c *HomeController) Setup(app *application.App) {
 	
 	// Initialize Vault service on startup in background
 	go func() {
+		log.Println("Starting Vault initialization in background...")
 		if err := services.Vault.Init(); err != nil {
 			log.Printf("Warning: Failed to initialize Vault service: %v", err)
 		}

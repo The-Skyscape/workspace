@@ -17,10 +17,11 @@ When working on this codebase:
 
 ### Core Features
 - 🔐 **Git Repository Management** - Create, browse, search repos with FTS5
-- 🚀 **Ephemeral Workspaces** - Docker-based VS Code environments
+- 🚀 **Containerized Development** - Docker-based VS Code (Coder) and Jupyter environments
 - 🤖 **CI/CD Actions** - Docker sandbox execution with artifact collection
 - 📋 **Project Management** - Issues, PRs, and automation
 - 🔗 **GitHub Integration** - Bidirectional sync and OAuth
+- 🔒 **Secret Management** - HashiCorp Vault for secure credential storage
 - 👥 **Access Control** - Role-based permissions (read/write/admin)
 
 ## Architecture Patterns
@@ -399,18 +400,43 @@ go build -o workspace && ./workspace
 
 ## Docker Service Management
 
+### Containerized Services
+The workspace runs several Docker containers for development tools:
+
+1. **Coder Service** (VS Code in browser)
+   - Port: 8080
+   - Access: `/coder/` routes
+   - Container: `skyscape-coder`
+   - Image: `codercom/code-server:latest`
+
+2. **IPython/Jupyter Service**
+   - Port: 8888
+   - Access: `/ipython/` routes
+   - Container: `skyscape-ipython`
+   - Image: `jupyter/datascience-notebook:latest`
+
+3. **Vault Service** (Secret Management)
+   - Port: 8200
+   - Container: `skyscape-vault`
+   - Image: `hashicorp/vault:latest`
+   - Dev mode with token: `skyscape-dev-token`
+
 ### Service Initialization Pattern
 ```go
-// In controller Setup() to auto-start services
+// Services are initialized asynchronously to prevent blocking
 func (c *Controller) Setup(app *application.App) {
     // ... routes ...
     
-    // Initialize service on startup
-    if err := services.ServiceName.Init(); err != nil {
-        log.Printf("Warning: Failed to initialize service: %v", err)
-    }
+    // Initialize service in background
+    go func() {
+        if err := services.ServiceName.Init(); err != nil {
+            log.Printf("Warning: Failed to initialize service: %v", err)
+        }
+    }()
 }
 ```
+
+**IMPORTANT**: Always initialize services asynchronously using goroutines to prevent blocking the application startup while Docker images are pulled.
 
 ### Preventing Duplicate Containers
 ```go

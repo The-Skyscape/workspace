@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/containers"
 	"github.com/The-Skyscape/devtools/pkg/database"
@@ -87,6 +88,7 @@ func (v *VaultService) Init() error {
 	}
 
 	// In dev mode, Vault runs in memory
+	// DO NOT set Entrypoint - Vault needs its default docker-entrypoint.sh
 	if v.config.DevMode {
 		v.service.Command = "vault server -dev -dev-listen-address=0.0.0.0:8200"
 	} else {
@@ -98,6 +100,7 @@ func (v *VaultService) Init() error {
 	}
 
 	// Start the service
+	log.Printf("Starting Vault container with command: %s", v.service.Command)
 	return v.Start()
 }
 
@@ -118,15 +121,16 @@ func (v *VaultService) Start() error {
 	
 	// Launch the container
 	if err := containers.Launch(v.service.Host, v.service); err != nil {
+		log.Printf("Failed to launch Vault container: %v", err)
 		return errors.Wrap(err, "failed to launch vault container")
 	}
 
-	// Wait for vault to be ready
-	if err := v.service.WaitForReady(30, func() error {
-		// Simple health check - vault will respond on its API port
-		return v.service.Host.Exec("curl", "-f", fmt.Sprintf("http://localhost:%d/v1/sys/health", v.config.Port))
-	}); err != nil {
-		log.Printf("Warning: Vault may not be fully ready: %v", err)
+	// Give Vault a moment to start
+	time.Sleep(3 * time.Second)
+
+	// Simple check if container is running
+	if !v.IsRunning() {
+		return errors.New("vault container failed to start")
 	}
 
 	log.Printf("Vault service started successfully")
