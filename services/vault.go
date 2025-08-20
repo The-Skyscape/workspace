@@ -76,11 +76,8 @@ func (v *VaultService) Init() error {
 		Host:          host,
 		Name:          v.config.ContainerName,
 		Image:         "hashicorp/vault:latest",
-		Network:       "bridge",
+		Network:       "host",
 		RestartPolicy: "always",
-		Ports: map[int]int{
-			8200: v.config.Port,
-		},
 		Env: map[string]string{
 			"VAULT_DEV_ROOT_TOKEN_ID":     v.config.RootToken,
 			"VAULT_DEV_LISTEN_ADDRESS":    "0.0.0.0:8200",

@@ -37,15 +37,20 @@ func (c IntegrationsController) Handle(req *http.Request) application.Controller
 func (c *IntegrationsController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
-	// Initialize Vault service on startup
-	if err := services.Vault.Init(); err != nil {
-		log.Printf("Warning: Failed to initialize Vault service: %v", err)
-	}
+	// Initialize Vault service on startup in background (also initialized in home.go)
+	// Commented out to avoid duplicate initialization
+	// go func() {
+	// 	if err := services.Vault.Init(); err != nil {
+	// 		log.Printf("Warning: Failed to initialize Vault service: %v", err)
+	// 	}
+	// }()
 
-	// Initialize IPython/Jupyter service on startup
-	if err := services.IPython.Init(); err != nil {
-		log.Printf("Warning: Failed to initialize IPython service: %v", err)
-	}
+	// Initialize IPython/Jupyter service on startup in background
+	go func() {
+		if err := services.IPython.Init(); err != nil {
+			log.Printf("Warning: Failed to initialize IPython service: %v", err)
+		}
+	}()
 
 	// GitHub Integration - admin only
 	http.Handle("GET /repos/{id}/integrations", app.Serve("repo-integrations.html", AdminOnly()))

@@ -34,22 +34,27 @@ func (w *WorkspacesController) Setup(app *application.App) {
 	http.Handle("/coder/", http.StripPrefix("/coder/", 
 		auth.ProtectFunc(w.proxyToCodeServer, true)))
 
-	// Initialize the coder service on startup
-	if err := services.Coder.Init(); err != nil {
-		// Log the error but don't fail startup
-		// The service can be started manually if needed
-		log.Printf("Warning: Failed to initialize coder service: %v", err)
-	}
+	// Initialize the coder service on startup in background
+	go func() {
+		if err := services.Coder.Init(); err != nil {
+			// Log the error but don't fail startup
+			// The service can be started manually if needed
+			log.Printf("Warning: Failed to initialize coder service: %v", err)
+		}
+	}()
 
 	// Register IPython/Jupyter proxy handler (admin only)
 	// Don't strip prefix - Jupyter is configured with base_url=/ipython/
 	// The trailing slash makes this a catch-all for /ipython/* paths
 	http.Handle("/ipython/", auth.ProtectFunc(w.proxyToJupyter, true))
 
-	// Initialize IPython service on startup  
-	if err := services.IPython.Init(); err != nil {
-		log.Printf("Warning: Failed to initialize IPython service: %v", err)
-	}
+	// Initialize IPython service on startup in background (also initialized in integrations.go)
+	// Commented out to avoid duplicate initialization
+	// go func() {
+	// 	if err := services.IPython.Init(); err != nil {
+	// 		log.Printf("Warning: Failed to initialize IPython service: %v", err)
+	// 	}
+	// }()
 }
 
 // Handle is called when each request is handled

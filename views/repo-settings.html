@@ -17,7 +17,7 @@
     <div class="card bg-base-100 shadow-lg border border-base-300">
       <div class="card-body">
         <h2 class="card-title">Repository Information</h2>
-        <form hx-post="{{host}}/repos/{{.ID}}/update" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+        <form hx-post="{{host}}/repos/{{.ID}}/update" class="flex flex-col gap-2">
           <label class="form-control w-full">
             <div class="label">
               <span class="label-text text-sm font-medium">Repository Name</span>
