@@ -17,7 +17,7 @@ When working on this codebase:
 
 ### Core Features
 - 🔐 **Git Repository Management** - Create, browse, search repos with FTS5
-- 🚀 **Containerized Development** - Docker-based VS Code (Coder) and Jupyter environments
+- 🚀 **Containerized Development** - Docker-based VS Code (Coder) and Jupyter environments  
 - 🤖 **CI/CD Actions** - Docker sandbox execution with artifact collection
 - 📋 **Project Management** - Issues, PRs, and automation
 - 🔗 **GitHub Integration** - Bidirectional sync and OAuth
@@ -48,489 +48,118 @@ func (c *ControllerNameController) Handle(req *http.Request) application.Control
 }
 ```
 
-### 2. Model Pattern
-Models must implement the Table() method:
-```go
-type ModelName struct {
-    application.Model  // Embeds ID, CreatedAt, UpdatedAt
-    Field1 string
-    Field2 int
-}
-
-func (*ModelName) Table() string { return "table_name" }
-```
-
-### 3. View Pattern
-Templates access controller methods directly:
+### 2. HTMX/HATEOAS Patterns
 ```html
-<!-- Access controller data -->
-{{with controllerPrefix.MethodName}}
-    <!-- Use the data -->
-{{end}}
+<!-- Use c.Redirect/c.Refresh for happy path, hx-target for errors -->
+<form hx-post="/action" hx-target=".error-container" hx-swap="innerHTML">
 
-<!-- HTMX for dynamic updates -->
-<form hx-post="{{host}}/path" hx-target="body" hx-swap="outerHTML">
+<!-- External links need hx-boost="false" -->
+<a href="https://external.com" hx-boost="false" target="_blank">
+
+<!-- IDE/workspace links open in new tab -->
+<a href="/coder/{{.ID}}/" target="_blank">Open VS Code</a>
 ```
 
-## Key Files Reference
+### 3. Template Organization
+- Templates are in `views/` directory
+- Use unique filenames (no paths in template references)
+- Access controllers via prefix: `{{repos.CurrentRepo}}`
+- Built-in helpers: `{{host}}`, `{{path}}`, `{{theme}}`
 
-### Controllers (`/controllers/`) - Modular Architecture
-| File | Purpose | Key Methods |
-|------|---------|-------------|
-| `repos.go` | Repository management | `CurrentRepo()`, `RepoFiles()`, delegates to other controllers |
-| `actions.go` | CI/CD actions | `CurrentAction()`, `ActionRuns()`, `GroupedArtifacts()` |
-| `issues.go` | Issue tracking | `RepoIssues()`, `CurrentIssue()`, `IssueComments()` |
-| `pullrequests.go` | PR management | `RepoPullRequests()`, `CurrentPR()` |
-| `workspaces.go` | Container management | `CurrentWorkspace()`, `UserWorkspaces()` |
-| `integrations.go` | GitHub sync | `RepoIntegrations()`, `GitHubSync()` |
-| `settings.go` | Settings management | `RepoSettings()`, `UserSettings()` |
-| `monitoring.go` | System monitoring | `GetCurrentStats()`, `GetAlertCount()` |
-| `home.go` | Dashboard & landing | `UserRepos()`, `RecentActivity()` |
-| `public.go` | Unauthenticated access | `CurrentRepo()`, `PublicRepoIssues()` |
-
-### Models (`/models/`)
-| File | Purpose | Key Functions |
-|------|---------|---------------|
-| `database.go` | Global DB setup | `setupDatabase()` - Initializes all repositories |
-| `action.go` | CI/CD workflows | `Execute()`, `CollectArtifacts()`, `monitorSandboxExecution()` |
-| `action_run.go` | Execution history | `GetRunsByAction()`, `FormatDuration()` |
-| `action_artifact.go` | Build artifacts | Versioned artifact storage with grouping |
-| `repository.go` | Git repos | Enhanced with FTS5 search support |
-| `coder.go` | Coder service handler | `CoderHandler()`, `WorkspaceHandler()` |
-| `coding.go` | Git operations | `NewRepo()`, clone and workspace setup |
-| `file_search.go` | FTS5 search | Full-text search implementation |
-| `issue.go` | Issue tracking | Issue model and operations |
-| `pullrequest.go` | PR management | Pull request model |
-| `comment.go` | Comments | Comment model for issues/PRs |
-| `activity.go` | Activity tracking | Repository activity feed |
-| `accesstoken.go` | API tokens | Access token management |
-| `permission.go` | Access control | `HasPermission()`, `CheckRepoAccess()` |
-| `settings.go` | Settings model | Repository and user settings |
-
-### Services (`/services/`)
-| File | Purpose | Key Functions |
-|------|---------|---------------|
-| `sandbox.go` | Docker sandboxes | `StartSandbox()`, `GetOutput()`, `ExtractFile()` |
-| `coder.go` | Coder service | VS Code web IDE service management |
-
-### Views (`/views/`)
-| File | Purpose | Controller |
-|------|---------|------------|
-| `home.html` | Dashboard/Landing | `home` |
-| `repo-*.html` | Repository views | `repos` |
-| `repo-action-*.html` | Action views (info, logs, history, artifacts) | `actions` |
-| `repo-issues.html` | Issue tracking | `issues` |
-| `repo-prs.html` | Pull requests | `pullrequests` |
-| `repo-integrations.html` | GitHub integration | `integrations` |
-| `repo-settings.html` | Repository settings | `settings` |
-| `monitoring.html` | System monitoring main view | `monitoring` |
-| `signin.html` | Sign in page | `auth` |
-| `signup.html` | Sign up page | `auth` |
-| `settings.html` | User settings | `settings` |
-
-### Partials (`/views/partials/`)
-All partial views are stored in the partials folder for better organization:
-| File | Purpose | Used By |
-|------|---------|--------|
-| `monitoring-*.html` | Monitoring sub-views (cpu, memory, disk, alerts, containers, stats, error) | `monitoring` |
-| `action-*-partial.html` | Action partials (logs, artifacts) | `actions` |
-| `issues-list-partial.html` | Issues list partial | `issues` |
-| `prs-list-partial.html` | Pull requests list partial | `pullrequests` |
-| `repo-*.html` | Repository partials (breadcrumbs, header, tabs) | `repos` |
-| `error-alert.html`, `success-alert.html` | Alert components | Various |
-| `chat-message.html` | Chat UI component | Assistant |
-| `create-file-modal.html` | File creation modal | File operations |
-
-## Cross-Controller Communication
-
-### Using Other Controllers
+### 4. Model & Repository Pattern
 ```go
-// Access another controller from within a controller
-func (c *ReposController) RepoIssues(r application.Request) {
-    // Use the Use() method to get another controller
-    issues := c.Use("issues").(*IssuesController)
-    return issues.RepoIssues(r)
-}
-```
-
-## Common Tasks
-
-### Adding a New Route
-```go
-// In controller's Setup() method
-http.Handle("GET /new-route/{id}", app.Serve("template.html", auth.Required))
-http.Handle("POST /new-route/{id}/action", app.ProtectFunc(c.handleAction, auth.Required))
-
-// Handler method
-func (c *Controller) handleAction(w http.ResponseWriter, r *http.Request) {
-    id := r.PathValue("id")
-    
-    // Always use c.Redirect for redirects (HTMX compatibility)
-    c.Redirect(w, r, "/success-page")
-    
-    // Or use c.Refresh for HTMX partial updates
-    c.Refresh(w, r)
-}
-```
-
-### Working with Models
-```go
-// Create
-model := &ModelType{Field: "value"}
-model, err := Models.Insert(model)
-
-// Read
-model, err := Models.Get(id)
-
-// Update
-model.Field = "new value"
-err := Models.Update(model)
-
-// Delete
-err := Models.Delete(model)
-
-// Search
-results, err := Models.Search("WHERE field = ?", value)
-```
-
-### Template Helpers
-```go
-// Make data available to templates via controller methods
-func (c *Controller) PublicData() string {
-    return "This is accessible as {{controller.PublicData}} in templates"
+type Model struct {
+    application.Model  // Embed for ID, CreatedAt, UpdatedAt
+    // ... fields
 }
 
-// Return complex data
-func (c *Controller) ComplexData() ([]Model, error) {
-    return Models.All()
-}
+func (*Model) Table() string { return "models" }
+
+// Access via typed repositories
+var Models = database.Manage(db, new(Model))
 ```
 
-### Important Template Rendering Patterns
+## Service Patterns
+
+### Container Services
+Services are singletons that manage Docker containers:
 ```go
-// CORRECT: Use Render with template name only (no path)
-c.Render(w, r, "template-name.html", nil)
-
-// CORRECT: Pass single values or nil
-c.Render(w, r, "error-message.html", "Error message here")
-c.RenderErrorMsg(w, r, "Error message")
-
-// WRONG: Don't use JSON-like structures
-// BAD: c.Render(w, r, "template.html", map[string]interface{}{"key": value})
-
-// CORRECT: Store data in controller for template access
-c.myData = fetchedData
-c.Render(w, r, "template.html", nil)
-// Then access in template via: {{controller.MyData}}
-```
-
-## Monitoring System
-
-### Architecture
-Real-time system monitoring accessible at `/monitoring` for admin users.
-
-### Features
-- CPU usage tracking
-- Memory utilization
-- Disk space monitoring
-- Docker container status
-- Alert system for resource thresholds
-
-### Views
-- `monitoring.html` - Main dashboard
-- `monitoring-cpu.html` - CPU metrics
-- `monitoring-memory.html` - Memory metrics
-- `monitoring-disk.html` - Disk usage
-- `monitoring-containers.html` - Container status
-- `monitoring-alerts.html` - System alerts
-
-## Actions System (CI/CD)
-
-### Architecture
-```
-User Trigger → Action Controller → Sandbox Service → Docker Container
-                    ↓                    ↓              ↓
-              ActionRun Record    Monitor Output    Collect Artifacts
-                    ↓                    ↓              ↓
-              Update Status        Stream Logs    Store in Database
-```
-
-### Action Execution Flow
-1. User triggers action (manual/scheduled/event)
-2. ActionRun record created with "running" status
-3. Docker sandbox created with repository mounted at /workspace
-4. Command executed in isolated environment
-5. Output captured and streamed to logs
-6. Artifacts collected based on configured paths
-7. ActionRun updated with final status and metrics
-8. Sandbox cleaned up after 5 minute delay
-
-### Key Operations
-```go
-// Create action
-action := &Action{
-    Title: "Build and Test",
-    Type: "manual",
-    Command: "npm test && npm build",
-    Branch: "main",
-    ArtifactPaths: "dist/, coverage/",
+type Service struct {
+    container *containers.Service
+    mu        sync.Mutex
 }
 
-// Execute action
-err := action.Execute()
-
-// Monitor in background
-go action.monitorSandboxExecution(sandboxName, runID)
-
-// Collect artifacts
-err := action.CollectArtifacts(sandboxName, paths, runID)
-```
-
-## Workspace System (Coder Service)
-
-### Architecture
-```
-User Request → /coder/{workspace-id}/ → WorkspaceHandler → Coder Service → Docker Container
-                                              ↓                               ↓
-                                    Authentication Check            code-server (VS Code)
-                                              ↓                               ↓
-                                    Repository Access              Persistent Volumes
-```
-
-### Key Operations
-```go
-// Workspace access is handled through the coder service
-// The WorkspaceHandler in models/coder.go manages access
-
-// Access workspace
-/coder/{workspaceID}/
-
-// Service is managed globally via services.Coder
-services.Coder.Start()
-services.Coder.Stop()
-services.Coder.IsRunning()
-```
-
-### Coder Service Setup
-The coder service provides VS Code in the browser via code-server. Workspaces are created per-repository and provide isolated development environments with Docker access.
-
-## Error Handling
-
-### Standard Pattern
-```go
-func (c *Controller) handler(w http.ResponseWriter, r *http.Request) {
-    // Get authenticated user
-    auth := c.App.Use("auth").(*authentication.Controller)
-    user, _, err := auth.Authenticate(r)
-    if err != nil {
-        c.Render(w, r, "error-message.html", errors.New("unauthorized"))
-        return
-    }
-    
-    // Check permissions
-    err = models.CheckRepoAccess(user, repoID, models.RoleRead)
-    if err != nil {
-        c.Render(w, r, "error-message.html", err)
-        return
-    }
-    
-    // Success - use appropriate response
-    c.Refresh(w, r)  // For HTMX partial update
-    // OR
-    c.Redirect(w, r, "/success")  // For full page redirect
-}
-```
-
-## UI Development Patterns
-
-### DaisyUI v5 Forms
-```html
-<!-- Use this pattern for forms (NOT validator component) -->
-<form class="flex flex-col gap-2">
-  <label class="form-control w-full">
-    <div class="label">
-      <span class="label-text text-sm font-medium">Field Name</span>
-      <span class="label-text-alt text-xs">Helper text</span>
-    </div>
-    <input type="text" class="input input-bordered w-full" />
-  </label>
-</form>
-```
-
-### Spacing Preferences
-- **ALWAYS use**: `flex flex-col gap-2` for form spacing
-- **NEVER use**: `space-y-n` classes
-- **Form spacing**: Use `gap-2` between form fields
-- **Section spacing**: Use `gap-4` or `gap-6` between sections
-
-### Template Helpers
-- **Active nav states**: Use `{{if path_eq "route"}}class="active"{{end}}`
-- **No HTMX on external links**: Regular `<a>` tags without `hx-boost="true"`
-- **Open in new tab**: Add `target="_blank"` for IDE/external links
-
-## Security Checklist
-
-- ✅ **Authentication**: Use `auth.Required` middleware
-- ✅ **Authorization**: Check `models.CheckRepoAccess()` 
-- ✅ **Path Traversal**: Validate file paths with `isSubPath()`
-- ✅ **SQL Injection**: Use parameterized queries via repositories
-- ✅ **XSS**: Templates auto-escape, use `{{.Field}}` not `{{.Field | safe}}`
-
-## Testing Patterns
-
-### Local Development
-```bash
-# Set required environment
-export AUTH_SECRET="dev-secret"
-
-# Run with auto-reload
-go run .
-
-# Build and run
-go build -o workspace && ./workspace
-```
-
-### Common Test Scenarios
-1. **Repository Creation**: Sign in → Create Repo → Verify in list
-2. **Coder Service**: Access /coder/{workspace-id}/ → Verify VS Code loads
-3. **Actions Execution**: Create action → Run action → Check logs and artifacts
-4. **Permissions**: Create private repo → Sign out → Verify 404
-5. **Issue Creation**: Open repo → Create issue → Verify in list
-6. **GitHub Integration**: Connect repo → Sync → Verify bidirectional updates
-
-## Docker Service Management
-
-### Containerized Services
-The workspace runs several Docker containers for development tools:
-
-1. **Coder Service** (VS Code in browser)
-   - Port: 8080
-   - Access: `/coder/` routes
-   - Container: `skyscape-coder`
-   - Image: `codercom/code-server:latest`
-
-2. **IPython/Jupyter Service**
-   - Port: 8888
-   - Access: `/ipython/` routes
-   - Container: `skyscape-ipython`
-   - Image: `jupyter/datascience-notebook:latest`
-
-3. **Vault Service** (Secret Management)
-   - Port: 8200
-   - Container: `skyscape-vault`
-   - Image: `hashicorp/vault:latest`
-   - Dev mode with token: `skyscape-dev-token`
-
-### Service Initialization Pattern
-```go
-// Services are initialized asynchronously to prevent blocking
-func (c *Controller) Setup(app *application.App) {
-    // ... routes ...
-    
-    // Initialize service in background
+func (s *Service) Init() error {
+    // Always check IsRunning() to prevent duplicates
+    // Initialize in background to prevent blocking
     go func() {
-        if err := services.ServiceName.Init(); err != nil {
-            log.Printf("Warning: Failed to initialize service: %v", err)
+        s.container = &containers.Service{
+            Name:          "service-name",
+            RestartPolicy: "always",
         }
+        s.Start()
     }()
 }
 ```
 
-**IMPORTANT**: Always initialize services asynchronously using goroutines to prevent blocking the application startup while Docker images are pulled.
+### Critical Services
+- **VaultService** - Secret management with automatic unseal
+- **AIService** - Ollama container for AI features
+- **ActionsService** - CI/CD execution environment
+- **NotebookService** - Jupyter notebook server
 
-### Preventing Duplicate Containers
+## Key Implementation Details
+
+### Actions System (CI/CD)
+1. Actions run in Docker sandboxes (`action-{id}-{runid}`)
+2. Repository mounted at `/workspace`
+3. Commands wrapped in `bash -c` for proper execution
+4. Artifacts collected and versioned
+5. 5-minute cleanup delay after completion
+
+### Repository Search (FTS5)
+- SQLite Full-Text Search for code
+- Automatic index updates on file changes
+- Supports regex and fuzzy matching
+- Language-aware tokenization
+
+### Permissions System
 ```go
-// In service Init() method
-func (s *Service) Init() error {
-    if s.IsRunning() {
-        log.Println("Service already running")
-        s.running = true
-        return nil
-    }
-    // Start service...
+// Always check access before operations
+err := models.CheckRepoAccess(user, repoID, models.RoleRead)
+if err != nil {
+    c.Render(w, r, "error-message.html", err)
+    return
 }
 ```
 
-### Container Restart Policy
+Roles: `read`, `write`, `admin`
+
+### Path Security
 ```go
-// Add to Service struct for persistent containers
-service := &containers.Service{
-    RestartPolicy: "always",  // Survives crashes and reboots
-    // ... other config
+// Always validate paths to prevent traversal
+if !isSubPath(basePath, requestedPath) {
+    return errors.New("invalid path")
 }
 ```
 
-## Debugging Tips
+## Development Workflow
 
-### Check Request Context
-```go
-// In any controller method
-id := r.PathValue("id")  // Get path parameter
-value := r.FormValue("field")  // Get form value
-user, _, _ := auth.Authenticate(r)  // Get current user
-```
-
-### Template Debugging
-```html
-<!-- Show available data -->
-<pre>{{printf "%+v" .}}</pre>
-
-<!-- Check specific controller -->
-<pre>{{printf "%+v" repos}}</pre>
-```
-
-### Common Issues & Solutions
-
-1. **"undefined: time"** - Add `import "time"` to the file
-2. **Template not found** - Check file exists in `/views/`
-3. **Route not working** - Ensure it's registered in Setup()
-4. **Permission denied** - Check HasPermission() logic
-5. **SSH connection refused** - Wait a few seconds after deployment for SSH to restart
-6. **Duplicate containers** - Check IsRunning() before creating new containers
-7. **Build failures** - Always use `make clean && make` instead of direct `go build`
-8. **Validator not working** - DaisyUI v5 doesn't have validator component, use HTML5 validation
-9. **Controller not found** - Use `c.Use("controllerName")` to access other controllers
-10. **Action output missing** - Wrap Docker command in `bash -c` for proper shell redirection
-11. **Database column errors** - Check model uses `application.Model` for base fields
-
-## Performance Considerations
-
-1. **Database Queries**: Use `Search()` with limits for large datasets
-2. **File Operations**: Cache file stats when browsing
-3. **Docker Containers**: Reuse existing workspaces when possible
-4. **Templates**: Use partials for repeated components
-
-## Code Style Guide
-
-1. **Error Messages**: User-friendly, lowercase start
-2. **HTTP Status**: Use proper codes (200, 404, 403, 500)
-3. **Redirects**: Always use `c.Redirect()` not `http.Redirect()`
-4. **Logs**: Use `log.Printf()` for debugging, remove in production
-
-## Deployment Checklist
-
-Before deploying changes:
-1. ✅ Build with Makefile: `make clean && make`
-2. ✅ Test locally if possible
-3. ✅ Commit changes with descriptive message
-4. ✅ Deploy to test environment first: `workspace-test-env`
-5. ✅ Verify no duplicate containers after deployment
-6. ✅ Check logs: `ssh root@IP "docker logs sky-app -n 50"`
-
-### Standard Deployment Command
+### Local Development
 ```bash
-cd /home/coder/skyscape
-./devtools/build/launch-app deploy \
-  --name workspace-test-env \
-  --binary workspace/build/workspace
-```
+# Required environment
+export AUTH_SECRET="dev-secret"
 
-## Quick Command Reference
+# Run locally (port 5000)
+go run .
 
-```bash
-# Build (ALWAYS use Makefile)
+# Or build and run
 make clean && make
+./build/workspace
+```
 
+### Testing Changes
+```bash
 # Run tests
 go test ./...
 
@@ -539,74 +168,134 @@ go vet ./...
 
 # Format code
 go fmt ./...
+```
 
-# Update dependencies
-go mod tidy
+### Deployment
+```bash
+# Build the application
+make clean && make
 
-# Check container status on server
-ssh root@SERVER_IP "docker ps -a"
+# Deploy to test environment
+cd /home/coder/skyscape
+./devtools/build/launch-app deploy \
+  --name workspace-test-env \
+  --binary workspace/build/workspace
 
-# View application logs
-ssh root@SERVER_IP "docker logs sky-app -n 50"
+# Verify deployment
+ssh root@SERVER_IP "docker logs sky-app --tail 50"
+```
+
+## Common Gotchas & Solutions
+
+| Issue | Solution |
+|-------|----------|
+| Build fails | Use `make clean && make`, not `go build` |
+| Redirect not working | Use `c.Redirect()` not `http.Redirect()` |
+| Template not found | Check filename is unique, no paths |
+| HTMX not updating | Use `c.Refresh()` or proper hx-target |
+| Service won't start | Check `IsRunning()` first |
+| Permission denied | Add `models.CheckRepoAccess()` |
+| Action output missing | Wrap command in `bash -c` |
+| Duplicate containers | Always mutex lock and check existence |
+
+## Security Checklist
+
+- ✅ Authentication: Use `auth.Required` middleware
+- ✅ Authorization: Check `models.CheckRepoAccess()`
+- ✅ Path validation: Use `isSubPath()` checks
+- ✅ SQL injection: Use repositories (parameterized queries)
+- ✅ XSS: Templates auto-escape by default
+- ✅ CSRF: HTMX same-origin policy
+- ✅ Secrets: Store in Vault, never in code
+
+## File Structure
+
+```
+workspace/
+├── controllers/     # HTTP handlers (MVC)
+│   ├── repos.go    # Repository management
+│   ├── issues.go   # Issue tracking
+│   ├── prs.go      # Pull requests
+│   ├── actions.go  # CI/CD
+│   └── coder.go    # IDE management
+├── models/         # Data models & repositories
+├── services/       # Docker container services
+├── views/          # HTML templates
+├── coding/         # Git operations (internal)
+├── auth/          # Authentication (moved from pkg)
+└── Makefile       # Build configuration
+```
+
+## Environment Variables
+
+### Required
+- `AUTH_SECRET` - JWT signing key (required)
+
+### Optional
+- `PORT` - Server port (default: 5000)
+- `THEME` - DaisyUI theme (default: corporate)
+- `PREFIX` - URL prefix for reverse proxy
+- `GITHUB_CLIENT_ID` - GitHub OAuth app ID
+- `GITHUB_CLIENT_SECRET` - GitHub OAuth secret
+
+## Quick Commands
+
+```bash
+# View logs
+docker logs sky-app --tail 50
+
+# Access database
+sqlite3 ~/.skyscape/workspace.db
+
+# Check services
+docker ps | grep -E "(vault|ollama|jupyter)"
 
 # Restart application
-ssh root@SERVER_IP "docker restart sky-app"
+docker restart sky-app
 ```
+
+## Recent Changes & Patterns
+
+### Service Initialization
+- Services now initialize asynchronously to prevent blocking
+- Always use goroutines for Docker pulls and container starts
+- Check `IsRunning()` before creating new containers
+
+### HTMX Best Practices
+- Controller methods `Refresh()` and `Redirect()` handle happy path
+- Use `hx-target` only for error containers
+- Forms should target error divs: `hx-target="previous .error-message"`
+- Never use `hx-target="body"` with `hx-swap="outerHTML"`
+
+### Template Variables
+- Only use template variables for values accessed multiple times
+- Single-use values should be called directly
+- Cache expensive operations at template level: `{{$value := controller.Method}}`
+
+### Error Handling
+- Methods that can fail should return nil instead of error for optional data
+- Example: `Workspace()` returns nil for orphaned servers
+- This prevents template execution errors
 
 ## Integration Points
 
-### Docker Requirements
-- Docker daemon must be running
-- User must have docker permissions
-- Coder service requires dedicated port
-- Sandbox service requires Docker API access
+- **GitHub API** - Import, sync, OAuth
+- **Docker API** - Container management
+- **HashiCorp Vault** - Secret storage
+- **SQLite FTS5** - Full-text search
+- **HTMX** - Dynamic UI updates
+- **DaisyUI v5** - Component library
 
-### File System
-- Repos stored in `./repos/`
-- Templates in `./views/`
-- Static assets in `./views/public/`
+## Performance Tips
 
-### Database
-- SQLite file: `./workspace.db`
-- Auto-creates tables on startup
-- No manual migrations needed
+1. Use lazy loading with `hx-trigger="revealed"` for heavy content
+2. Cache template calculations: `{{$expensive := controller.Method}}`
+3. Initialize services in background goroutines
+4. Use database indexes for frequent queries
+5. Implement pagination for large datasets
 
-## UI/UX Patterns
+## Support & Documentation
 
-### Consistent Header Style
-- All action/repo pages use same header layout
-- Avatar placeholder with icon on left
-- Title and metadata below
-- Status badge and dropdown menu on right
-
-### Tab Navigation
-- Use route-based tabs (not JavaScript)
-- Active tab indicated with `tab-active` class
-- Each tab has its own route and template
-
-### Borders and Cards
-- Use `border border-base-300` for faint borders
-- Cards should have `shadow-lg` for depth
-- Consistent spacing with `gap-4` between sections
-
-## Recent Architecture Changes (2025)
-
-### Controller Refactoring
-- Split monolithic `repos` controller into focused controllers
-- Each controller handles single responsibility
-- Cross-controller communication via `Use()` method
-
-### Actions System Implementation
-- Docker-based sandbox service for isolated execution
-- Full execution history with ActionRun model
-- Artifact versioning and grouping
-- Tab-based UI for logs, history, artifacts
-
-### Database Enhancements
-- SQLite FTS5 for full-text search
-- ActionRun model for execution tracking
-- Enhanced artifact storage with versioning
-
----
-
-**Remember**: When in doubt, follow existing patterns in the codebase. The modular controller architecture and consistent UI patterns are key to maintaining the application.
+- Main documentation: `/docs` route in application
+- DevTools framework: https://github.com/The-Skyscape/devtools
+- Issues: https://github.com/The-Skyscape/workspace/issues
