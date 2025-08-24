@@ -440,7 +440,7 @@ func (c *HomeController) signupPage(w http.ResponseWriter, r *http.Request) {
 // homePage handles the home page - redirects to signup if no users exist
 func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
 	// Check if any users exist
-	if models.Auth.Users.Count() == 0 {
+	if models.Auth.Users.Count("") == 0 {
 		// No users, redirect to signup
 		c.Redirect(w, r, "/signup")
 		return
