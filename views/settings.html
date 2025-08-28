@@ -227,7 +227,18 @@
           </legend>
 
           <!-- Setup Instructions (moved to top) -->
-          {{if not .GitHubClientID}}
+          {{with settings.GetSettings}}
+          {{if .HasGitHubIntegration}}
+          <div class="alert alert-success mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+              <p class="font-semibold">GitHub OAuth Configured</p>
+              <p class="text-sm mt-1">OAuth credentials are securely stored in vault. You can update them by entering new values below.</p>
+            </div>
+          </div>
+          {{else}}
           <div class="alert alert-info mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <div>
@@ -243,6 +254,7 @@
             </div>
           </div>
           {{end}}
+          {{end}}
 
           <!-- Callback URL Info Box (moved up) -->
           <div class="alert alert-warning mb-4">
@@ -253,12 +265,12 @@
               <p class="font-semibold">GitHub OAuth Callback URL</p>
               <p class="text-sm mt-1">When creating your GitHub OAuth App, use this exact callback URL:</p>
               <div class="mt-2 p-2 bg-base-200 rounded-md">
-                <code class="text-sm font-mono select-all">{{settings.GetGitHubCallbackURL}}</code>
+                <code class="text-sm font-mono select-all">{{integrations.GetGitHubCallbackURL}}</code>
               </div>
             </div>
           </div>
           
-          <form hx-post="{{host}}/settings/github" 
+          <form hx-post="{{host}}/integrations/github/configure" 
                 hx-trigger="submit"
                 hx-swap="none"
                 hx-indicator="#github-save-indicator"
@@ -289,7 +301,7 @@
               <label class="input input-bordered w-full flex items-center gap-2">
                 <input type="text" 
                        name="github_client_id" 
-                       value="{{.GitHubClientID}}" 
+                       value="" 
                        class="grow font-mono" 
                        placeholder="Iv1.a1b2c3d4e5f6g7h8"
                        autocomplete="off"
@@ -308,7 +320,7 @@
               <label class="input input-bordered w-full flex items-center gap-2">
                 <input type="password" 
                        name="github_client_secret" 
-                       value="{{.GitHubClientSecret}}" 
+                       value="" 
                        class="grow font-mono" 
                        placeholder="••••••••••••••••••••••••••••••••"
                        autocomplete="new-password"
@@ -334,7 +346,7 @@
             </div>
           </form>
             
-            {{if .GitHubClientID}}
+            {{if false}}
             <div class="alert alert-success">
               <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span>GitHub OAuth is configured. Users can sync repositories.</span>

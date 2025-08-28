@@ -1,0 +1,219 @@
+{{template "base" .}}
+
+{{define "title"}}{{with prs.CurrentPullRequest}}#{{.GitHubNumber}} {{.Title}}{{else}}Pull Request{{end}} - {{with repos.CurrentRepo}}{{.Name}}{{end}}{{end}}
+
+{{define "content"}}
+{{with repos.CurrentRepo}}
+<div class="flex flex-col gap-6">
+    <!-- Header Navigation -->
+    {{template "repo-header.html" .}}
+    
+    {{with prs.CurrentPullRequest}}
+    <!-- PR Header -->
+    <div class="flex flex-col gap-4">
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex-1">
+                <h1 class="text-3xl font-bold">{{.Title}} #{{if .GitHubNumber}}{{.GitHubNumber}}{{else}}{{.ID}}{{end}}</h1>
+                
+                <!-- Status and Meta Info -->
+                <div class="flex items-center gap-3 mt-2 text-sm">
+                    {{if eq .Status "open"}}
+                        <span class="badge badge-success">Open</span>
+                    {{else if eq .Status "merged"}}
+                        <span class="badge badge-primary">Merged</span>
+                    {{else if eq .Status "closed"}}
+                        <span class="badge badge-error">Closed</span>
+                    {{end}}
+                    
+                    {{with users.GetByID .AuthorID}}
+                        <span>{{.Name}} wants to merge</span>
+                    {{end}}
+                    
+                    <span class="text-base-content/70">
+                        <strong>{{.CompareBranch}}</strong> into <strong>{{.BaseBranch}}</strong>
+                    </span>
+                </div>
+                
+                <!-- GitHub Sync Status -->
+                {{if .GitHubURL}}
+                <div class="flex items-center gap-2 mt-2">
+                    <a href="{{.GitHubURL}}" target="_blank" hx-boost="false" class="link link-primary text-sm">
+                        View on GitHub ↗
+                    </a>
+                    {{if eq .SyncStatus "synced"}}
+                        <span class="badge badge-success badge-sm">Synced</span>
+                    {{else if eq .SyncStatus "error"}}
+                        <span class="badge badge-error badge-sm">Sync Error</span>
+                    {{else if eq .SyncStatus "pending"}}
+                        <span class="badge badge-warning badge-sm">Pending Sync</span>
+                    {{end}}
+                    {{if not .LastSyncAt.IsZero}}
+                        <span class="text-xs text-base-content/50">Last synced {{.LastSyncAt.Format "Jan 2, 3:04 PM"}}</span>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+            
+            <!-- Actions -->
+            {{if eq .Status "open"}}
+            <div class="flex gap-2">
+                {{if auth.CurrentUser.IsAdmin}}
+                    {{with prs.RepoPRDiff}}
+                        {{if not .HasConflicts}}
+                        <form hx-post="/repos/{{$.ID}}/prs/{{prs.CurrentPullRequest.ID}}/merge" 
+                              hx-confirm="Are you sure you want to merge this pull request?">
+                            <button class="btn btn-primary">
+                                Merge Pull Request
+                            </button>
+                        </form>
+                        {{else}}
+                        <button class="btn btn-disabled" disabled>
+                            Has Conflicts
+                        </button>
+                        {{end}}
+                    {{end}}
+                {{end}}
+                
+                {{if or auth.CurrentUser.IsAdmin (eq .AuthorID auth.CurrentUser.ID)}}
+                <form hx-post="/repos/{{$.ID}}/prs/{{.ID}}/close" 
+                      hx-confirm="Are you sure you want to close this pull request?">
+                    <button class="btn btn-ghost">
+                        Close Pull Request
+                    </button>
+                </form>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+        
+        <!-- Description -->
+        {{if .Body}}
+        <div class="card border border-base-300">
+            <div class="card-body">
+                <div class="prose max-w-none">
+                    {{.Body | markdown}}
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs tabs-bordered">
+        <a class="tab {{if path_eq (printf "/repos/%s/prs/%s" $.ID .ID)}}tab-active{{end}}" 
+           href="/repos/{{$.ID}}/prs/{{.ID}}">
+            Conversation
+        </a>
+        <a class="tab {{if path_contains "/diff"}}tab-active{{end}}" 
+           href="/repos/{{$.ID}}/prs/{{.ID}}/diff">
+            Files Changed
+        </a>
+    </div>
+    
+    <!-- Tab Content -->
+    {{if path_contains "/diff"}}
+        <!-- Diff View -->
+        {{with prs.RepoPRDiff}}
+        <div class="card border border-base-300">
+            <div class="card-body">
+                <h3 class="text-lg font-semibold mb-4">
+                    {{.FileCount}} file{{if ne .FileCount 1}}s{{end}} changed
+                    <span class="text-success">+{{.Additions}}</span>
+                    <span class="text-error">-{{.Deletions}}</span>
+                </h3>
+                
+                {{if .HasConflicts}}
+                <div class="alert alert-warning mb-4">
+                    <span>This pull request has merge conflicts that must be resolved</span>
+                </div>
+                {{end}}
+                
+                <!-- File Diffs -->
+                {{range .Files}}
+                <div class="collapse collapse-arrow border border-base-300 mb-2">
+                    <input type="checkbox" />
+                    <div class="collapse-title font-mono text-sm">
+                        {{.Path}}
+                        <span class="text-success">+{{.Additions}}</span>
+                        <span class="text-error">-{{.Deletions}}</span>
+                    </div>
+                    <div class="collapse-content">
+                        <pre class="text-xs overflow-x-auto">{{.Patch}}</pre>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{else}}
+        <div class="alert alert-info">
+            <span>Unable to generate diff. The branches may have diverged too much.</span>
+        </div>
+        {{end}}
+    {{else}}
+        <!-- Conversation View -->
+        <div class="flex flex-col gap-4">
+            <!-- Comments -->
+            {{range prs.PRComments}}
+            <div class="card border border-base-300">
+                <div class="card-body">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-2">
+                            {{with users.GetByID .AuthorID}}
+                            <div class="avatar placeholder">
+                                <div class="bg-primary text-neutral-content rounded-full w-8 h-8">
+                                    <span class="text-xs">{{.Name | initials}}</span>
+                                </div>
+                            </div>
+                            <span class="font-semibold">{{.Name}}</span>
+                            {{end}}
+                            <span class="text-sm text-base-content/70">
+                                {{.CreatedAt.Format "Jan 2, 3:04 PM"}}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="prose max-w-none mt-2">
+                        {{.Body | markdown}}
+                    </div>
+                </div>
+            </div>
+            {{else}}
+            <div class="text-center py-8 text-base-content/70">
+                No comments yet
+            </div>
+            {{end}}
+            
+            <!-- Add Comment Form -->
+            {{if and auth.IsAuthenticated (or $.IsPublic auth.CurrentUser.IsAdmin)}}
+            <div class="card border border-base-300">
+                <div class="card-body">
+                    <form hx-post="/repos/{{$.ID}}/prs/{{.ID}}/comment" 
+                          hx-target="this" 
+                          hx-swap="outerHTML"
+                          class="flex flex-col gap-2">
+                        <textarea name="body" 
+                                  class="textarea textarea-bordered w-full" 
+                                  rows="4" 
+                                  placeholder="Leave a comment..."
+                                  required></textarea>
+                        <div class="flex justify-end">
+                            <button type="submit" class="btn btn-primary">Comment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    {{end}}
+    
+    {{else}}
+    <div class="alert alert-error">
+        <span>Pull request not found</span>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<div class="alert alert-error">
+    <span>Repository not found</span>
+</div>
+{{end}}
+{{end}}

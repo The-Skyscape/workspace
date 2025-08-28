@@ -1,0 +1,90 @@
+{{template "layout/start"}}
+<div class="min-h-[60vh] flex items-center justify-center px-4">
+  <div class="max-w-lg text-center">
+    <!-- Icon -->
+    <div class="mb-6">
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-warning/10 text-warning">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+    </div>
+    
+    <!-- Message -->
+    <h1 class="text-3xl font-bold mb-4">Admin Access Required</h1>
+    <p class="text-lg text-base-content/70 mb-8">
+      This action requires admin privileges. As a guest user, you can:
+    </p>
+    
+    <!-- What guests can do -->
+    <div class="card bg-base-200/50 border border-base-300 mb-8">
+      <div class="card-body text-left">
+        <h3 class="font-semibold mb-3">What you can do as a guest:</h3>
+        <ul class="space-y-2">
+          <li class="flex items-start gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>View and browse public repositories</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Create and comment on issues in public repos</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Submit pull requests to public repos</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Download build artifacts from public repos</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <button onclick="history.back()" class="btn btn-outline">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Go Back
+      </button>
+      <button onclick="request_admin_modal.showModal()" class="btn btn-primary">
+        Request Admin Access
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Request Admin Modal -->
+<dialog id="request_admin_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Request Admin Access</h3>
+    <p class="text-base-content/70 mb-6">
+      Please provide a reason for requesting admin access. An administrator will review your request.
+    </p>
+    <form method="dialog">
+      <textarea class="textarea textarea-bordered w-full mb-4" rows="4" placeholder="Explain why you need admin access..."></textarea>
+      <div class="modal-action">
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-primary" onclick="alert('Request submitted! An admin will review it soon.')">Submit Request</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+{{template "layout/end"}}

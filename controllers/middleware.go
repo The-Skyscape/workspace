@@ -21,8 +21,8 @@ func AdminOnly() application.AccessCheck {
 		}
 		
 		if !user.IsAdmin {
-			// Not admin - render signin page
-			app.Render(w, r, "signin.html", nil)
+			// Authenticated but not admin - show insufficient permissions
+			app.Render(w, r, "insufficient-permissions.html", nil)
 			return false
 		}
 		
@@ -88,7 +88,8 @@ func AuthorOrAdmin(getAuthorID func(r *http.Request) (string, error)) applicatio
 			return true
 		}
 		
-		app.Render(w, r, "signin.html", nil)
+		// User is authenticated but not author or admin
+		app.Render(w, r, "insufficient-permissions.html", nil)
 		return false
 	}
 }
@@ -122,7 +123,7 @@ func PublicRepoOnly() application.AccessCheck {
 		
 		// Non-admins can only access public repos
 		if repo.Visibility != "public" {
-			app.Render(w, r, "signin.html", nil)
+			app.Render(w, r, "insufficient-permissions.html", nil)
 			return false
 		}
 		

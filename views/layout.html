@@ -68,6 +68,11 @@
                     <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 z-50" hx-boost="true">
                         <li class="menu-title">
                             <span>{{auth.CurrentUser.Name}}</span>
+                            {{if auth.CurrentUser.IsAdmin}}
+                            <span class="badge badge-primary badge-sm ml-2">Admin</span>
+                            {{else}}
+                            <span class="badge badge-outline badge-sm ml-2">Guest</span>
+                            {{end}}
                         </li>
                         <li><a href="{{host}}/repos">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

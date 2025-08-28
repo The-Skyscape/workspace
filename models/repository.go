@@ -34,11 +34,17 @@ type Repository struct {
 	ForkCount       int       // Number of forks (for future use)
 
 	// GitHub Integration
-	GitHubURL     string    // GitHub repository URL
-	GitHubToken   string    // GitHub personal access token (should be encrypted)
-	SyncDirection string    // "push", "pull", or "both"
-	AutoSync      bool      // Whether to auto-sync on changes
-	LastSyncAt    time.Time // Last sync timestamp
+	GitHubURL        string    // GitHub repository URL
+	SyncDirection    string    // "push", "pull", "both", or "none"
+	AutoSync         bool      // Whether to auto-sync on changes
+	LastSyncAt       time.Time // Last sync timestamp
+	RemoteConfigured bool      // Whether GitHub remote is configured
+	LocalAhead       int       // Commits ahead of remote
+	LocalBehind      int       // Commits behind remote
+	CurrentBranch    string    // Active branch name
+	LastPushAt       time.Time // Last successful push
+	LastPullAt       time.Time // Last successful pull
+	SyncStatus       string    // "synced", "ahead", "behind", "diverged", "error"
 }
 
 // Table returns the database table name

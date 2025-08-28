@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -30,8 +31,6 @@ type Settings struct {
 	
 	// Integration Settings
 	GitHubEnabled       bool
-	GitHubClientID      string
-	GitHubClientSecret  string
 	
 	// Metadata
 	LastUpdatedBy       string
@@ -77,5 +76,33 @@ func GetSettings() (*Settings, error) {
 
 // HasGitHubIntegration checks if GitHub integration is configured
 func (s *Settings) HasGitHubIntegration() bool {
-	return s.GitHubEnabled && s.GitHubClientID != "" && s.GitHubClientSecret != ""
+	if !s.GitHubEnabled {
+		return false
+	}
+	
+	// Check if OAuth app credentials exist in vault
+	secret, err := Secrets.GetSecret("github/oauth_app")
+	if err != nil {
+		return false
+	}
+	
+	clientID, _ := secret["client_id"].(string)
+	clientSecret, _ := secret["client_secret"].(string)
+	return clientID != "" && clientSecret != ""
+}
+
+// GetGitHubCredentials retrieves GitHub OAuth app credentials from vault
+func GetGitHubCredentials() (clientID, clientSecret string, err error) {
+	secret, err := Secrets.GetSecret("github/oauth_app")
+	if err != nil {
+		return "", "", fmt.Errorf("GitHub OAuth credentials not configured in vault: %w", err)
+	}
+	
+	clientID, _ = secret["client_id"].(string)
+	clientSecret, _ = secret["client_secret"].(string)
+	if clientID == "" || clientSecret == "" {
+		return "", "", fmt.Errorf("GitHub OAuth credentials incomplete in vault")
+	}
+	
+	return clientID, clientSecret, nil
 }

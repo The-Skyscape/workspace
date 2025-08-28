@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+	
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
@@ -13,6 +15,17 @@ type PullRequest struct {
 	BaseBranch    string
 	CompareBranch string
 	Status        string // "draft", "open", "merged", "closed"
+	
+	// GitHub Sync Fields
+	GitHubNumber   int       // GitHub PR number
+	GitHubID       int64     // GitHub PR ID
+	GitHubURL      string    // GitHub PR URL
+	GitHubState    string    // GitHub state (open, closed)
+	GitHubMerged   bool      // Whether PR was merged on GitHub
+	GitHubMergedAt time.Time // When PR was merged on GitHub
+	LastSyncAt     time.Time // Last sync timestamp
+	SyncStatus     string    // "synced", "pending", "conflict", "local_only"
+	SyncDirection  string    // "push", "pull", "both", "none"
 }
 
 func (*PullRequest) Table() string { return "pull_requests" }

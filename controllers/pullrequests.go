@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"log"
 	"workspace/models"
 	"workspace/services"
 
@@ -286,6 +287,7 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 		BaseBranch:    baseBranch,
 		CompareBranch: compareBranch,
 		Status:        "open",
+		SyncDirection: "push", // Default to push for new PRs
 	}
 
 	_, err := models.PullRequests.Insert(pr)
@@ -297,6 +299,16 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	// Log activity
 	models.LogActivity("pr_created", "Created pull request: "+pr.Title,
 		"New pull request opened", user.ID, repoID, "pull_request", pr.ID)
+
+	// Sync to GitHub if repo has GitHub integration
+	repo, _ := models.Repositories.Get(repoID)
+	if repo != nil && repo.GitHubURL != "" {
+		go func() {
+			if err := services.GitHubSync.SyncPullRequest(pr.ID, user.ID); err != nil {
+				log.Printf("Failed to sync PR to GitHub: %v", err)
+			}
+		}()
+	}
 
 	// Trigger actions for PR creation event
 	eventData := map[string]string{
@@ -388,6 +400,15 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 	models.LogActivity("pr_merged", "Merged pull request: "+pr.Title,
 		"Pull request merged", user.ID, repoID, "pull_request", pr.ID)
 
+	// Sync merge to GitHub if repo has GitHub integration
+	if repo.GitHubURL != "" {
+		go func() {
+			if err := services.GitHubSync.SyncPullRequest(pr.ID, user.ID); err != nil {
+				log.Printf("Failed to sync PR merge to GitHub: %v", err)
+			}
+		}()
+	}
+
 	// Trigger actions for push event (merge is essentially a push to base branch)
 	eventData := map[string]string{
 		"BRANCH":         pr.BaseBranch,
@@ -442,6 +463,16 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 	// Log activity
 	models.LogActivity("pr_closed", "Closed pull request: "+pr.Title,
 		"Pull request closed", user.ID, repoID, "pull_request", pr.ID)
+
+	// Sync close to GitHub if repo has GitHub integration
+	repo, _ := models.Repositories.Get(repoID)
+	if repo != nil && repo.GitHubURL != "" {
+		go func() {
+			if err := services.GitHubSync.SyncPullRequest(pr.ID, user.ID); err != nil {
+				log.Printf("Failed to sync PR close to GitHub: %v", err)
+			}
+		}()
+	}
 
 	c.Refresh(w, r)
 }

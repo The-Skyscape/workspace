@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+	
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
@@ -13,6 +15,15 @@ type Issue struct {
 	AuthorID   string // User who created the issue
 	AssigneeID string
 	RepoID     string
+	
+	// GitHub Sync Fields
+	GitHubNumber  int       // GitHub issue number
+	GitHubID      int64     // GitHub issue ID
+	GitHubURL     string    // GitHub issue URL
+	GitHubState   string    // GitHub state (open, closed)
+	LastSyncAt    time.Time // Last sync timestamp
+	SyncStatus    string    // "synced", "pending", "conflict", "local_only"
+	SyncDirection string    // "push", "pull", "both", "none"
 }
 
 func (*Issue) Table() string { return "issues" }

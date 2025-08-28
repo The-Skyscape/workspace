@@ -165,12 +165,12 @@
                   </svg>
                   <div>
                     <div class="font-semibold">GitHub</div>
-                    {{with github.CurrentUserGitHub}}
+                    {{if integrations.HasGitHubConnected}}
                     <div class="text-sm text-success flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Connected as @{{.GitHubUsername}}
+                      Connected{{with integrations.GetGitHubUsername}} as @{{.}}{{end}}
                     </div>
                     {{else}}
                     <div class="text-sm text-base-content/60">Not connected</div>
@@ -178,21 +178,15 @@
                   </div>
                 </div>
                 
-                {{with github.CurrentUserGitHub}}
-                <div class="flex items-center gap-2">
-                  <div class="text-right text-xs text-base-content/60">
-                    <div>{{github.UserSyncedRepos | len}} repos synced</div>
-                    <div>Connected {{.GitHubConnectedAt.Format "Jan 2, 2006"}}</div>
-                  </div>
-                  <form hx-post="{{host}}/auth/github/disconnect" 
-                        hx-confirm="Are you sure you want to disconnect your GitHub account? This will not delete any imported repositories."
-                        hx-target="body"
-                        hx-swap="outerHTML">
-                    <button type="submit" class="btn btn-error btn-outline btn-sm">
-                      Disconnect
-                    </button>
-                  </form>
-                </div>
+                {{if integrations.HasGitHubConnected}}
+                <form hx-post="{{host}}/auth/github/disconnect" 
+                      hx-confirm="Are you sure you want to disconnect your GitHub account?"
+                      hx-target="body"
+                      hx-swap="outerHTML">
+                  <button type="submit" class="btn btn-error btn-outline btn-sm">
+                    Disconnect
+                  </button>
+                </form>
                 {{else}}
                 <a href="{{host}}/auth/github" class="btn btn-primary btn-sm">
                   Connect GitHub

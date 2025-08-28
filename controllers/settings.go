@@ -54,7 +54,7 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("GET /settings", app.Serve("settings.html", adminRequired))
 	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, adminRequired))
 	http.Handle("POST /settings/theme", app.ProtectFunc(s.updateTheme, adminRequired))
-	http.Handle("POST /settings/github", app.ProtectFunc(s.updateGitHubSettings, adminRequired))
+	// GitHub settings moved to IntegrationsController
 	
 	// User Account settings - for individual users
 	http.Handle("GET /settings/account", app.Serve("settings-account.html", auth.Required))
@@ -81,18 +81,7 @@ func (s *SettingsController) GetSettings() (*models.Settings, error) {
 	return models.GetSettings()
 }
 
-// GetGitHubCallbackURL returns the full GitHub OAuth callback URL based on the current request
-func (s *SettingsController) GetGitHubCallbackURL() string {
-	if s.Request == nil {
-		return "/auth/github/callback"
-	}
-	
-	scheme := "http"
-	if s.Request.TLS != nil || s.Request.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	return fmt.Sprintf("%s://%s/auth/github/callback", scheme, s.Request.Host)
-}
+// GitHub OAuth methods moved to IntegrationsController
 
 
 // updateSettings handles the main settings form submission
@@ -131,8 +120,6 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	if _, exists := r.Form["github_enabled"]; exists {
 		settings.GitHubEnabled = r.FormValue("github_enabled") == "true"
 	}
-	settings.GitHubClientID = cmp.Or(r.FormValue("github_client_id"), settings.GitHubClientID)
-	settings.GitHubClientSecret = cmp.Or(r.FormValue("github_client_secret"), settings.GitHubClientSecret)
 
 	// Update metadata
 	settings.LastUpdatedBy = user.Email
@@ -204,51 +191,7 @@ func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request)
 	s.Refresh(w, r)
 }
 
-// updateGitHubSettings handles GitHub integration settings updates
-func (s *SettingsController) updateGitHubSettings(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		s.RenderErrorMsg(w, r, "unauthorized")
-		return
-	}
-
-	// Parse form
-	if err := r.ParseForm(); err != nil {
-		s.RenderError(w, r, err)
-		return
-	}
-
-	// Get current settings
-	settings, err := models.GetSettings()
-	if err != nil {
-		s.RenderError(w, r, err)
-		return
-	}
-
-	// Update GitHub settings
-	settings.GitHubEnabled = r.FormValue("github_enabled") == "true"
-	settings.GitHubClientID = r.FormValue("github_client_id")
-	settings.GitHubClientSecret = r.FormValue("github_client_secret")
-	
-	// Update metadata
-	settings.LastUpdatedBy = user.Email
-	settings.LastUpdatedAt = time.Now()
-
-	// Save to database
-	err = models.GlobalSettings.Update(settings)
-	if err != nil {
-		s.RenderError(w, r, err)
-		return
-	}
-
-	// Log activity
-	models.LogActivity("github_settings_updated", "Updated GitHub integration settings", 
-		"Administrator updated GitHub OAuth configuration", user.ID, "", "settings", "")
-
-	// Return success - page will show success via the alert
-	s.Refresh(w, r)
-}
+// GitHub settings methods moved to IntegrationsController
 
 // GetProfile returns the admin user's profile for settings page
 func (s *SettingsController) GetProfile() (*models.Profile, error) {

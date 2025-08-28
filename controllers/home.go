@@ -3,7 +3,6 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,13 +61,7 @@ func (c *HomeController) Setup(app *application.App) {
 	http.Handle("GET /repos/more", app.Serve("repos-more.html", auth.Required))
 	http.Handle("GET /activities/more", app.Serve("activities-more.html", auth.Required))
 	
-	// Initialize Vault service on startup in background
-	go func() {
-		log.Println("Starting Vault initialization in background...")
-		if err := services.Vault.Init(); err != nil {
-			log.Printf("Warning: Failed to initialize Vault service: %v", err)
-		}
-	}()
+	// Vault is now initialized automatically by models.Secrets
 }
 
 // Handle is called when each request is handled
