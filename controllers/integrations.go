@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"workspace/internal/github"
 	"workspace/models"
 	"workspace/services"
 
@@ -508,7 +509,7 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 
 	// Trigger initial sync
 	go func() {
-		syncService := &services.GitHubSyncService{}
+		syncService := &github.GitHubSyncService{}
 		if err := syncService.SyncRepository(repo.ID, user.ID); err != nil {
 			log.Printf("Failed initial GitHub sync for repo %s: %v", repo.Name, err)
 		}
@@ -554,7 +555,7 @@ func (c *IntegrationsController) syncGitHubRepo(w http.ResponseWriter, r *http.R
 	token, err := models.GetGitHubOAuthToken(user.ID)
 	if err != nil {
 		// Fall back to issues/PRs only sync
-		syncService := &services.GitHubSyncService{}
+		syncService := &github.GitHubSyncService{}
 		if err := syncService.SyncRepository(repo.ID, user.ID); err != nil {
 			c.RenderError(w, r, fmt.Errorf("sync failed: %w", err))
 			return
@@ -563,19 +564,21 @@ func (c *IntegrationsController) syncGitHubRepo(w http.ResponseWriter, r *http.R
 		// Full sync including code
 		// Configure remote if needed
 		if !repo.RemoteConfigured && repo.GitHubURL != "" {
-			if err := services.GitOperations.ConfigureRemote(repo, repo.GitHubURL); err != nil {
+			gitOps := github.NewGitOperationsService()
+			if err := gitOps.ConfigureRemote(repo, repo.GitHubURL); err != nil {
 				log.Printf("Failed to configure remote: %v", err)
 			}
 		}
 		
 		// Perform code sync
-		if err := services.GitOperations.SyncWithRemote(repo, token); err != nil {
+		gitOps := github.NewGitOperationsService()
+		if err := gitOps.SyncWithRemote(repo, token); err != nil {
 			log.Printf("Code sync failed: %v", err)
 			// Continue with issues/PRs sync even if code sync fails
 		}
 		
 		// Sync issues and PRs
-		syncService := &services.GitHubSyncService{}
+		syncService := &github.GitHubSyncService{}
 		if err := syncService.SyncRepository(repo.ID, user.ID); err != nil {
 			log.Printf("Issues/PRs sync failed: %v", err)
 		}
@@ -658,7 +661,8 @@ func (c *IntegrationsController) GetRepoSyncStatus() (ahead int, behind int, sta
 	}
 	
 	// Get latest sync status
-	a, b, s, err := services.GitOperations.GetSyncStatus(repo)
+	gitOps := github.NewGitOperationsService()
+	a, b, s, err := gitOps.GetSyncStatus(repo)
 	if err != nil {
 		log.Printf("Failed to get sync status for repo %s: %v", repoID, err)
 		return 0, 0, "error"
@@ -705,7 +709,8 @@ func (c *IntegrationsController) pushGitHubRepo(w http.ResponseWriter, r *http.R
 	
 	// Configure remote if needed
 	if !repo.RemoteConfigured && repo.GitHubURL != "" {
-		if err := services.GitOperations.ConfigureRemote(repo, repo.GitHubURL); err != nil {
+		gitOps := github.NewGitOperationsService()
+		if err := gitOps.ConfigureRemote(repo, repo.GitHubURL); err != nil {
 			c.RenderError(w, r, fmt.Errorf("failed to configure remote: %w", err))
 			return
 		}
@@ -713,7 +718,8 @@ func (c *IntegrationsController) pushGitHubRepo(w http.ResponseWriter, r *http.R
 	
 	// Push to GitHub
 	branch := r.FormValue("branch")
-	if err := services.GitOperations.PushToRemote(repo, branch, token); err != nil {
+	gitOps := github.NewGitOperationsService()
+	if err := gitOps.PushToRemote(repo, branch, token); err != nil {
 		c.RenderError(w, r, fmt.Errorf("push failed: %w", err))
 		return
 	}
@@ -758,7 +764,8 @@ func (c *IntegrationsController) pullGitHubRepo(w http.ResponseWriter, r *http.R
 	
 	// Configure remote if needed
 	if !repo.RemoteConfigured && repo.GitHubURL != "" {
-		if err := services.GitOperations.ConfigureRemote(repo, repo.GitHubURL); err != nil {
+		gitOps := github.NewGitOperationsService()
+		if err := gitOps.ConfigureRemote(repo, repo.GitHubURL); err != nil {
 			c.RenderError(w, r, fmt.Errorf("failed to configure remote: %w", err))
 			return
 		}
@@ -766,7 +773,8 @@ func (c *IntegrationsController) pullGitHubRepo(w http.ResponseWriter, r *http.R
 	
 	// Pull from GitHub
 	branch := r.FormValue("branch")
-	if err := services.GitOperations.PullFromRemote(repo, branch, token); err != nil {
+	gitOps := github.NewGitOperationsService()
+	if err := gitOps.PullFromRemote(repo, branch, token); err != nil {
 		c.RenderError(w, r, fmt.Errorf("pull failed: %w", err))
 		return
 	}
@@ -799,7 +807,8 @@ func (c *IntegrationsController) getSyncStatus(w http.ResponseWriter, r *http.Re
 	// No special check needed - auth.Required already ensures user is authenticated
 	
 	// Get sync status
-	ahead, behind, status, err := services.GitOperations.GetSyncStatus(repo)
+	gitOps := github.NewGitOperationsService()
+	ahead, behind, status, err := gitOps.GetSyncStatus(repo)
 	if err != nil {
 		c.RenderError(w, r, fmt.Errorf("failed to get status: %w", err))
 		return
@@ -846,7 +855,8 @@ func (c *IntegrationsController) configureGitHubRemote(w http.ResponseWriter, r 
 	}
 	
 	// Configure remote
-	if err := services.GitOperations.ConfigureRemote(repo, githubURL); err != nil {
+	gitOps := github.NewGitOperationsService()
+	if err := gitOps.ConfigureRemote(repo, githubURL); err != nil {
 		c.RenderError(w, r, fmt.Errorf("failed to configure remote: %w", err))
 		return
 	}

@@ -1,4 +1,4 @@
-package services
+package github
 
 import (
 	"bytes"
@@ -371,5 +371,3 @@ func (s *GitOperationsService) CheckForConflicts(repo *models.Repository) (bool,
 	return true, files, nil
 }
 
-// Global instance
-var GitOperations = NewGitOperationsService()

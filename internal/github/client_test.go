@@ -1,4 +1,4 @@
-package services
+package github
 
 import (
 	"context"
@@ -252,8 +252,8 @@ func TestGitHubClientListIssues(t *testing.T) {
 	// Override the base URL for testing
 	client.client = &http.Client{}
 	
-	// Mock the API URL
-	mockURL := server.URL + "/test-owner/test-repo"
+	// Mock the API URL - use a fake GitHub URL for testing
+	mockURL := "https://github.com/test-owner/test-repo"
 	
 	// Test list issues
 	ctx := context.Background()
@@ -368,7 +368,7 @@ func TestGitHubClientCreateIssue(t *testing.T) {
 	
 	// Test create issue
 	ctx := context.Background()
-	mockURL := server.URL + "/test-owner/test-repo"
+	mockURL := "https://github.com/test-owner/test-repo"
 	issue, err := client.CreateIssue(ctx, mockURL, "Test Issue", "Test Body")
 	
 	if err != nil {
