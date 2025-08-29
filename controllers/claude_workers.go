@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -145,7 +146,8 @@ func (c *ClaudeController) getWorkerChat(w http.ResponseWriter, r *http.Request)
 			"Worker": worker,
 		})
 	} else {
-		c.Render(w, r, "claude-chat.html", map[string]interface{}{
+		// Use enhanced chat view for streaming support
+		c.Render(w, r, "claude-chat-enhanced.html", map[string]interface{}{
 			"Worker": worker,
 		})
 	}
@@ -261,7 +263,7 @@ func (c *ClaudeController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		worker.ID, strings.ReplaceAll(message, `"`, `\"`)))
 }
 
-// streamResponse handles streaming Claude's response
+// streamResponse handles streaming Claude's response using JSON streaming
 func (c *ClaudeController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	workerID := r.PathValue("id")
 	worker, err := models.AIWorkers.Get(workerID)
@@ -281,51 +283,103 @@ func (c *ClaudeController) streamResponse(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
 
 	// Get message from query params
 	message := r.URL.Query().Get("message")
 	if message == "" {
-		fmt.Fprintf(w, "data: Error: No message provided\n\n")
+		fmt.Fprintf(w, "data: {\"type\":\"error\",\"content\":\"No message provided\"}\n\n")
 		w.(http.Flusher).Flush()
 		return
 	}
 
-	// Create output channel
-	outputChan := make(chan string, 100)
-
-	// Start streaming Claude response
-	go func() {
-		defer close(outputChan)
-
-		// Create worker manager
-		authManager := claude.NewAuthManager(models.Secrets)
-		workerManager := claude.NewWorkerManager(authManager, services.SandboxAdapter{})
+	// Create worker manager
+	authManager := claude.NewAuthManager(models.Secrets)
+	workerManager := claude.NewWorkerManager(authManager, services.SandboxAdapter{})
+	
+	// Get or create stream handler for this worker
+	handler, err := workerManager.ExecuteStreamingMessage(sandbox, message)
+	if err != nil {
+		// Fallback to non-streaming mode if streaming fails
+		log.Printf("Streaming failed, falling back to regular mode: %v", err)
 		
-		// Execute Claude command
 		output, err := workerManager.ExecuteMessage(sandbox, message)
 		if err != nil {
-			outputChan <- fmt.Sprintf("Error: %v", err)
+			fmt.Fprintf(w, "data: {\"type\":\"error\",\"content\":\"%s\"}\n\n", 
+				strings.ReplaceAll(err.Error(), "\"", "\\\""))
+			w.(http.Flusher).Flush()
 			return
 		}
-
-		// Stream output in chunks
+		
+		// Send the response as chunks
 		lines := strings.Split(output, "\n")
 		for _, line := range lines {
-			outputChan <- line
-			time.Sleep(10 * time.Millisecond) // Streaming effect
+			fmt.Fprintf(w, "data: {\"type\":\"assistant\",\"content\":\"%s\"}\n\n", 
+				strings.ReplaceAll(line, "\"", "\\\""))
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
 		}
-
-		// Save assistant response
+		
+		// Save response
 		models.AddMessage(worker.ID, models.RoleAssistant, output)
-	}()
-
-	// Stream to client
-	for output := range outputChan {
-		fmt.Fprintf(w, "data: %s\n\n", strings.ReplaceAll(output, "\n", "\\n"))
-		w.(http.Flusher).Flush()
+	} else {
+		// Use streaming mode
+		defer handler.Stop()
+		
+		// Collect full response for saving
+		var fullResponse strings.Builder
+		
+		// Create a timeout for the entire streaming operation
+		timeout := time.After(2 * time.Minute)
+		done := make(chan bool)
+		
+		go func() {
+			// Stream messages from handler to HTTP response
+			for {
+				select {
+				case msg := <-handler.GetOutputChannel():
+					// Format message as JSON for SSE
+					jsonData, _ := json.Marshal(msg)
+					fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+					w.(http.Flusher).Flush()
+					
+					// Accumulate response
+					if msg.Type == claude.MessageTypeAssistant {
+						fullResponse.WriteString(msg.Content)
+						fullResponse.WriteString("\n")
+					}
+					
+					// Check for completion
+					if strings.Contains(msg.Content, "[DONE]") {
+						done <- true
+						return
+					}
+					
+				case err := <-handler.GetErrorChannel():
+					fmt.Fprintf(w, "data: {\"type\":\"error\",\"content\":\"%s\"}\n\n", 
+						strings.ReplaceAll(err.Error(), "\"", "\\\""))
+					w.(http.Flusher).Flush()
+					done <- true
+					return
+					
+				case <-timeout:
+					done <- true
+					return
+				}
+			}
+		}()
+		
+		// Wait for completion
+		<-done
+		
+		// Save the full response
+		if response := fullResponse.String(); response != "" {
+			models.AddMessage(worker.ID, models.RoleAssistant, response)
+		}
 	}
 
-	fmt.Fprintf(w, "data: [DONE]\n\n")
+	// Send completion signal
+	fmt.Fprintf(w, "data: {\"type\":\"done\"}\n\n")
 	w.(http.Flusher).Flush()
 }
 

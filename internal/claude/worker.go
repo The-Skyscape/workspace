@@ -48,6 +48,17 @@ func (wm *WorkerManager) InitializeWorker(config WorkerConfig) (SandboxInterface
 		return nil, fmt.Errorf("failed to generate clone commands: %w", err)
 	}
 	
+	// Get user details for git config
+	user, err := models.Auth.Users.Get(config.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user details: %w", err)
+	}
+	
+	gitUserName := user.Name
+	if gitUserName == "" {
+		gitUserName = user.Email
+	}
+	
 	// Create initialization script
 	initScript := fmt.Sprintf(`#!/bin/bash
 set -e
@@ -62,6 +73,11 @@ mkdir -p /workspace/repos
 echo "Cloning repositories..."
 %s
 
+# Configure git for push operations
+git config --global user.name "%s"
+git config --global user.email "%s"
+git config --global push.default current
+
 # Install Claude CLI if not present
 if ! command -v claude &> /dev/null; then
     echo "Installing Claude CLI..."
@@ -71,8 +87,34 @@ fi
 # Verify installation
 claude --version || echo "Claude CLI not available yet"
 
+# Create a named pipe for Claude communication
+mkfifo /tmp/claude_input 2>/dev/null || true
+mkfifo /tmp/claude_output 2>/dev/null || true
+
+# Start Claude in streaming JSON mode (background process)
+echo "Starting Claude AI assistant in streaming mode..."
+claude --input-format=stream-json \
+       --output-format=stream-json \
+       --replay-user-messages \
+       --allowed-tools "Bash(git:*),Bash(cd:*),Bash(ls:*),Bash(cat:*),Edit,Read,Write" \
+       --dangerously-skip-permissions \
+       < /tmp/claude_input > /tmp/claude_output 2>/tmp/claude.log &
+
+echo $! > /tmp/claude.pid
+
+# Give Claude a moment to start
+sleep 2
+
+# Check if Claude started successfully
+if kill -0 $(cat /tmp/claude.pid) 2>/dev/null; then
+    echo "Claude AI assistant is ready!"
+else
+    echo "Failed to start Claude. Check /tmp/claude.log for details."
+    cat /tmp/claude.log
+fi
+
 echo "Worker initialization complete"
-`, apiKey, cloneCommands)
+`, apiKey, cloneCommands, gitUserName, user.Email)
 
 	// Create sandbox
 	sandboxName := fmt.Sprintf("claude-worker-%s", config.WorkerID)
@@ -129,6 +171,32 @@ func (wm *WorkerManager) ExecuteMessage(sandbox SandboxInterface, message string
 	// Use the existing ExecuteClaudeCommand from SandboxManager
 	sm := NewSandboxManager(wm.sandboxService, wm.authManager)
 	return sm.ExecuteClaudeCommand(sandbox, message)
+}
+
+// ExecuteStreamingMessage sends a message to Claude and returns a stream handler
+func (wm *WorkerManager) ExecuteStreamingMessage(sandbox SandboxInterface, message string) (*StreamHandler, error) {
+	if !sandbox.IsRunning() {
+		return nil, fmt.Errorf("sandbox is not running")
+	}
+
+	// Create a new stream handler
+	handler, err := NewStreamHandler(sandbox)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stream handler: %w", err)
+	}
+
+	// Start the handler
+	if err := handler.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start stream handler: %w", err)
+	}
+
+	// Send the initial message
+	if err := handler.SendMessage(message); err != nil {
+		handler.Stop()
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	return handler, nil
 }
 
 // CleanupWorker stops and removes a worker sandbox
