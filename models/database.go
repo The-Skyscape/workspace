@@ -34,5 +34,13 @@ var (
 	
 	// GitHub integration
 	GitHubUsers = database.Manage(DB, new(UserGitHub))
+	
+	// AI Workers
+	AIWorkers      = database.Manage(DB, new(AIWorker))
+	AIWorkerRepos  = database.Manage(DB, new(AIWorkerRepo))
+	ChatMessages   = database.Manage(DB, new(ChatMessage))
+	
+	// Claude usage tracking
+	ClaudeUsages   = database.Manage(DB, new(ClaudeUsage))
 )
 

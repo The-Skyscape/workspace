@@ -30,7 +30,8 @@ type Settings struct {
 	EnableGitCache      bool
 	
 	// Integration Settings
-	GitHubEnabled       bool
+	GitHubEnabled        bool
+	HasClaudeIntegration bool
 	
 	// Metadata
 	LastUpdatedBy       string

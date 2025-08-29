@@ -7,6 +7,12 @@
     <link href="{{host}}/public/custom.css" rel="stylesheet" type="text/css" />
 </head>
 <body class="h-full flex flex-col bg-base-100 dark:bg-base-200">
+    <!-- Drawer wrapper for Claude panel -->
+    <div class="drawer drawer-end">
+        <input id="claude-drawer-toggle" type="checkbox" class="drawer-toggle" />
+        <div class="drawer-content flex flex-col h-full">
+            <!-- Page content here -->
+            
     <!-- Navbar -->
     <div class="navbar bg-base-100 shadow-lg sticky top-0 z-50">
         <div class="navbar-start">
@@ -47,6 +53,14 @@
         
         <div class="navbar-end gap-2">
             {{if auth.CurrentUser}}
+                {{if claude.IsConfigured}}
+                <!-- AI Assistants Button -->
+                <label for="claude-drawer-toggle" class="btn btn-ghost btn-circle" title="AI Assistants">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                </label>
+                {{end}}
                 <!-- Search bar -->
                 <div class="form-control hidden sm:block">
                     <input type="search" 
@@ -161,6 +175,41 @@
             <p>Built with <a href="https://github.com/The-Skyscape/devtools" class="link">TheSkyscape DevTools</a></p>
         </div>
     </footer>
+    
+        </div><!-- End drawer-content -->
+        
+        <!-- Drawer side panel -->
+        {{if claude.IsConfigured}}
+        <div class="drawer-side z-50">
+            <label for="claude-drawer-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
+            
+            <div class="menu bg-base-100 text-base-content min-h-full w-96 p-0">
+                <!-- Header -->
+                <div class="sticky top-0 z-10 bg-base-100 border-b border-base-300">
+                    <div class="flex items-center justify-between p-4">
+                        <h3 class="text-lg font-bold">AI Assistants</h3>
+                        <label for="claude-drawer-toggle" class="btn btn-sm btn-circle btn-ghost">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div class="flex-1 overflow-y-auto"
+                     hx-get="{{host}}/claude/panel/content" 
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                    <!-- Loading spinner while content loads -->
+                    <div class="flex items-center justify-center h-64">
+                        <span class="loading loading-spinner loading-lg"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div><!-- End drawer -->
 </body>
 </html>
 {{end}}

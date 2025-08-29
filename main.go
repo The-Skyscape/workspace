@@ -35,6 +35,7 @@ func main() {
 		application.WithController(controllers.PullRequests()),
 		application.WithController(controllers.Actions()),
 		application.WithController(controllers.Integrations()),
+		application.WithController(controllers.Claude()),
 		application.WithController(controllers.Workspaces()),
 		application.WithController(controllers.Settings()),
 		application.WithController(controllers.Monitoring()),

@@ -49,7 +49,7 @@ func TestGitOperationsErrorMessages(t *testing.T) {
 			
 			if strings.Contains(errMsg, "Authentication failed") || strings.Contains(errMsg, "fatal: could not read Username") {
 				result = "GitHub authentication failed"
-			} else if strings.Contains(errMsg, "Permission denied") || strings.Contains(errMsg, "403") {
+			} else if strings.Contains(errMsg, "Permission denied") || strings.Contains(errMsg, "Permission to") || strings.Contains(errMsg, "403") {
 				result = "permission denied"
 			} else if strings.Contains(errMsg, "non-fast-forward") {
 				result = "push rejected"

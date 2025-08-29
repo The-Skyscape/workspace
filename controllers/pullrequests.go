@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"log"
+	"workspace/internal/github"
 	"workspace/models"
 	"workspace/services"
 
@@ -304,7 +305,8 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	repo, _ := models.Repositories.Get(repoID)
 	if repo != nil && repo.GitHubURL != "" {
 		go func() {
-			if err := services.GitHubSync.SyncPullRequest(pr.ID, user.ID); err != nil {
+			syncService := &github.GitHubSyncService{}
+			if err := syncService.SyncPullRequest(pr.ID, user.ID); err != nil {
 				log.Printf("Failed to sync PR to GitHub: %v", err)
 			}
 		}()
@@ -403,7 +405,8 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 	// Sync merge to GitHub if repo has GitHub integration
 	if repo.GitHubURL != "" {
 		go func() {
-			if err := services.GitHubSync.SyncPullRequest(pr.ID, user.ID); err != nil {
+			syncService := &github.GitHubSyncService{}
+			if err := syncService.SyncPullRequest(pr.ID, user.ID); err != nil {
 				log.Printf("Failed to sync PR merge to GitHub: %v", err)
 			}
 		}()
@@ -468,7 +471,8 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 	repo, _ := models.Repositories.Get(repoID)
 	if repo != nil && repo.GitHubURL != "" {
 		go func() {
-			if err := services.GitHubSync.SyncPullRequest(pr.ID, user.ID); err != nil {
+			syncService := &github.GitHubSyncService{}
+			if err := syncService.SyncPullRequest(pr.ID, user.ID); err != nil {
 				log.Printf("Failed to sync PR close to GitHub: %v", err)
 			}
 		}()

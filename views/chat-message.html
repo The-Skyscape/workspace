@@ -1,0 +1,8 @@
+<div class="chat {{if eq .Role "user"}}chat-end{{else}}chat-start{{end}}">
+  <div class="chat-bubble {{if eq .Role "user"}}chat-bubble-primary{{else}}chat-bubble-secondary{{end}}">
+    {{.Content}}
+  </div>
+  <div class="chat-footer opacity-50 text-xs">
+    {{.CreatedAt.Format "3:04 PM"}}
+  </div>
+</div>

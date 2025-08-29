@@ -55,14 +55,18 @@ func NewSandbox(name, repoPath, repoName, command string, timeoutSecs int) (*San
 		return nil, errors.Wrap(err, "failed to create sandbox directories")
 	}
 
-	// Clone repository to sandbox directory
-	log.Printf("Cloning repository to sandbox %s", name)
-	cloneCmd := fmt.Sprintf("git clone --bare %s %s.git && git clone %s.git %s && rm -rf %s.git",
-		repoPath, repoDir, repoDir, repoDir, repoDir)
-
+	// Clone repository to sandbox directory (only if repoPath is provided)
 	host := containers.Local()
-	if err := host.Exec("bash", "-c", cloneCmd); err != nil {
-		return nil, errors.Wrap(err, "failed to clone repository")
+	if repoPath != "" {
+		log.Printf("Cloning repository to sandbox %s", name)
+		cloneCmd := fmt.Sprintf("git clone --bare %s %s.git && git clone %s.git %s && rm -rf %s.git",
+			repoPath, repoDir, repoDir, repoDir, repoDir)
+
+		if err := host.Exec("bash", "-c", cloneCmd); err != nil {
+			return nil, errors.Wrap(err, "failed to clone repository")
+		}
+	} else {
+		log.Printf("Creating sandbox %s without repository (multi-repo mode)", name)
 	}
 
 	// Create command script

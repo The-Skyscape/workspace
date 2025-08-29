@@ -694,9 +694,9 @@ func (c *IntegrationsController) pushGitHubRepo(w http.ResponseWriter, r *http.R
 	}
 	
 	// Check permissions (need write access to push)
-	err = models.CheckRepoAccess(user, repo.ID, models.RoleWrite)
-	if err != nil {
-		c.RenderErrorMsg(w, r, "write permission required to push changes")
+	// TODO: Implement proper role-based access control
+	if !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "admin permission required to push changes")
 		return
 	}
 	
@@ -749,9 +749,9 @@ func (c *IntegrationsController) pullGitHubRepo(w http.ResponseWriter, r *http.R
 	}
 	
 	// Check permissions (need write access to pull)
-	err = models.CheckRepoAccess(user, repo.ID, models.RoleWrite)
-	if err != nil {
-		c.RenderErrorMsg(w, r, "write permission required to pull changes")
+	// TODO: Implement proper role-based access control
+	if !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "admin permission required to pull changes")
 		return
 	}
 	
@@ -842,8 +842,8 @@ func (c *IntegrationsController) configureGitHubRemote(w http.ResponseWriter, r 
 	}
 	
 	// Check permissions (need admin access to configure remote)
-	err = models.CheckRepoAccess(user, repo.ID, models.RoleAdmin)
-	if err != nil {
+	// TODO: Implement proper role-based access control
+	if !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "admin permission required to configure remote")
 		return
 	}

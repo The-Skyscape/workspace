@@ -502,6 +502,14 @@ func (c *HomeController) PublicRepoIssues() ([]*models.Issue, error) {
 	return models.Issues.Search("WHERE RepoID = ? ORDER BY CreatedAt DESC", repo.ID)
 }
 
+// IssueSubmitted checks if an issue was just submitted
+func (c *HomeController) IssueSubmitted() bool {
+	if c.Request == nil {
+		return false
+	}
+	return c.Request.URL.Query().Get("submitted") == "true"
+}
+
 // submitPublicIssue handles public issue submission
 func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Request) {
 	// Get the public repository

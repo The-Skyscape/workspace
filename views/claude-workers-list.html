@@ -1,0 +1,105 @@
+<div class="p-4">
+  <!-- Existing Workers -->
+  {{with claude.AllWorkers}}
+  <div class="mb-4">
+    <h4 class="text-sm font-semibold text-base-content/70 mb-2">Active Assistants</h4>
+    <div class="space-y-2">
+      {{range .}}
+      <div class="card bg-base-200 cursor-pointer hover:bg-base-300 transition-colors"
+           hx-get="{{host}}/claude/workers/{{.ID}}/chat"
+           hx-target="closest .drawer-side .overflow-y-auto"
+           hx-swap="innerHTML">
+        <div class="card-body p-3">
+          <div class="flex items-center justify-between">
+            <div class="flex-1">
+              <h5 class="font-medium">{{.Name}}</h5>
+              <div class="flex items-center gap-2 mt-1">
+                {{if eq .Status "ready"}}
+                <span class="badge badge-success badge-xs">Ready</span>
+                {{else if eq .Status "creating"}}
+                <span class="badge badge-warning badge-xs">Creating</span>
+                {{else if eq .Status "error"}}
+                <span class="badge badge-error badge-xs">Error</span>
+                {{end}}
+                <span class="text-xs text-base-content/50">{{.LastActiveAt.Format "3:04 PM"}}</span>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-xs"
+                    hx-delete="{{host}}/claude/workers/{{.ID}}"
+                    hx-target="closest .card"
+                    hx-swap="outerHTML"
+                    hx-confirm="Remove this assistant?">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <!-- Show associated repos -->
+          {{with $.claude.GetWorkerRepos .ID}}
+          <div class="mt-2 flex flex-wrap gap-1">
+            {{range .}}
+            <span class="badge badge-sm">{{.Name}}</span>
+            {{end}}
+          </div>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  <div class="divider">OR</div>
+  {{end}}
+  
+  <!-- Create New Worker -->
+  <div>
+    <h4 class="text-sm font-semibold text-base-content/70 mb-3">Create New Assistant</h4>
+    
+    <form hx-post="{{host}}/claude/workers"
+          hx-target="closest .drawer-side .overflow-y-auto"
+          hx-swap="innerHTML"
+          class="space-y-4">
+      
+      <!-- Repository Selection -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-sm">Select Repositories</span>
+        </label>
+        <div class="max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2 space-y-1">
+          {{range repos.UserRepos}}
+          <label class="flex items-center gap-2 p-2 hover:bg-base-200 rounded cursor-pointer">
+            <input type="checkbox" 
+                   name="repo_{{.ID}}" 
+                   value="{{.ID}}"
+                   class="checkbox checkbox-sm checkbox-primary">
+            <span class="flex-1">{{.Name}}</span>
+            {{if eq .Visibility "private"}}
+            <span class="badge badge-xs">Private</span>
+            {{end}}
+          </label>
+          {{else}}
+          <p class="text-center py-4 text-base-content/50">No repositories available</p>
+          {{end}}
+        </div>
+      </div>
+      
+      <!-- Assistant Name (optional) -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text text-sm">Assistant Name (optional)</span>
+        </label>
+        <input type="text" 
+               name="name" 
+               placeholder="e.g., Frontend Helper"
+               class="input input-bordered input-sm">
+      </div>
+      
+      <!-- Submit Button -->
+      <button type="submit" class="btn btn-primary btn-block">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Create Assistant
+      </button>
+    </form>
+  </div>
+</div>

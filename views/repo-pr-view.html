@@ -91,7 +91,7 @@
         <div class="card border border-base-300">
             <div class="card-body">
                 <div class="prose max-w-none">
-                    {{.Body | markdown}}
+                    {{.Body}}
                 </div>
             </div>
         </div>
@@ -104,14 +104,14 @@
            href="/repos/{{$.ID}}/prs/{{.ID}}">
             Conversation
         </a>
-        <a class="tab {{if path_contains "/diff"}}tab-active{{end}}" 
+        <a class="tab {{if path_eq "repos" $.ID "prs" .ID "diff"}}tab-active{{end}}" 
            href="/repos/{{$.ID}}/prs/{{.ID}}/diff">
             Files Changed
         </a>
     </div>
     
     <!-- Tab Content -->
-    {{if path_contains "/diff"}}
+    {{if path_eq "repos" $.ID "prs" .ID "diff"}}
         <!-- Diff View -->
         {{with prs.RepoPRDiff}}
         <div class="card border border-base-300">
@@ -161,7 +161,7 @@
                             {{with users.GetByID .AuthorID}}
                             <div class="avatar placeholder">
                                 <div class="bg-primary text-neutral-content rounded-full w-8 h-8">
-                                    <span class="text-xs">{{.Name | initials}}</span>
+                                    <span class="text-xs">{{printf "%.2s" .Name}}</span>
                                 </div>
                             </div>
                             <span class="font-semibold">{{.Name}}</span>
@@ -172,7 +172,7 @@
                         </div>
                     </div>
                     <div class="prose max-w-none mt-2">
-                        {{.Body | markdown}}
+                        {{.Body}}
                     </div>
                 </div>
             </div>
