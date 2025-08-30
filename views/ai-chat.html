@@ -1,10 +1,10 @@
 <!-- AI Chat Interface -->
-<div class="flex flex-col h-full" id="ai-panel-content">
+<div class="flex flex-col h-full overflow-hidden" id="ai-panel-content">
     <!-- Chat Header -->
-    <div class="sticky top-0 bg-base-100 border-b border-base-300 p-4">
+    <div class="flex-shrink-0 bg-base-100 border-b border-base-300 p-4 z-10">
         <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <button class="btn btn-ghost btn-sm btn-circle"
+            <div class="flex items-center gap-3 min-w-0">
+                <button class="btn btn-ghost btn-sm btn-circle flex-shrink-0"
                         hx-get="{{host}}/ai/panel"
                         hx-target="#ai-panel-content"
                         hx-swap="innerHTML">
@@ -12,11 +12,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <div>
-                    <h3 class="text-sm font-semibold truncate max-w-md">{{.Title}}</h3>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-sm font-semibold truncate">{{.Title}}</h3>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-shrink-0">
                 <div class="badge badge-success gap-1">
                     <div class="w-2 h-2 bg-current rounded-full animate-pulse"></div>
                     Ready
@@ -26,7 +26,7 @@
     </div>
 
     <!-- Messages Area -->
-    <div class="flex-1 overflow-y-auto p-4" id="chat-messages">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden p-4" id="chat-messages">
         <div hx-get="{{host}}/ai/chat/{{.ID}}/messages"
              hx-trigger="load"
              hx-swap="innerHTML">
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Input Area -->
-    <div class="sticky bottom-0 bg-base-100 border-t border-base-300 p-4">
+    <div class="flex-shrink-0 bg-base-100 border-t border-base-300 p-4">
         <form hx-post="{{host}}/ai/chat/{{.ID}}/send"
               hx-target="#chat-messages > div"
               hx-swap="innerHTML"

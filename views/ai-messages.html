@@ -24,7 +24,7 @@
 <!-- Regular chat message -->
 <div class="chat {{if eq .Role "user"}}chat-end{{else}}chat-start{{end}} my-2">
     <div class="chat-image avatar">
-        <div class="w-8 h-8 rounded-full">
+        <div class="w-8 h-8 rounded-full flex-shrink-0">
             {{if eq .Role "user"}}
                 <div class="bg-primary text-primary-content w-8 h-8 flex items-center justify-center rounded-full">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,7 +40,7 @@
             {{end}}
         </div>
     </div>
-    <div class="chat-bubble {{if eq .Role "user"}}chat-bubble-primary{{end}} max-w-xl whitespace-pre-wrap text-sm">{{.Content}}</div>
+    <div class="chat-bubble {{if eq .Role "user"}}chat-bubble-primary{{end}} max-w-[70%] break-words whitespace-pre-wrap text-sm">{{.Content}}</div>
 </div>
 {{end}}
 {{else}}
