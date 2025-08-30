@@ -1,12 +1,9 @@
 package services
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,14 +18,12 @@ type WorkerService struct {
 	mu       sync.RWMutex
 }
 
-// WorkerSession represents an active Claude session
+// WorkerSession represents an active AI chat session
 type WorkerSession struct {
 	ID           string
 	WorkerID     string
-	ContainerID  string
-	ClaudeProcess *exec.Cmd
-	InputPipe    *bytes.Buffer
-	OutputBuffer *bytes.Buffer
+	Model        string
+	Messages     []OllamaMessage
 	Created      time.Time
 	LastActive   time.Time
 	mu           sync.Mutex
@@ -55,22 +50,24 @@ func (ws *WorkerService) Init() error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	
-	log.Println("WorkerService: Initializing AI worker service (docker exec mode)")
+	log.Println("WorkerService: Initializing AI worker service (Ollama mode)")
 	
-	// Check if Claude is available in the main container
-	if !ws.isClaudeAvailable() {
-		log.Println("WorkerService: Claude CLI not available in container")
-		return errors.New("Claude CLI not installed")
+	// Initialize Ollama service
+	if err := Ollama.Init(); err != nil {
+		log.Printf("WorkerService: Failed to initialize Ollama: %v", err)
+		// Don't fail completely, service can retry later
 	}
+	
+	// Start cleanup routine for inactive sessions
+	ws.StartCleanupRoutine()
 	
 	log.Println("WorkerService: Service initialized successfully")
 	return nil
 }
 
-// isClaudeAvailable checks if Claude CLI is available
-func (ws *WorkerService) isClaudeAvailable() bool {
-	cmd := exec.Command("which", "claude")
-	return cmd.Run() == nil
+// IsConfigured checks if the worker service is configured and ready
+func (ws *WorkerService) IsConfigured() bool {
+	return Ollama.IsConfigured()
 }
 
 // CreateWorker creates a new AI worker instance for a user
@@ -83,10 +80,12 @@ func (ws *WorkerService) CreateWorkerWithDetails(userID, name, description strin
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	
-	// Check if API key is configured
-	apiKey := ws.getAPIKey()
-	if apiKey == "" {
-		return nil, errors.New("Anthropic API key not configured")
+	// Check if Ollama is running
+	if !Ollama.IsRunning() {
+		log.Println("WorkerService: Ollama not running, attempting to start...")
+		if err := Ollama.Start(); err != nil {
+			return nil, errors.New("Ollama service not available")
+		}
 	}
 	
 	// Default name if not provided
@@ -100,8 +99,8 @@ func (ws *WorkerService) CreateWorkerWithDetails(userID, name, description strin
 		Description:  description,
 		UserID:       userID,
 		Status:       "starting", // Start in "starting" status
-		Port:         0, // No port needed for docker exec
-		ContainerID:  "sky-app", // Using main container
+		Port:         0, // Using Ollama REST API
+		ContainerID:  "ollama", // Using Ollama service
 		CreatedAt:    time.Now(),
 		LastActiveAt: time.Now(),
 	}
@@ -141,7 +140,7 @@ func (ws *WorkerService) CreateWorkerWithDetails(userID, name, description strin
 	return worker, nil
 }
 
-// CreateSession creates a new Claude session for a worker
+// CreateSession creates a new AI chat session for a worker
 func (ws *WorkerService) CreateSession(workerID string) (*WorkerSession, error) {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
@@ -152,37 +151,27 @@ func (ws *WorkerService) CreateSession(workerID string) (*WorkerSession, error) 
 		return nil, errors.Wrap(err, "failed to get worker")
 	}
 	
-	// Create session
+	// Determine which model to use
+	model := Ollama.config.DefaultModel
+	if worker.AIModel != "" {
+		model = worker.AIModel
+	}
+	
+	// Create session with initial system message
 	session := &WorkerSession{
 		ID:           fmt.Sprintf("session-%d", time.Now().UnixNano()),
 		WorkerID:     workerID,
-		ContainerID:  worker.ContainerID,
-		InputPipe:    &bytes.Buffer{},
-		OutputBuffer: &bytes.Buffer{},
+		Model:        model,
+		Messages: []OllamaMessage{
+			{
+				Role: "system",
+				Content: "You are a helpful AI assistant specializing in software development. " +
+					"You have access to the full context of the user's repository and can help with " +
+					"coding, debugging, documentation, and architecture decisions.",
+			},
+		},
 		Created:      time.Now(),
 		LastActive:   time.Now(),
-	}
-	
-	// Start Claude process using docker exec
-	session.ClaudeProcess = exec.Command("docker", "exec", "-i", session.ContainerID, 
-		"claude", 
-		"--input-format=stream-json",
-		"--output-format=stream-json",
-		"--replay-user-messages",
-		"--allowed-tools", "Bash(git:*),Bash(cd:*),Bash(ls:*),Edit,Read,Write",
-		"--dangerously-skip-permissions")
-	
-	session.ClaudeProcess.Stdin = session.InputPipe
-	session.ClaudeProcess.Stdout = session.OutputBuffer
-	session.ClaudeProcess.Stderr = session.OutputBuffer
-	
-	// Set environment variables
-	session.ClaudeProcess.Env = append(session.ClaudeProcess.Env, 
-		fmt.Sprintf("ANTHROPIC_API_KEY=%s", ws.getAPIKey()))
-	
-	// Start the process
-	if err := session.ClaudeProcess.Start(); err != nil {
-		return nil, errors.Wrap(err, "failed to start Claude process")
 	}
 	
 	// Store session in memory
@@ -213,35 +202,37 @@ func (ws *WorkerService) CreateSession(workerID string) (*WorkerSession, error) 
 	return session, nil
 }
 
-// SendMessage sends a message to a Claude session
-func (ws *WorkerService) SendMessage(sessionID, message string) error {
+// SendMessage sends a message to an AI session and gets a response
+func (ws *WorkerService) SendMessage(sessionID, message string) (string, error) {
 	ws.mu.RLock()
 	session, ok := ws.sessions[sessionID]
 	ws.mu.RUnlock()
 	
 	if !ok {
-		return errors.New("session not found")
+		return "", errors.New("session not found")
 	}
 	
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	
-	// Prepare JSON message
-	msgData := map[string]interface{}{
-		"type": "message",
-		"content": message,
+	// Add user message to history
+	session.Messages = append(session.Messages, OllamaMessage{
+		Role:    "user",
+		Content: message,
+	})
+	
+	// Send to Ollama and get response
+	response, err := Ollama.Chat(session.Model, session.Messages, false)
+	if err != nil {
+		// If Ollama is not available, return a helpful error message
+		if !Ollama.IsRunning() {
+			return "AI service is currently unavailable. Please try again later.", nil
+		}
+		return "", errors.Wrap(err, "failed to get AI response")
 	}
 	
-	msgJSON, err := json.Marshal(msgData)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal message")
-	}
-	
-	// Send to Claude
-	_, err = session.InputPipe.Write(msgJSON)
-	if err != nil {
-		return errors.Wrap(err, "failed to send message")
-	}
+	// Add assistant response to history
+	session.Messages = append(session.Messages, response.Message)
 	
 	// Save message to database
 	dbMessage := &models.WorkerMessage{
@@ -254,40 +245,35 @@ func (ws *WorkerService) SendMessage(sessionID, message string) error {
 		log.Printf("WorkerService: Failed to save message to database: %v", err)
 	}
 	
+	// Update session activity
 	session.LastActive = time.Now()
-	return nil
+	
+	// Return the assistant's response
+	return response.Message.Content, nil
 }
 
-// GetSessionOutput gets the output from a Claude session
-func (ws *WorkerService) GetSessionOutput(sessionID string) (string, error) {
+// GetSessionHistory gets the message history from a session
+func (ws *WorkerService) GetSessionHistory(sessionID string) ([]OllamaMessage, error) {
 	ws.mu.RLock()
 	session, ok := ws.sessions[sessionID]
 	ws.mu.RUnlock()
 	
 	if !ok {
-		return "", errors.New("session not found")
+		return nil, errors.New("session not found")
 	}
 	
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	
-	output := session.OutputBuffer.String()
-	session.OutputBuffer.Reset()
-	
-	// If we have output, save it as assistant message
-	if output != "" {
-		dbMessage := &models.WorkerMessage{
-			SessionID: sessionID,
-			Role:      "assistant",
-			Content:   output,
-			CreatedAt: time.Now(),
-		}
-		if _, err := models.WorkerMessages.Insert(dbMessage); err != nil {
-			log.Printf("WorkerService: Failed to save assistant message: %v", err)
+	// Return a copy of the messages (skip system message)
+	var history []OllamaMessage
+	for _, msg := range session.Messages {
+		if msg.Role != "system" {
+			history = append(history, msg)
 		}
 	}
 	
-	return output, nil
+	return history, nil
 }
 
 // StopWorker stops a worker and all its sessions
@@ -295,12 +281,9 @@ func (ws *WorkerService) StopWorker(workerID string) error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	
-	// Find and stop all sessions for this worker
+	// Find and remove all sessions for this worker
 	for sessionID, session := range ws.sessions {
 		if session.WorkerID == workerID {
-			if session.ClaudeProcess != nil && session.ClaudeProcess.Process != nil {
-				session.ClaudeProcess.Process.Kill()
-			}
 			delete(ws.sessions, sessionID)
 		}
 	}
@@ -347,22 +330,79 @@ func (ws *WorkerService) GetWorkerStatus(workerID string) (*WorkerStatus, error)
 	}, nil
 }
 
-// getAPIKey retrieves the Anthropic API key from environment or vault
-func (ws *WorkerService) getAPIKey() string {
-	// Try environment variable first
-	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
-		return key
+// GetAvailableModels returns a list of available AI models
+func (ws *WorkerService) GetAvailableModels() ([]string, error) {
+	if !Ollama.IsRunning() {
+		return []string{}, errors.New("Ollama service not running")
+	}
+	return Ollama.ListModels()
+}
+
+// StreamMessage sends a message and streams the response
+func (ws *WorkerService) StreamMessage(sessionID, message string, callback func(chunk string) error) error {
+	ws.mu.RLock()
+	session, ok := ws.sessions[sessionID]
+	ws.mu.RUnlock()
+	
+	if !ok {
+		return errors.New("session not found")
 	}
 	
-	// Try vault/secrets
-	secret, err := models.Secrets.GetSecret("integrations/anthropic")
-	if err == nil {
-		if apiKey, ok := secret["api_key"].(string); ok {
-			return apiKey
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	
+	// Add user message to history
+	session.Messages = append(session.Messages, OllamaMessage{
+		Role:    "user",
+		Content: message,
+	})
+	
+	// Save user message to database
+	dbMessage := &models.WorkerMessage{
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   message,
+		CreatedAt: time.Now(),
+	}
+	if _, err := models.WorkerMessages.Insert(dbMessage); err != nil {
+		log.Printf("WorkerService: Failed to save user message: %v", err)
+	}
+	
+	// Build assistant response incrementally
+	var fullResponse strings.Builder
+	
+	// Stream response from Ollama
+	err := Ollama.StreamChat(session.Model, session.Messages, func(chunk *OllamaChatResponse) error {
+		if chunk.Message.Content != "" {
+			fullResponse.WriteString(chunk.Message.Content)
+			return callback(chunk.Message.Content)
 		}
+		return nil
+	})
+	
+	if err != nil {
+		return errors.Wrap(err, "failed to stream response")
 	}
 	
-	return ""
+	// Add complete response to history
+	session.Messages = append(session.Messages, OllamaMessage{
+		Role:    "assistant",
+		Content: fullResponse.String(),
+	})
+	
+	// Save assistant message to database
+	assistantMsg := &models.WorkerMessage{
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   fullResponse.String(),
+		CreatedAt: time.Now(),
+	}
+	if _, err := models.WorkerMessages.Insert(assistantMsg); err != nil {
+		log.Printf("WorkerService: Failed to save assistant message: %v", err)
+	}
+	
+	session.LastActive = time.Now()
+	return nil
 }
 
 // CleanupInactiveSessions removes sessions that have been inactive for too long
@@ -374,9 +414,6 @@ func (ws *WorkerService) CleanupInactiveSessions() {
 	
 	for sessionID, session := range ws.sessions {
 		if session.LastActive.Before(cutoff) {
-			if session.ClaudeProcess != nil && session.ClaudeProcess.Process != nil {
-				session.ClaudeProcess.Process.Kill()
-			}
 			delete(ws.sessions, sessionID)
 			log.Printf("WorkerService: Cleaned up inactive session %s", sessionID)
 		}
@@ -404,27 +441,25 @@ func (ws *WorkerService) GetAllWorkers(userID string) ([]*models.Worker, error) 
 	return workers, nil
 }
 
-// ExecuteCommand executes a simple command in the container (for testing)
-func (ws *WorkerService) ExecuteCommand(command string) (string, error) {
-	cmd := exec.Command("docker", "exec", "sky-app", "sh", "-c", command)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", errors.Wrapf(err, "command failed: %s", string(output))
-	}
-	return string(output), nil
-}
 
 // GetServiceInfo returns information about the worker service
 func (ws *WorkerService) GetServiceInfo() map[string]interface{} {
 	ws.mu.RLock()
 	defer ws.mu.RUnlock()
 	
-	return map[string]interface{}{
-		"configured":      ws.getAPIKey() != "",
-		"claude_available": ws.isClaudeAvailable(),
+	info := map[string]interface{}{
+		"configured":      Ollama.IsConfigured(),
+		"ollama_running":  Ollama.IsRunning(),
 		"active_sessions": len(ws.sessions),
-		"mode":           "docker-exec",
+		"mode":           "ollama",
 	}
+	
+	// Add Ollama service info if available
+	if Ollama.IsRunning() {
+		info["ollama"] = Ollama.GetServiceInfo()
+	}
+	
+	return info
 }
 
 // GetSessions returns all sessions for a worker from the database
@@ -445,17 +480,3 @@ func (ws *WorkerService) GetMessages(sessionID string) ([]*models.WorkerMessage,
 	return messages, nil
 }
 
-// Mock implementation for testing without Claude
-func (ws *WorkerService) SendMockMessage(sessionID, message string) (string, error) {
-	// Simulate Claude response
-	time.Sleep(500 * time.Millisecond)
-	
-	responses := []string{
-		"I'll help you with that. Let me analyze the codebase first.",
-		"Based on my analysis, here's what I found...",
-		"I've completed the task. The changes have been applied.",
-		"Let me search for that information in the repository.",
-	}
-	
-	return responses[len(message)%len(responses)], nil
-}

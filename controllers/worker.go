@@ -149,7 +149,7 @@ func generateMockResponse(message string) string {
 	// Check for specific keywords and provide contextual responses
 	switch {
 	case strings.Contains(lowerMsg, "hello") || strings.Contains(lowerMsg, "hi") || strings.Contains(lowerMsg, "hey"):
-		return "Hello! I'm Claude, your AI coding assistant. I can help you with:\n\n• Writing and debugging code\n• Understanding codebases\n• Implementing features\n• Fixing bugs\n• Writing tests\n• Code reviews\n\nWhat would you like to work on today?"
+		return "Hello! I'm your AI coding assistant. I can help you with:\n\n• Writing and debugging code\n• Understanding codebases\n• Implementing features\n• Fixing bugs\n• Writing tests\n• Code reviews\n\nWhat would you like to work on today?"
 		
 	case strings.Contains(lowerMsg, "help") || strings.Contains(lowerMsg, "what can you"):
 		return "I can assist you with a wide range of programming tasks:\n\n**Code Development:**\n• Write functions, classes, and modules\n• Implement algorithms and data structures\n• Create REST APIs and web services\n\n**Debugging & Testing:**\n• Debug errors and fix bugs\n• Write unit and integration tests\n• Optimize performance\n\n**Code Understanding:**\n• Explain how code works\n• Review and suggest improvements\n• Document your code\n\n**Languages & Frameworks:**\nI'm proficient in Go, Python, JavaScript, TypeScript, React, and many more!\n\nJust describe what you need help with!"
@@ -607,7 +607,7 @@ func (c *WorkerController) getMessages(w http.ResponseWriter, r *http.Request) {
 	if !exists || len(messages) == 0 {
 		messages = []map[string]interface{}{
 			{
-				"Content":   "Hello! I'm Claude, your AI coding assistant. I can help you with:\n\n• Writing and debugging code\n• Understanding codebases\n• Implementing features\n• Fixing bugs\n• Writing tests\n• Code reviews\n\nWhat would you like to work on today?",
+				"Content":   "Hello! I'm your AI coding assistant powered by Ollama. I can help you with:\n\n• Writing and debugging code\n• Understanding codebases\n• Implementing features\n• Fixing bugs\n• Writing tests\n• Code reviews\n\nWhat would you like to work on today?",
 				"IsUser":    false,
 				"Timestamp": time.Now().Format("3:04 PM"),
 			},
@@ -662,7 +662,7 @@ func (c *WorkerController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	
 	// Add typing indicator message
 	typingMsg := map[string]interface{}{
-		"Content":   "Claude is typing...",
+		"Content":   "Assistant is typing...",
 		"IsUser":    false,
 		"IsTyping":  true,
 		"Timestamp": time.Now().Add(100 * time.Millisecond).Format("3:04 PM"),
@@ -796,7 +796,7 @@ func (c *WorkerController) deleteWorker(w http.ResponseWriter, r *http.Request) 
 	c.panel(w, r)
 }
 
-// getMockResponse returns a mock assistant response (kept for legacy support)
+// getMockResponse returns an assistant response (kept for backward compatibility)
 func (c *WorkerController) getMockResponse(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("session_id")
 	var response string
@@ -804,13 +804,10 @@ func (c *WorkerController) getMockResponse(w http.ResponseWriter, r *http.Reques
 	// Try to get real response from worker
 	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
 	if err == nil && user != nil && sessionID != "" && !strings.HasPrefix(sessionID, "session-") {
-		// Try to get output from real session
-		output, err := services.Worker.GetSessionOutput(sessionID)
-		if err == nil && output != "" {
-			response = output
-		} else {
-			// Use mock response
-			response, _ = services.Worker.SendMockMessage(sessionID, "")
+		// Try to get real response from Ollama
+		response, err = services.Worker.SendMessage(sessionID, "Hello")
+		if err != nil {
+			response = "AI service is currently unavailable. Please try again later."
 		}
 	} else {
 		// Mock responses

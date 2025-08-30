@@ -11,6 +11,7 @@ type Worker struct {
 	application.Model
 	Name          string    // Worker display name
 	Description   string    // Worker description/purpose
+	AIModel       string    // AI model to use (e.g., "llama3.2", "mistral")
 	ContainerID   string    // Docker container name
 	Port          int       // Port the worker is running on
 	Status        string    // starting, running, stopped, error
