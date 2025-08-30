@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"workspace/internal/ai"
+	"workspace/internal/ai/tools"
 	"workspace/models"
 	"workspace/services"
 
@@ -16,11 +18,23 @@ import (
 // AIController handles AI chat conversations
 type AIController struct {
 	application.BaseController
+	toolRegistry *ai.ToolRegistry
 }
 
 // AI returns the controller factory
 func AI() (string, *AIController) {
-	return "ai", &AIController{}
+	// Initialize tool registry
+	registry := ai.NewToolRegistry()
+	
+	// Register repository tools
+	registry.Register(&tools.ListReposTool{})
+	registry.Register(&tools.GetRepoTool{})
+	registry.Register(&tools.CreateRepoTool{})
+	registry.Register(&tools.GetRepoLinkTool{})
+	
+	return "ai", &AIController{
+		toolRegistry: registry,
+	}
 }
 
 // Setup initializes the AI controller
@@ -277,7 +291,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	ollamaMessages := []services.OllamaMessage{
 		{
 			Role:    "system",
-			Content: buildSystemPrompt(),
+			Content: c.buildSystemPrompt(),
 		},
 	}
 	
@@ -341,7 +355,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Process tool calls if any
-	processedContent, toolResults := processToolCalls(response.Message.Content, conversationID, user.ID)
+	processedContent, toolResults := c.processToolCalls(response.Message.Content, conversationID, user.ID)
 	
 	// Save tool execution messages
 	for _, result := range toolResults {
@@ -392,16 +406,46 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildSystemPrompt creates the system prompt for the AI
-func buildSystemPrompt() string {
-	return `You are an AI assistant integrated into the Skyscape development platform. 
+func (c *AIController) buildSystemPrompt() string {
+	prompt := `You are an AI assistant integrated into the Skyscape development platform. 
 You help users with coding, debugging, documentation, and development tasks.
 Be concise, helpful, and accurate in your responses.
 When users ask about code, provide clear examples and explanations.`
+	
+	// Add tool information if available
+	if c.toolRegistry != nil {
+		prompt += c.toolRegistry.GenerateToolPrompt()
+	}
+	
+	return prompt
 }
 
 // processToolCalls processes any tool calls in the AI response
-func processToolCalls(response, conversationID, userID string) (string, []string) {
-	// For now, just return the response as-is
-	// Tool integration can be added later if needed
-	return response, nil
+func (c *AIController) processToolCalls(response, conversationID, userID string) (string, []string) {
+	if c.toolRegistry == nil {
+		return response, nil
+	}
+	
+	// Parse tool calls from the response
+	toolCalls, cleanedText := ai.ParseToolCalls(response)
+	
+	if len(toolCalls) == 0 {
+		return response, nil
+	}
+	
+	var toolResults []string
+	
+	// Execute each tool call
+	for _, tc := range toolCalls {
+		result, err := c.toolRegistry.ExecuteTool(tc.Tool, tc.Params, userID)
+		if err != nil {
+			toolResults = append(toolResults, ai.FormatToolResult(tc.Tool, "", err))
+			log.Printf("AIController: Tool execution failed: %v", err)
+		} else {
+			toolResults = append(toolResults, ai.FormatToolResult(tc.Tool, result, nil))
+			log.Printf("AIController: Tool '%s' executed successfully", tc.Tool)
+		}
+	}
+	
+	return cleanedText, toolResults
 }
