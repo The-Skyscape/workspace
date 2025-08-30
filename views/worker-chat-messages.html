@@ -22,7 +22,7 @@
         {{if .IsUser}}You{{else}}Assistant{{end}}
         <time class="text-xs opacity-50 ml-2">{{.Timestamp}}</time>
     </div>
-    <div class="chat-bubble {{if .IsUser}}chat-bubble-primary{{end}}">
+    <div class="chat-bubble {{if .IsUser}}chat-bubble-primary{{end}} whitespace-pre-wrap">
         {{.Content}}
     </div>
 </div>

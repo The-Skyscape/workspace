@@ -112,12 +112,29 @@ func (ws *WorkerService) CreateWorkerWithDetails(userID, name, description strin
 		return nil, errors.Wrap(err, "failed to create worker record")
 	}
 	
-	// Simulate startup time, then set to running
+	// Simulate realistic startup sequence
 	go func() {
-		time.Sleep(3 * time.Second)
-		worker.Status = "running"
-		models.Workers.Update(worker)
-		log.Printf("WorkerService: Worker %s is now running", worker.ID)
+		workerID := worker.ID
+		
+		// Phase 1: Container initialization (1.5 seconds)
+		time.Sleep(1500 * time.Millisecond)
+		log.Printf("WorkerService: Worker %s - initializing container...", workerID)
+		
+		// Phase 2: Loading AI model (2 seconds)
+		time.Sleep(2 * time.Second)
+		log.Printf("WorkerService: Worker %s - loading AI model...", workerID)
+		
+		// Phase 3: Ready for use
+		time.Sleep(500 * time.Millisecond)
+		
+		// Update to running status
+		w, _ := models.Workers.Get(workerID)
+		if w != nil && w.Status == "starting" {
+			w.Status = "running"
+			w.LastActiveAt = time.Now()
+			models.Workers.Update(w)
+			log.Printf("WorkerService: Worker %s is now running", workerID)
+		}
 	}()
 	
 	log.Printf("WorkerService: Created worker %s (%s) for user %s", worker.ID, name, userID)

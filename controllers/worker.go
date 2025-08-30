@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"workspace/models"
@@ -18,11 +19,16 @@ import (
 // WorkerController handles AI worker management
 type WorkerController struct {
 	application.BaseController
+	// Store chat messages in memory for demo (maps workerID to messages)
+	chatHistory map[string][]map[string]interface{}
+	chatMutex   sync.RWMutex
 }
 
 // Worker returns the controller factory
 func Worker() (string, *WorkerController) {
-	return "worker", &WorkerController{}
+	return "worker", &WorkerController{
+		chatHistory: make(map[string][]map[string]interface{}),
+	}
 }
 
 // Setup initializes the Worker controller
@@ -90,6 +96,45 @@ func (c *WorkerController) GetServiceStatus() map[string]interface{} {
 }
 
 // Mock data methods for UI development
+
+// generateMockResponse generates contextual responses based on user input
+func generateMockResponse(message string) string {
+	lowerMsg := strings.ToLower(message)
+	
+	// Check for specific keywords and provide contextual responses
+	switch {
+	case strings.Contains(lowerMsg, "hello") || strings.Contains(lowerMsg, "hi") || strings.Contains(lowerMsg, "hey"):
+		return "Hello! I'm Claude, your AI coding assistant. I can help you with:\n\n• Writing and debugging code\n• Understanding codebases\n• Implementing features\n• Fixing bugs\n• Writing tests\n• Code reviews\n\nWhat would you like to work on today?"
+		
+	case strings.Contains(lowerMsg, "help") || strings.Contains(lowerMsg, "what can you"):
+		return "I can assist you with a wide range of programming tasks:\n\n**Code Development:**\n• Write functions, classes, and modules\n• Implement algorithms and data structures\n• Create REST APIs and web services\n\n**Debugging & Testing:**\n• Debug errors and fix bugs\n• Write unit and integration tests\n• Optimize performance\n\n**Code Understanding:**\n• Explain how code works\n• Review and suggest improvements\n• Document your code\n\n**Languages & Frameworks:**\nI'm proficient in Go, Python, JavaScript, TypeScript, React, and many more!\n\nJust describe what you need help with!"
+		
+	case strings.Contains(lowerMsg, "bug") || strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "fix"):
+		return "I can help you debug that issue! To provide the best assistance, please share:\n\n1. **The error message** you're seeing (if any)\n2. **The relevant code** where the issue occurs\n3. **What you expected** to happen\n4. **What actually happened**\n\nYou can paste your code here and I'll analyze it for potential issues and suggest fixes."
+		
+	case strings.Contains(lowerMsg, "test") || strings.Contains(lowerMsg, "testing"):
+		return "I can help you write comprehensive tests! I can create:\n\n• **Unit tests** for individual functions\n• **Integration tests** for API endpoints\n• **Test fixtures** and mock data\n• **Test coverage** improvements\n\nWhich component or function would you like to test? Share the code and I'll write appropriate test cases."
+		
+	case strings.Contains(lowerMsg, "feature") || strings.Contains(lowerMsg, "implement"):
+		return "I'd be happy to help you implement that feature! Let's break it down:\n\n1. **What's the feature?** Describe what it should do\n2. **Where does it fit?** Which part of your codebase\n3. **Any constraints?** Performance, compatibility, etc.\n\nOnce you provide these details, I can help you design and implement the feature with clean, maintainable code."
+		
+	case strings.Contains(lowerMsg, "explain") || strings.Contains(lowerMsg, "understand") || strings.Contains(lowerMsg, "how does"):
+		return "I'd be glad to explain that code! Please share:\n\n• The code snippet you'd like explained\n• Any specific parts that are confusing\n• The context (what the code is supposed to do)\n\nI'll provide a detailed explanation of how it works, line by line if needed."
+		
+	case strings.Contains(lowerMsg, "review") || strings.Contains(lowerMsg, "feedback"):
+		return "I'll review your code and provide constructive feedback! I'll look for:\n\n✓ **Code quality** and best practices\n✓ **Potential bugs** or edge cases\n✓ **Performance** optimizations\n✓ **Security** considerations\n✓ **Readability** and maintainability\n\nShare your code and I'll provide a thorough review with suggestions for improvement."
+		
+	case strings.Contains(lowerMsg, "refactor") || strings.Contains(lowerMsg, "improve"):
+		return "I can help refactor your code to make it cleaner and more maintainable! I'll focus on:\n\n• **Simplifying** complex logic\n• **Extracting** reusable functions\n• **Improving** naming and structure\n• **Reducing** duplication\n• **Applying** design patterns\n\nShare the code you'd like to refactor and I'll suggest improvements."
+		
+	case strings.Contains(lowerMsg, "thank") || strings.Contains(lowerMsg, "thanks"):
+		return "You're welcome! I'm here to help anytime. Feel free to ask me anything else about your code or development tasks. Happy coding! 🚀"
+		
+	default:
+		// Generic helpful response for unmatched queries
+		return fmt.Sprintf("I understand you're asking about: \"%s\"\n\nI'm here to help with that! Could you provide a bit more context or code examples? This will help me give you a more specific and useful response.\n\nFor example, you could:\n• Share the relevant code snippet\n• Describe what you're trying to achieve\n• Mention any errors you're encountering\n\nI'm ready to assist with coding, debugging, testing, or explaining concepts!", message)
+	}
+}
 
 // GetMockSessions returns mock chat sessions
 func (c *WorkerController) GetMockSessions() []map[string]interface{} {
@@ -508,31 +553,24 @@ func (c *WorkerController) getMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get or create session
-	sessions, _ := services.Worker.GetSessions(worker.ID)
-	var messages []map[string]interface{}
-	
-	if len(sessions) > 0 {
-		// Get messages from the first session
-		sessionMessages, _ := sessions[0].GetMessages()
-		for _, msg := range sessionMessages {
-			messages = append(messages, map[string]interface{}{
-				"Content":   msg.Content,
-				"IsUser":    msg.Role == models.MessageRoleUser,
-				"Timestamp": msg.CreatedAt.Format("3:04 PM"),
-			})
-		}
-	}
+	// Get messages from memory store
+	c.chatMutex.RLock()
+	messages, exists := c.chatHistory[workerID]
+	c.chatMutex.RUnlock()
 	
 	// Add welcome message if no messages
-	if len(messages) == 0 {
+	if !exists || len(messages) == 0 {
 		messages = []map[string]interface{}{
 			{
-				"Content":   "Hello! I'm your AI assistant. How can I help you with your code today?",
+				"Content":   "Hello! I'm Claude, your AI coding assistant. I can help you with:\n\n• Writing and debugging code\n• Understanding codebases\n• Implementing features\n• Fixing bugs\n• Writing tests\n• Code reviews\n\nWhat would you like to work on today?",
 				"IsUser":    false,
 				"Timestamp": time.Now().Format("3:04 PM"),
 			},
 		}
+		// Store the welcome message
+		c.chatMutex.Lock()
+		c.chatHistory[workerID] = messages
+		c.chatMutex.Unlock()
 	}
 	
 	data := map[string]interface{}{
@@ -560,25 +598,36 @@ func (c *WorkerController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get or create session (not used for mock currently)
-	// sessions, _ := services.Worker.GetSessions(worker.ID)
+	// Get existing messages
+	c.chatMutex.RLock()
+	messages, exists := c.chatHistory[workerID]
+	c.chatMutex.RUnlock()
 	
-	// Add messages using service (mock for now)
-	var messages []map[string]interface{}
+	if !exists {
+		messages = []map[string]interface{}{}
+	}
 	
 	// Add user message
-	messages = append(messages, map[string]interface{}{
+	userMsg := map[string]interface{}{
 		"Content":   message,
 		"IsUser":    true,
 		"Timestamp": time.Now().Format("3:04 PM"),
-	})
+	}
+	messages = append(messages, userMsg)
 	
-	// Mock assistant response
-	messages = append(messages, map[string]interface{}{
-		"Content":   "I understand you're asking about: " + message + ". Let me help you with that...",
+	// Generate contextual mock response based on message content
+	assistantResponse := generateMockResponse(message)
+	assistantMsg := map[string]interface{}{
+		"Content":   assistantResponse,
 		"IsUser":    false,
 		"Timestamp": time.Now().Add(1 * time.Second).Format("3:04 PM"),
-	})
+	}
+	messages = append(messages, assistantMsg)
+	
+	// Store messages
+	c.chatMutex.Lock()
+	c.chatHistory[workerID] = messages
+	c.chatMutex.Unlock()
 	
 	// Store last active time
 	worker.LastActiveAt = time.Now()
@@ -608,15 +657,23 @@ func (c *WorkerController) startWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Start worker
+	// Start worker with realistic startup sequence
 	worker.Status = "starting"
 	models.Workers.Update(worker)
 	
-	// Simulate startup
+	// Simulate realistic startup sequence
 	go func() {
+		// Wait a moment for container to initialize
+		time.Sleep(1 * time.Second)
+		
+		// Update to running status after "startup"
 		time.Sleep(2 * time.Second)
-		worker.Status = "running"
-		models.Workers.Update(worker)
+		w, _ := models.Workers.Get(workerID)
+		if w != nil && w.Status == "starting" {
+			w.Status = "running"
+			w.LastActiveAt = time.Now()
+			models.Workers.Update(w)
+		}
 	}()
 	
 	// Re-render panel
