@@ -1,0 +1,85 @@
+<!-- AI Chat Interface -->
+<div class="flex flex-col h-full" id="ai-panel-content">
+    <!-- Chat Header -->
+    <div class="sticky top-0 bg-base-100 border-b border-base-300 p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button class="btn btn-ghost btn-sm btn-circle"
+                        hx-get="{{host}}/ai/panel"
+                        hx-target="#ai-panel-content"
+                        hx-swap="innerHTML">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div>
+                    <h3 class="text-sm font-semibold truncate max-w-md">{{.Title}}</h3>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="badge badge-success gap-1">
+                    <div class="w-2 h-2 bg-current rounded-full animate-pulse"></div>
+                    Ready
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages Area -->
+    <div class="flex-1 overflow-y-auto p-4" id="chat-messages">
+        <div hx-get="{{host}}/ai/chat/{{.ID}}/messages"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <!-- Messages will be loaded here -->
+            <div class="flex justify-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="sticky bottom-0 bg-base-100 border-t border-base-300 p-4">
+        <form hx-post="{{host}}/ai/chat/{{.ID}}/send"
+              hx-target="#chat-messages > div"
+              hx-swap="innerHTML"
+              hx-indicator="#send-indicator"
+              class="flex gap-2">
+            <input type="text" 
+                   name="message" 
+                   placeholder="Type your message..."
+                   class="input input-bordered flex-1"
+                   required
+                   autofocus>
+            <button type="submit" class="btn btn-primary">
+                <span class="htmx-indicator" id="send-indicator">
+                    <span class="loading loading-spinner loading-sm"></span>
+                </span>
+                <span class="htmx-indicator-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
+                </span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Auto-scroll to bottom on new messages
+document.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'chat-messages' || evt.detail.target.parentElement?.id === 'chat-messages') {
+        const messagesContainer = document.getElementById('chat-messages');
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+});
+
+// Clear input after sending
+document.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.successful && evt.detail.elt.matches('form[hx-post*="/send"]')) {
+        evt.detail.elt.reset();
+        evt.detail.elt.querySelector('input[name="message"]')?.focus();
+    }
+});
+</script>

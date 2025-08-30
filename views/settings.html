@@ -370,141 +370,50 @@
           </div>
         </fieldset>
 
-        <!-- AI Worker Integration -->
-        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6" id="worker-integration">
+        <!-- AI Assistant (Ollama) -->
+        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6" id="ai-integration">
           <legend class="fieldset-legend flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            AI Worker Integration
+            AI Assistant (Ollama)
           </legend>
 
-          <!-- Setup Instructions -->
-          {{with settings.GetSettings}}
-          {{if .HasWorkerIntegration}}
+          {{if ai.IsOllamaReady}}
           <div class="alert alert-success mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <div>
-              <p class="font-semibold">AI Worker Service Configured</p>
-              <p class="text-sm mt-1">Your AI service API key is securely stored. You can update it by entering a new key below.</p>
+              <p class="font-semibold">AI Assistant Service Running</p>
+              <p class="text-sm mt-1">Ollama is running and ready for AI conversations.</p>
             </div>
           </div>
           {{else}}
-          <div class="alert alert-info mb-4">
+          <div class="alert alert-warning mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <div>
-              <p class="font-semibold">Setup Instructions:</p>
-              <ol class="text-sm mt-1 ml-4 list-decimal">
-                <li>Go to <a href="https://console.anthropic.com/account/keys" target="_blank" class="link link-primary">Anthropic Console → API Keys</a></li>
-                <li>Create a new API key or copy an existing one</li>
-                <li>Paste the API key in the form below</li>
-                <li>Click "Save Worker Settings"</li>
-              </ol>
+              <p class="font-semibold">AI Assistant Service Initializing</p>
+              <p class="text-sm mt-1">The Ollama service is being configured. This may take a few minutes while the AI model is downloaded.</p>
             </div>
           </div>
           {{end}}
-          {{end}}
 
-          <!-- Configuration Form -->
-          <form hx-post="{{host}}/worker/configure" 
-                hx-trigger="submit"
-                hx-swap="none"
-                hx-indicator="#worker-save-indicator"
-                autocomplete="off"
-                class="flex flex-col gap-4">
-
-            <div class="form-control">
-              <label class="label cursor-pointer justify-start gap-4">
-                <input type="checkbox" name="worker_enabled" value="true" 
-                       class="checkbox checkbox-primary" 
-                       {{if .HasWorkerIntegration}}checked{{end}} />
-                <div class="flex-1">
-                  <span class="label-text font-medium">Enable AI Worker Service</span>
-                  <span class="label-text-alt text-xs">Allow AI-powered code analysis and issue creation</span>
-                </div>
-              </label>
-            </div>
-
-            <div class="divider my-2">API Configuration</div>
-
-            <div class="w-full">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">AI Service API Key</span>
-                <a href="https://console.anthropic.com/account/keys" target="_blank" class="link link-primary text-xs">
-                  Get API Key →
-                </a>
-              </div>
-              <label class="input input-bordered w-full flex items-center gap-2">
-                <input type="password" 
-                       name="worker_api_key" 
-                       value="" 
-                       class="grow font-mono" 
-                       placeholder="sk-ant-api03-..."
-                       autocomplete="new-password"
-                       autocorrect="off"
-                       autocapitalize="off"
-                       spellcheck="false"
-                       data-form-type="other" />
-              </label>
-              <label class="label">
-                <span class="label-text-alt">Your API key will be securely stored in the vault</span>
-              </label>
-            </div>
-
-            {{if worker.IsConfigured}}
-            <!-- Usage Statistics -->
-            {{with worker.GetStats}}
-            <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
-              <div class="stat">
-                <div class="stat-title">Total Requests</div>
-                <div class="stat-value text-primary">{{.TotalRequests}}</div>
-                <div class="stat-desc">All time</div>
-              </div>
-              
-              <div class="stat">
-                <div class="stat-title">Tokens Used</div>
-                <div class="stat-value text-secondary">{{.TotalTokens}}</div>
-                <div class="stat-desc">Input + Output</div>
-              </div>
-              
-              <div class="stat">
-                <div class="stat-title">Est. Cost</div>
-                <div class="stat-value">${{printf "%.2f" .EstimatedCost}}</div>
-                <div class="stat-desc">Based on usage</div>
-              </div>
-            </div>
-            {{end}}
-            {{end}}
-
-            <!-- Save button -->
-            <div class="flex justify-end gap-2">
-              {{if worker.IsConfigured}}
-              <button type="button" 
-                      hx-delete="{{host}}/worker/configure"
-                      hx-confirm="Are you sure you want to remove AI Worker configuration?"
-                      class="btn btn-error btn-outline">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Remove Configuration
-              </button>
-              {{end}}
-              <button type="submit" class="btn btn-primary">
-                <span class="htmx-indicator" id="worker-save-indicator">
-                  <span class="loading loading-spinner loading-sm"></span>
-                </span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 htmx-indicator:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
-                </svg>
-                <span class="htmx-indicator:hidden">Save Worker Settings</span>
-                <span class="htmx-indicator">Saving...</span>
-              </button>
-            </div>
-          </form>
+          <div class="prose max-w-none">
+            <h4>About AI Assistant</h4>
+            <p>The AI Assistant uses Ollama to provide local AI-powered code assistance. Features include:</p>
+            <ul>
+              <li>Code generation and review</li>
+              <li>Bug fixing and debugging help</li>
+              <li>Documentation writing</li>
+              <li>General programming questions</li>
+            </ul>
+            <p class="text-sm text-base-content/70">
+              The AI runs locally in a Docker container for privacy and security. No data is sent to external services.
+            </p>
+          </div>
         </fieldset>
 
         <!-- Last Updated Info -->

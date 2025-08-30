@@ -35,9 +35,8 @@ var (
 	// GitHub integration
 	GitHubUsers = database.Manage(DB, new(UserGitHub))
 	
-	// Worker system
-	Workers        = database.Manage(DB, new(Worker))
-	WorkerSessions = database.Manage(DB, new(WorkerSession))
-	WorkerMessages = database.Manage(DB, new(WorkerMessage))
+	// AI Conversations
+	Conversations = database.Manage(DB, new(Conversation))
+	Messages      = database.Manage(DB, new(Message))
 )
 
