@@ -23,7 +23,7 @@ build/$(BINARY): copy-worker
 build/$(WORKER_BINARY):
 	@mkdir -p build
 	@echo "Building worker service..."
-	@cd ../worker && go build -o ../workspace/build/$(WORKER_BINARY) .
+	@cd ../worker && go build -o ../workspace/build/$(WORKER_BINARY) main_simple.go
 	@echo "Worker binary built successfully"
 
 # Copy worker binary for embedding
