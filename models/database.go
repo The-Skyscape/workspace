@@ -40,7 +40,7 @@ var (
 	AIWorkerRepos  = database.Manage(DB, new(AIWorkerRepo))
 	ChatMessages   = database.Manage(DB, new(ChatMessage))
 	
-	// Claude usage tracking
-	ClaudeUsages   = database.Manage(DB, new(ClaudeUsage))
+	// Worker usage tracking
+	WorkerUsages   = database.Manage(DB, new(WorkerUsage))
 )
 

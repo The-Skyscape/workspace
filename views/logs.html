@@ -57,7 +57,7 @@
           <div>
             <h3 class="font-semibold mb-2">Authentication Endpoints</h3>
             {{with .auth}}
-              <div class="text-sm space-y-1">
+              <div class="text-sm flex flex-col gap-1">
                 <div class="flex justify-between">
                   <span class="text-base-content/70">IPs Tracked:</span>
                   <span class="font-mono">{{.total_tracked}}</span>
@@ -80,7 +80,7 @@
           <div>
             <h3 class="font-semibold mb-2">Signup Endpoints</h3>
             {{with .signup}}
-              <div class="text-sm space-y-1">
+              <div class="text-sm flex flex-col gap-1">
                 <div class="flex justify-between">
                   <span class="text-base-content/70">IPs Tracked:</span>
                   <span class="font-mono">{{.total_tracked}}</span>

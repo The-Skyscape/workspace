@@ -31,7 +31,7 @@
         <!-- Diff Stats -->
         {{with repos.RepoCommitDiff}}
         {{if .}}
-        <div class="stats shadow mb-6">
+        <div class="stats border border-base-300 mb-6">
           <div class="stat">
             <div class="stat-figure text-secondary">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -74,8 +74,8 @@
             <div class="card-body p-0">
               <!-- File Header -->
               <div class="flex items-center justify-between bg-base-300 px-4 py-3 rounded-t-lg">
-                <div class="flex items-center space-x-3">
-                  <div class="flex items-center space-x-2">
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2">
                     {{if eq .Status "added"}}
                     <div class="badge badge-success badge-sm">Added</div>
                     {{else if eq .Status "deleted"}}
@@ -96,7 +96,7 @@
                     {{end}}
                   </div>
                 </div>
-                <div class="flex items-center space-x-2 text-sm">
+                <div class="flex items-center gap-2 text-sm">
                   {{if not .IsBinary}}
                   <span class="text-success">+{{.Additions}}</span>
                   <span class="text-error">-{{.Deletions}}</span>

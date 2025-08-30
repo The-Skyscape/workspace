@@ -370,25 +370,25 @@
           </div>
         </fieldset>
 
-        <!-- Claude AI Integration -->
-        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6" id="claude-integration">
+        <!-- AI Worker Integration -->
+        <fieldset class="fieldset bg-base-100 shadow-lg border border-base-300 rounded-box p-6" id="worker-integration">
           <legend class="fieldset-legend flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            Claude AI Integration
+            AI Worker Integration
           </legend>
 
           <!-- Setup Instructions -->
           {{with settings.GetSettings}}
-          {{if .HasClaudeIntegration}}
+          {{if .HasWorkerIntegration}}
           <div class="alert alert-success mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <div>
-              <p class="font-semibold">Claude AI Configured</p>
-              <p class="text-sm mt-1">Your Claude API key is securely stored. You can update it by entering a new key below.</p>
+              <p class="font-semibold">AI Worker Service Configured</p>
+              <p class="text-sm mt-1">Your AI service API key is securely stored. You can update it by entering a new key below.</p>
             </div>
           </div>
           {{else}}
@@ -402,7 +402,7 @@
                 <li>Go to <a href="https://console.anthropic.com/account/keys" target="_blank" class="link link-primary">Anthropic Console → API Keys</a></li>
                 <li>Create a new API key or copy an existing one</li>
                 <li>Paste the API key in the form below</li>
-                <li>Click "Save Claude Settings"</li>
+                <li>Click "Save Worker Settings"</li>
               </ol>
             </div>
           </div>
@@ -410,20 +410,20 @@
           {{end}}
 
           <!-- Configuration Form -->
-          <form hx-post="{{host}}/claude/configure" 
+          <form hx-post="{{host}}/worker/configure" 
                 hx-trigger="submit"
                 hx-swap="none"
-                hx-indicator="#claude-save-indicator"
+                hx-indicator="#worker-save-indicator"
                 autocomplete="off"
                 class="flex flex-col gap-4">
 
             <div class="form-control">
               <label class="label cursor-pointer justify-start gap-4">
-                <input type="checkbox" name="claude_enabled" value="true" 
+                <input type="checkbox" name="worker_enabled" value="true" 
                        class="checkbox checkbox-primary" 
-                       {{if .HasClaudeIntegration}}checked{{end}} />
+                       {{if .HasWorkerIntegration}}checked{{end}} />
                 <div class="flex-1">
-                  <span class="label-text font-medium">Enable Claude AI Assistant</span>
+                  <span class="label-text font-medium">Enable AI Worker Service</span>
                   <span class="label-text-alt text-xs">Allow AI-powered code analysis and issue creation</span>
                 </div>
               </label>
@@ -433,14 +433,14 @@
 
             <div class="w-full">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">Claude API Key</span>
+                <span class="text-sm font-medium">AI Service API Key</span>
                 <a href="https://console.anthropic.com/account/keys" target="_blank" class="link link-primary text-xs">
                   Get API Key →
                 </a>
               </div>
               <label class="input input-bordered w-full flex items-center gap-2">
                 <input type="password" 
-                       name="claude_api_key" 
+                       name="worker_api_key" 
                        value="" 
                        class="grow font-mono" 
                        placeholder="sk-ant-api03-..."
@@ -455,9 +455,9 @@
               </label>
             </div>
 
-            {{if claude.IsConfigured}}
+            {{if worker.IsConfigured}}
             <!-- Usage Statistics -->
-            {{with claude.GetStats}}
+            {{with worker.GetStats}}
             <div class="stats stats-vertical lg:stats-horizontal shadow w-full">
               <div class="stat">
                 <div class="stat-title">Total Requests</div>
@@ -482,10 +482,10 @@
 
             <!-- Save button -->
             <div class="flex justify-end gap-2">
-              {{if claude.IsConfigured}}
+              {{if worker.IsConfigured}}
               <button type="button" 
-                      hx-delete="{{host}}/claude/configure"
-                      hx-confirm="Are you sure you want to remove Claude configuration?"
+                      hx-delete="{{host}}/worker/configure"
+                      hx-confirm="Are you sure you want to remove AI Worker configuration?"
                       class="btn btn-error btn-outline">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -494,13 +494,13 @@
               </button>
               {{end}}
               <button type="submit" class="btn btn-primary">
-                <span class="htmx-indicator" id="claude-save-indicator">
+                <span class="htmx-indicator" id="worker-save-indicator">
                   <span class="loading loading-spinner loading-sm"></span>
                 </span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 htmx-indicator:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V2" />
                 </svg>
-                <span class="htmx-indicator:hidden">Save Claude Settings</span>
+                <span class="htmx-indicator:hidden">Save Worker Settings</span>
                 <span class="htmx-indicator">Saving...</span>
               </button>
             </div>

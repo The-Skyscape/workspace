@@ -18,7 +18,7 @@
         <!-- File Header -->
         <div class="flex items-center justify-between p-6 border-b border-base-300">
           <!-- File Info (Left Side) -->
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center gap-3">
             {{if .IsDir}}
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
@@ -39,7 +39,7 @@
           </div>
           
           <!-- Actions (Right Side) -->
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center gap-2">
             {{if not .IsDir}}
             <a href="{{host}}/repos/{{$repo.ID}}/edit/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-outline btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -102,7 +102,7 @@
               {{range .}}
               <tr class="hover">
                 <td>
-                  <div class="flex items-center space-x-3">
+                  <div class="flex items-center gap-3">
                     {{if .IsDir}}
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>

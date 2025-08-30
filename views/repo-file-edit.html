@@ -16,7 +16,7 @@
       <div class="card-body p-0">
         <!-- Editor Header -->
         <div class="flex items-center justify-between p-6 border-b border-base-300">
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
@@ -28,7 +28,7 @@
             </div>
           </div>
           
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center gap-2">
             <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-ghost btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -70,7 +70,7 @@
           </fieldset>
 
           <!-- Action Buttons -->
-          <div class="flex justify-end space-x-2">
+          <div class="flex justify-end gap-2">
             <a href="{{host}}/repos/{{$repo.ID}}/files/{{.Path}}?branch={{repos.CurrentBranch}}" class="btn btn-ghost">Cancel</a>
             <button type="submit" class="btn btn-primary">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -92,15 +92,15 @@
       <div class="card-body">
         <h3 class="card-title text-lg">💡 Editor Tips</h3>
         <div class="flex flex-col gap-2 text-sm">
-          <div class="flex items-start space-x-2">
+          <div class="flex items-start gap-2">
             <kbd class="kbd kbd-xs">Tab</kbd>
             <span>Insert 2 spaces</span>
           </div>
-          <div class="flex items-start space-x-2">
+          <div class="flex items-start gap-2">
             <kbd class="kbd kbd-xs">Ctrl+S</kbd>
             <span>Save file (submit form)</span>
           </div>
-          <div class="flex items-start space-x-2">
+          <div class="flex items-start gap-2">
             <kbd class="kbd kbd-xs">Ctrl+Z</kbd>
             <span>Undo changes</span>
           </div>

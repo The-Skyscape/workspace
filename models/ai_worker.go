@@ -12,6 +12,7 @@ type AIWorker struct {
 	UserID       string    // Owner of the worker
 	Name         string    // Display name for the worker
 	Status       string    // "creating", "ready", "error", "stopped"
+	ErrorMessage string    // Error details if status is "error"
 	SandboxID    string    // Persistent sandbox container ID
 	LastActiveAt time.Time // Last time the worker was used
 }

@@ -1,0 +1,15 @@
+<!-- AI Worker Service Panel -->
+<dialog id="workerDrawer" class="modal">
+  <div class="modal-box max-w-2xl w-full h-[80vh] p-0 flex flex-col"
+       hx-get="{{host}}/worker/panel/content"
+       hx-trigger="load"
+       hx-swap="innerHTML">
+    <!-- Loading spinner while content loads -->
+    <div class="flex items-center justify-center h-full">
+      <span class="loading loading-spinner loading-lg"></span>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>

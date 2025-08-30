@@ -9,22 +9,22 @@
 
 <!-- Repository Header -->
 <div class="flex items-center justify-between mb-8">
-  <div class="flex items-center space-x-4">
-    <div class="avatar placeholder">
+  <div class="flex items-center gap-4">
+    <div class="avatar avatar-placeholder">
       <div class="bg-primary text-primary-content rounded w-16 h-16">
         <span class="text-xl">{{printf "%.2s" .Name}}</span>
       </div>
     </div>
     <div>
       <h1 class="text-3xl font-bold">{{.Name}}</h1>
-      <div class="flex items-center space-x-4 text-sm text-base-content/70">
-        <div class="flex items-center space-x-1">
+      <div class="flex items-center gap-4 text-sm text-base-content/70">
+        <div class="flex items-center gap-1">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{{.Visibility}} repository</span>
         </div>
-        <div class="flex items-center space-x-1">
+        <div class="flex items-center gap-1">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -37,7 +37,7 @@
     </div>
   </div>
 
-  <div class="flex items-center space-x-2">
+  <div class="flex items-center gap-2">
     <a href="{{host}}/signup" class="btn btn-primary">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -81,7 +81,7 @@
         <!-- Clone Information -->
         <div class="bg-base-200 rounded-lg p-4 mb-6">
           <h3 class="font-semibold mb-2">Clone this repository</h3>
-          <div class="flex items-center space-x-2">
+          <div class="flex items-center gap-2">
             <code class="flex-1 p-2 bg-base-300 rounded text-sm">git clone {{repos.HostURL}}/repo/{{.ID}}</code>
             <button class="btn btn-ghost btn-sm"
                     _="on click writeText('git clone {{repos.HostURL}}/repo/{{.ID}}') to navigator.clipboard then add .btn-success to me then remove .btn-success from me after 2s">
@@ -146,7 +146,7 @@
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
         <h3 class="card-title text-lg">Owner</h3>
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center gap-3">
           <div class="avatar">
             <div class="w-10 rounded-full">
               <img src="{{.Avatar}}" alt="{{.Name}}" />
