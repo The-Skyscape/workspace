@@ -34,7 +34,7 @@
             <!-- Messages Area -->
             <div class="flex-1 overflow-y-auto p-4" id="chat-messages"
                  hx-get="{{host}}/worker/chat/{{.Worker.ID}}/messages"
-                 hx-trigger="load, every 2s"
+                 hx-trigger="load, every 1s"
                  hx-swap="innerHTML">
                 <!-- Messages will be loaded here -->
                 <div class="flex justify-center py-8">

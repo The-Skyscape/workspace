@@ -97,6 +97,51 @@ func (c *WorkerController) GetServiceStatus() map[string]interface{} {
 
 // Mock data methods for UI development
 
+// calculateResponseDelay calculates an appropriate delay based on message complexity
+func calculateResponseDelay(message string) time.Duration {
+	msgLen := len(message)
+	lowerMsg := strings.ToLower(message)
+	
+	// Base delay
+	baseDelay := 1 * time.Second
+	
+	// Add delay based on message length
+	if msgLen > 100 {
+		baseDelay += 500 * time.Millisecond
+	}
+	if msgLen > 200 {
+		baseDelay += 1 * time.Second
+	}
+	
+	// Add delay for code-related queries
+	if strings.Contains(lowerMsg, "code") || strings.Contains(lowerMsg, "debug") || 
+	   strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "implement") {
+		baseDelay += 1500 * time.Millisecond
+	}
+	
+	// Add delay for complex queries
+	if strings.Contains(lowerMsg, "explain") || strings.Contains(lowerMsg, "how") ||
+	   strings.Contains(lowerMsg, "why") || strings.Contains(lowerMsg, "analyze") {
+		baseDelay += 1 * time.Second
+	}
+	
+	// Add some randomness (±500ms)
+	randomDelay := time.Duration(time.Now().UnixNano()%1000-500) * time.Millisecond
+	totalDelay := baseDelay + randomDelay
+	
+	// Cap at 4 seconds max
+	if totalDelay > 4*time.Second {
+		totalDelay = 4 * time.Second
+	}
+	
+	// Minimum 800ms
+	if totalDelay < 800*time.Millisecond {
+		totalDelay = 800 * time.Millisecond
+	}
+	
+	return totalDelay
+}
+
 // generateMockResponse generates contextual responses based on user input
 func generateMockResponse(message string) string {
 	lowerMsg := strings.ToLower(message)
@@ -607,7 +652,7 @@ func (c *WorkerController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		messages = []map[string]interface{}{}
 	}
 	
-	// Add user message
+	// Add user message immediately
 	userMsg := map[string]interface{}{
 		"Content":   message,
 		"IsUser":    true,
@@ -615,28 +660,67 @@ func (c *WorkerController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	messages = append(messages, userMsg)
 	
-	// Generate contextual mock response based on message content
-	assistantResponse := generateMockResponse(message)
-	assistantMsg := map[string]interface{}{
-		"Content":   assistantResponse,
+	// Add typing indicator message
+	typingMsg := map[string]interface{}{
+		"Content":   "Claude is typing...",
 		"IsUser":    false,
-		"Timestamp": time.Now().Add(1 * time.Second).Format("3:04 PM"),
+		"IsTyping":  true,
+		"Timestamp": time.Now().Add(100 * time.Millisecond).Format("3:04 PM"),
 	}
-	messages = append(messages, assistantMsg)
+	messages = append(messages, typingMsg)
 	
-	// Store messages
+	// Store messages with typing indicator
 	c.chatMutex.Lock()
 	c.chatHistory[workerID] = messages
 	c.chatMutex.Unlock()
 	
-	// Store last active time
-	worker.LastActiveAt = time.Now()
-	models.Workers.Update(worker)
-	
+	// Render immediately with typing indicator
 	data := map[string]interface{}{
 		"Messages": messages,
 	}
 	c.Render(w, r, "worker-chat-messages.html", data)
+	
+	// Process response asynchronously with realistic delays
+	go func() {
+		// Calculate delay based on message complexity
+		delay := calculateResponseDelay(message)
+		time.Sleep(delay)
+		
+		// Generate contextual mock response
+		assistantResponse := generateMockResponse(message)
+		
+		// Get messages again to replace typing indicator
+		c.chatMutex.Lock()
+		messages, _ := c.chatHistory[workerID]
+		
+		// Remove typing indicator (last message)
+		if len(messages) > 0 {
+			lastMsg := messages[len(messages)-1]
+			if isTyping, exists := lastMsg["IsTyping"]; exists && isTyping == true {
+				messages = messages[:len(messages)-1]
+			}
+		}
+		
+		// Add actual assistant response
+		assistantMsg := map[string]interface{}{
+			"Content":   assistantResponse,
+			"IsUser":    false,
+			"Timestamp": time.Now().Format("3:04 PM"),
+		}
+		messages = append(messages, assistantMsg)
+		
+		// Store updated messages
+		c.chatHistory[workerID] = messages
+		c.chatMutex.Unlock()
+		
+		// Update worker last active time
+		if w, err := models.Workers.Get(workerID); err == nil {
+			w.LastActiveAt = time.Now()
+			models.Workers.Update(w)
+		}
+		
+		log.Printf("WorkerController: Async response generated for worker %s after %v", workerID, delay)
+	}()
 }
 
 // startWorker starts a stopped worker

@@ -22,8 +22,15 @@
         {{if .IsUser}}You{{else}}Assistant{{end}}
         <time class="text-xs opacity-50 ml-2">{{.Timestamp}}</time>
     </div>
-    <div class="chat-bubble {{if .IsUser}}chat-bubble-primary{{end}} whitespace-pre-wrap">
-        {{.Content}}
+    <div class="chat-bubble {{if .IsUser}}chat-bubble-primary{{end}} {{if .IsTyping}}opacity-70{{end}} whitespace-pre-wrap">
+        {{if .IsTyping}}
+            <span class="flex items-center gap-1">
+                <span class="loading loading-dots loading-sm"></span>
+                {{.Content}}
+            </span>
+        {{else}}
+            {{.Content}}
+        {{end}}
     </div>
 </div>
 {{else}}
