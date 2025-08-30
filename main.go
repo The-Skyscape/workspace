@@ -35,8 +35,7 @@ func main() {
 		application.WithController(controllers.PullRequests()),
 		application.WithController(controllers.Actions()),
 		application.WithController(controllers.Integrations()),
-		application.WithController(controllers.AI()),  // New AI conversation controller
-		// application.WithController(controllers.Worker()),  // Deprecated - replaced by AI
+		application.WithController(controllers.AI()),
 		application.WithController(controllers.Workspaces()),
 		application.WithController(controllers.Settings()),
 		application.WithController(controllers.Monitoring()),
