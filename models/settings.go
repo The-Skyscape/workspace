@@ -31,7 +31,6 @@ type Settings struct {
 	
 	// Integration Settings
 	GitHubEnabled        bool
-	HasWorkerIntegration bool
 	
 	// Metadata
 	LastUpdatedBy       string

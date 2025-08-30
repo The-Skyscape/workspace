@@ -23,6 +23,7 @@ When working on this codebase:
 - 🔗 **GitHub Integration** - Bidirectional sync and OAuth
 - 🔒 **Secret Management** - HashiCorp Vault for secure credential storage
 - 👥 **Access Control** - Role-based permissions (read/write/admin)
+- 🧠 **AI Assistant** - Ollama-powered chat with tool calling for repository operations
 
 ## Architecture Patterns
 
@@ -104,11 +105,47 @@ func (s *Service) Init() error {
 
 ### Critical Services
 - **VaultService** - Secret management with automatic unseal
-- **AIService** - Ollama container for AI features
+- **OllamaService** - Ollama container for AI features (qwen2.5-coder:1.5b model)
 - **ActionsService** - CI/CD execution environment
 - **NotebookService** - Jupyter notebook server
 
 ## Key Implementation Details
+
+### AI Assistant System
+The AI assistant provides an intelligent interface for repository operations:
+
+1. **Architecture**:
+   - Conversation-based system (not worker-based)
+   - Admin-only access for all AI features
+   - Ollama service runs qwen2.5-coder:1.5b model locally
+   - Tool calling system for repository operations
+
+2. **Available Tools**:
+   - `list_repos` - Lists repositories with visibility filtering
+   - `get_repo` - Gets detailed repository information
+   - `create_repo` - Creates new repositories (admin only)
+   - `get_repo_link` - Generates links to repository pages
+
+3. **Tool Call Format**:
+   ```xml
+   <tool_call>
+   {"tool": "list_repos", "params": {"visibility": "all"}}
+   </tool_call>
+   ```
+
+4. **Implementation Files**:
+   - `controllers/ai.go` - Main AI controller with admin-only routes
+   - `models/conversation.go` - Conversation model
+   - `models/message.go` - Message model with roles (user/assistant/tool/error)
+   - `internal/ai/tools.go` - Tool registry and interface
+   - `internal/ai/parser.go` - Tool call parser (supports XML and JSON formats)
+   - `internal/ai/tools/repos.go` - Repository tool implementations
+
+5. **Key Design Decisions**:
+   - Simplified from worker-based to conversation-based system
+   - Parser handles both XML-wrapped and plain JSON tool calls
+   - Tools execute with user context for proper authorization
+   - System prompt explicitly instructs when to use tools
 
 ### Actions System (CI/CD)
 1. Actions run in Docker sandboxes (`action-{id}-{runid}`)

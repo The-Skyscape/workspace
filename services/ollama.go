@@ -92,7 +92,7 @@ func NewOllamaService() *OllamaService {
 			GPUEnabled:    false,                 // CPU mode by default
 		},
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 5 * time.Minute, // Increased timeout for model loading
 		},
 	}
 }

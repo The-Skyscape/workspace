@@ -32,6 +32,11 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.CreateRepoTool{})
 	registry.Register(&tools.GetRepoLinkTool{})
 	
+	// Register file tools
+	registry.Register(&tools.ListFilesTool{})
+	registry.Register(&tools.ReadFileTool{})
+	registry.Register(&tools.SearchFilesTool{})
+	
 	return "ai", &AIController{
 		toolRegistry: registry,
 	}
@@ -409,13 +414,47 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 func (c *AIController) buildSystemPrompt() string {
 	prompt := `You are an AI assistant integrated into the Skyscape development platform. 
 You help users with coding, debugging, documentation, and development tasks.
-Be concise, helpful, and accurate in your responses.
-When users ask about code, provide clear examples and explanations.`
-	
-	// Add tool information if available
-	if c.toolRegistry != nil {
-		prompt += c.toolRegistry.GenerateToolPrompt()
-	}
+
+You have access to tools that let you interact with the system. When users ask about repositories, files, or any system data, you MUST use these tools to get real information.
+
+Available tools:
+
+Repository Tools:
+- list_repos: Lists all repositories in the system
+- get_repo: Gets detailed information about a specific repository  
+- create_repo: Creates a new repository
+- get_repo_link: Generates a link to a repository page
+
+File Tools:
+- list_files: Lists files and directories in a repository
+- read_file: Reads the content of a specific file
+- search_files: Searches for files by name pattern
+
+When you need to use a tool, respond with ONLY the tool call in this exact format:
+<tool_call>
+{"tool": "list_repos", "params": {}}
+</tool_call>
+
+Examples of when to use tools:
+
+Repository operations:
+- "What repositories do we have?" → Use list_repos
+- "Tell me about repo xyz" → Use get_repo with repo_id
+- "Create a new repository called test" → Use create_repo
+
+File operations:
+- "What files are in repo xyz?" → Use list_files with repo_id
+- "Show me the README in repo abc" → Use read_file with repo_id and path="README.md"
+- "List files in the src directory" → Use list_files with repo_id and path="src"
+- "Find all Go files in repo xyz" → Use search_files with repo_id and pattern="*.go"
+- "Read main.go from repo abc" → Use read_file with repo_id and path="main.go"
+
+IMPORTANT RULES:
+1. When asked about repositories, files, or system data, ALWAYS use tools - never guess or make up information
+2. Use the exact XML format shown above for tool calls
+3. After I execute the tool and provide results, explain them clearly to the user
+4. You can use multiple tools in sequence if needed
+5. For file operations, always specify the repo_id parameter`
 	
 	return prompt
 }
@@ -423,11 +462,16 @@ When users ask about code, provide clear examples and explanations.`
 // processToolCalls processes any tool calls in the AI response
 func (c *AIController) processToolCalls(response, conversationID, userID string) (string, []string) {
 	if c.toolRegistry == nil {
+		log.Printf("AIController: Tool registry is nil")
 		return response, nil
 	}
 	
+	log.Printf("AIController: Processing response for tool calls: %s", response)
+	
 	// Parse tool calls from the response
 	toolCalls, cleanedText := ai.ParseToolCalls(response)
+	
+	log.Printf("AIController: Found %d tool calls", len(toolCalls))
 	
 	if len(toolCalls) == 0 {
 		return response, nil
@@ -437,6 +481,7 @@ func (c *AIController) processToolCalls(response, conversationID, userID string)
 	
 	// Execute each tool call
 	for _, tc := range toolCalls {
+		log.Printf("AIController: Executing tool '%s' with params: %v", tc.Tool, tc.Params)
 		result, err := c.toolRegistry.ExecuteTool(tc.Tool, tc.Params, userID)
 		if err != nil {
 			toolResults = append(toolResults, ai.FormatToolResult(tc.Tool, "", err))

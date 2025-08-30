@@ -10,36 +10,57 @@ import (
 // ParseToolCalls extracts tool calls from AI response text
 func ParseToolCalls(text string) ([]ToolCall, string) {
 	var toolCalls []ToolCall
+	cleanedText := text
 	
-	// Regular expression to match tool calls in XML format
-	// Matches: <tool_call>...</tool_call>
-	re := regexp.MustCompile(`<tool_call>\s*({[^}]+})\s*</tool_call>`)
-	matches := re.FindAllStringSubmatch(text, -1)
+	// First try XML format: <tool_call>...</tool_call>
+	xmlRe := regexp.MustCompile(`<tool_call>\s*({[^}]+})\s*</tool_call>`)
+	xmlMatches := xmlRe.FindAllStringSubmatch(text, -1)
 	
-	// Track positions of tool calls for removal
-	var positions [][]int
-	if len(matches) > 0 {
-		positions = re.FindAllStringIndex(text, -1)
-	}
-	
-	// Parse each tool call
-	for _, match := range matches {
-		if len(match) > 1 {
-			jsonStr := match[1]
-			var tc ToolCall
-			if err := json.Unmarshal([]byte(jsonStr), &tc); err == nil {
-				toolCalls = append(toolCalls, tc)
+	if len(xmlMatches) > 0 {
+		// Found XML-wrapped tool calls
+		positions := xmlRe.FindAllStringIndex(text, -1)
+		
+		// Parse each tool call
+		for _, match := range xmlMatches {
+			if len(match) > 1 {
+				jsonStr := match[1]
+				var tc ToolCall
+				if err := json.Unmarshal([]byte(jsonStr), &tc); err == nil {
+					toolCalls = append(toolCalls, tc)
+				}
 			}
 		}
-	}
-	
-	// Remove tool calls from the original text
-	cleanedText := text
-	if len(positions) > 0 {
-		// Remove from end to start to maintain correct positions
+		
+		// Remove tool calls from the original text (from end to start)
 		for i := len(positions) - 1; i >= 0; i-- {
 			pos := positions[i]
 			cleanedText = cleanedText[:pos[0]] + cleanedText[pos[1]:]
+		}
+	} else {
+		// Try to detect plain JSON tool calls
+		// Look for JSON objects that have "tool" and optionally "params" fields
+		jsonRe := regexp.MustCompile(`\{[^{}]*"tool"\s*:\s*"[^"]+"\s*(?:,\s*"params"\s*:\s*\{[^{}]*\})?\s*\}`)
+		jsonMatches := jsonRe.FindAllString(text, -1)
+		
+		if len(jsonMatches) > 0 {
+			positions := jsonRe.FindAllStringIndex(text, -1)
+			
+			// Parse each potential tool call
+			for _, jsonStr := range jsonMatches {
+				var tc ToolCall
+				if err := json.Unmarshal([]byte(jsonStr), &tc); err == nil && tc.Tool != "" {
+					toolCalls = append(toolCalls, tc)
+				}
+			}
+			
+			// If we found valid tool calls, remove them from text
+			if len(toolCalls) > 0 {
+				// Remove from end to start to maintain positions
+				for i := len(positions) - 1; i >= 0; i-- {
+					pos := positions[i]
+					cleanedText = cleanedText[:pos[0]] + cleanedText[pos[1]:]
+				}
+			}
 		}
 	}
 	
