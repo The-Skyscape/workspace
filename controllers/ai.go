@@ -28,15 +28,15 @@ func (c *AIController) Setup(app *application.App) {
 	c.App = app
 	auth := app.Use("auth").(*authentication.Controller)
 
-	// Conversation routes
-	http.Handle("GET /ai/panel", app.ProtectFunc(c.panel, auth.Required))
-	http.Handle("POST /ai/conversations", app.ProtectFunc(c.createConversation, auth.Required))
-	http.Handle("DELETE /ai/conversations/{id}", app.ProtectFunc(c.deleteConversation, auth.Required))
+	// Conversation routes - Admin only
+	http.Handle("GET /ai/panel", app.ProtectFunc(c.panel, auth.AdminOnly))
+	http.Handle("POST /ai/conversations", app.ProtectFunc(c.createConversation, auth.AdminOnly))
+	http.Handle("DELETE /ai/conversations/{id}", app.ProtectFunc(c.deleteConversation, auth.AdminOnly))
 	
-	// Chat routes
-	http.Handle("GET /ai/chat/{id}", app.ProtectFunc(c.loadChat, auth.Required))
-	http.Handle("GET /ai/chat/{id}/messages", app.ProtectFunc(c.getMessages, auth.Required))
-	http.Handle("POST /ai/chat/{id}/send", app.ProtectFunc(c.sendMessage, auth.Required))
+	// Chat routes - Admin only
+	http.Handle("GET /ai/chat/{id}", app.ProtectFunc(c.loadChat, auth.AdminOnly))
+	http.Handle("GET /ai/chat/{id}/messages", app.ProtectFunc(c.getMessages, auth.AdminOnly))
+	http.Handle("POST /ai/chat/{id}/send", app.ProtectFunc(c.sendMessage, auth.AdminOnly))
 
 	// Initialize Ollama service in background
 	go func() {
@@ -57,14 +57,14 @@ func (c AIController) Handle(req *http.Request) application.Controller {
 
 // Template helper methods
 
-// GetConversations returns all conversations for the current user
+// GetConversations returns all conversations for the current user (admin only)
 func (c *AIController) GetConversations() []*models.Conversation {
 	if c.Request == nil {
 		return nil
 	}
 	
 	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(c.Request)
-	if err != nil {
+	if err != nil || !user.IsAdmin {
 		return nil
 	}
 	
@@ -72,16 +72,29 @@ func (c *AIController) GetConversations() []*models.Conversation {
 	return conversations
 }
 
-// IsOllamaReady checks if Ollama service is ready
+// IsOllamaReady checks if Ollama service is ready and user is admin
 func (c *AIController) IsOllamaReady() bool {
+	if c.Request == nil {
+		return false
+	}
+	
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(c.Request)
+	if err != nil || !user.IsAdmin {
+		return false
+	}
+	
 	return services.Ollama != nil && services.Ollama.IsRunning()
 }
 
 // Handler methods
 
-// panel renders the main AI panel with conversation list
+// panel renders the main AI panel with conversation list (admin only)
 func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
-	user, _, _ := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
 	
 	// Get user's conversations
 	conversations, err := models.Conversations.Search("WHERE UserID = ? ORDER BY UpdatedAt DESC LIMIT 50", user.ID)
@@ -110,9 +123,13 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 	c.Render(w, r, "ai-panel.html", conversations)
 }
 
-// createConversation creates a new conversation
+// createConversation creates a new conversation (admin only)
 func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request) {
-	user, _, _ := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
 	
 	// Create new conversation
 	conversation := &models.Conversation{
@@ -122,7 +139,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 		UpdatedAt: time.Now(),
 	}
 	
-	conversation, err := models.Conversations.Insert(conversation)
+	conversation, err = models.Conversations.Insert(conversation)
 	if err != nil {
 		log.Printf("AIController: Failed to create conversation: %v", err)
 		c.RenderErrorMsg(w, r, "Failed to create conversation")
@@ -133,10 +150,14 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 	c.Render(w, r, "ai-chat.html", conversation)
 }
 
-// deleteConversation deletes a conversation and its messages
+// deleteConversation deletes a conversation and its messages (admin only)
 func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, _ := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
 	
 	// Get conversation and verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
@@ -162,10 +183,14 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 	c.panel(w, r)
 }
 
-// loadChat loads the chat interface for a conversation
+// loadChat loads the chat interface for a conversation (admin only)
 func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, _ := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
 	
 	// Get conversation and verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
@@ -177,10 +202,14 @@ func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 	c.Render(w, r, "ai-chat.html", conversation)
 }
 
-// getMessages returns messages for a conversation
+// getMessages returns messages for a conversation (admin only)
 func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, _ := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
 	
 	// Verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
@@ -204,8 +233,8 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
 	content := strings.TrimSpace(r.FormValue("message"))
 	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
-	if err != nil {
-		c.RenderErrorMsg(w, r, "Authentication required")
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
 		return
 	}
 	
