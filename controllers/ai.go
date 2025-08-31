@@ -697,73 +697,95 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "event: status\ndata: Generating response...\n\n")
 	flusher.Flush()
 	
-	// Start streaming from Ollama
+	// First get the complete response without streaming to handle tool calls
 	model := "qwen2.5-coder:1.5b"
-	var fullResponse strings.Builder
-	messageStarted := false
-	
-	err = services.Ollama.StreamChat(model, ollamaMessages, func(chunk *services.OllamaChatResponse) error {
-		if chunk.Message.Content != "" {
-			// Send the chunk as an SSE event with HTML
-			if !messageStarted {
-				// Start the assistant message bubble
-				fmt.Fprintf(w, "event: message\ndata: <div class=\"chat chat-start my-2\"><div class=\"chat-image avatar\"><div class=\"w-8 h-8 rounded-full flex-shrink-0\"><div class=\"bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\" /></svg></div></div></div><div class=\"chat-bubble max-w-[70%] break-words text-sm\" id=\"streaming-bubble\">\n\n")
-				flusher.Flush()
-				messageStarted = true
-			}
-			
-			// Send the content chunk
-			content := strings.ReplaceAll(chunk.Message.Content, "\n", "<br>")
-			fmt.Fprintf(w, "event: chunk\ndata: %s\n\n", content)
-			flusher.Flush()
-			
-			fullResponse.WriteString(chunk.Message.Content)
-		}
-		
-		// Check if done
-		if chunk.Done {
-			// Close the message bubble
-			if messageStarted {
-				fmt.Fprintf(w, "event: chunk\ndata: </div></div>\n\n")
-			}
-			fmt.Fprintf(w, "event: done\ndata: complete\n\n")
-			flusher.Flush()
-		}
-		
-		return nil
-	})
-	
+	initialResponse, err := services.Ollama.Chat(model, ollamaMessages, false)
 	if err != nil {
-		log.Printf("AIController: Streaming failed: %v", err)
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
+		fmt.Fprintf(w, "event: error\ndata: Failed to get AI response: %s\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
 	
-	// Save the complete response to database
-	if fullResponse.Len() > 0 {
-		// Process tool calls if any
-		finalResponse, toolResults := c.processToolCalls(fullResponse.String(), conversationID, user.ID)
+	// Process tool calls with agentic loop
+	finalResponse := initialResponse.Message.Content
+	iteration := 0
+	maxIterations := 5
+	
+	for iteration < maxIterations {
+		// Check for tool calls
+		processedContent, toolResults := c.processToolCalls(finalResponse, conversationID, user.ID)
 		
-		// Save assistant message
+		if len(toolResults) == 0 {
+			// No tool calls, use the processed content
+			finalResponse = processedContent
+			break
+		}
+		
+		// Save tool results
+		for _, result := range toolResults {
+			toolMsg := &models.Message{
+				ConversationID: conversationID,
+				Role:           models.MessageRoleTool,
+				Content:        result,
+				CreatedAt:      time.Now(),
+			}
+			models.Messages.Insert(toolMsg)
+		}
+		
+		// Build new context with tool results
+		ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+			Role:    "assistant",
+			Content: finalResponse,
+		})
+		ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+			Role:    "system",
+			Content: "Tool execution result:\n" + strings.Join(toolResults, "\n") + "\n\nBased on this result, please provide a helpful response to the user's original request.",
+		})
+		
+		// Get follow-up response
+		response, err := services.Ollama.Chat(model, ollamaMessages, false)
+		if err != nil {
+			finalResponse = processedContent + "\n\n" + strings.Join(toolResults, "\n")
+			break
+		}
+		
+		finalResponse = response.Message.Content
+		iteration++
+	}
+	
+	// Now stream the final response as HTML
+	fmt.Fprintf(w, "event: message\ndata: <div class=\"chat chat-start my-2\"><div class=\"chat-image avatar\"><div class=\"w-8 h-8 rounded-full flex-shrink-0\"><div class=\"bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\" /></svg></div></div></div><div class=\"chat-bubble max-w-[70%] break-words text-sm\" id=\"streaming-bubble\">\n\n")
+	flusher.Flush()
+	
+	// Convert markdown to HTML for streaming
+	htmlContent := c.RenderMessageMarkdown(finalResponse)
+	contentStr := string(htmlContent)
+	
+	// Stream the content in chunks
+	chunkSize := 100
+	for i := 0; i < len(contentStr); i += chunkSize {
+		end := i + chunkSize
+		if end > len(contentStr) {
+			end = len(contentStr)
+		}
+		
+		fmt.Fprintf(w, "event: chunk\ndata: %s\n\n", contentStr[i:end])
+		flusher.Flush()
+		time.Sleep(10 * time.Millisecond) // Small delay for streaming effect
+	}
+	
+	// Close the message
+	fmt.Fprintf(w, "event: chunk\ndata: </div></div>\n\n")
+	fmt.Fprintf(w, "event: done\ndata: complete\n\n")
+	flusher.Flush()
+	
+	// Save the final response to database
+	if finalResponse != "" {
 		assistantMsg := &models.Message{
 			ConversationID: conversationID,
 			Role:           models.MessageRoleAssistant,
 			Content:        finalResponse,
 			CreatedAt:      time.Now(),
-		}
-		
-		if len(toolResults) > 0 {
-			// Save tool results as a separate message
-			for _, result := range toolResults {
-				toolMsg := &models.Message{
-					ConversationID: conversationID,
-					Role:           models.MessageRoleTool,
-					Content:        result,
-					CreatedAt:      time.Now(),
-				}
-				models.Messages.Insert(toolMsg)
-			}
 		}
 		
 		models.Messages.Insert(assistantMsg)
