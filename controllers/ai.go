@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -68,6 +69,7 @@ func (c *AIController) Setup(app *application.App) {
 	http.Handle("GET /ai/chat/{id}", app.ProtectFunc(c.loadChat, auth.AdminOnly))
 	http.Handle("GET /ai/chat/{id}/messages", app.ProtectFunc(c.getMessages, auth.AdminOnly))
 	http.Handle("POST /ai/chat/{id}/send", app.ProtectFunc(c.sendMessage, auth.AdminOnly))
+	http.Handle("GET /ai/chat/{id}/stream", app.ProtectFunc(c.streamResponse, auth.AdminOnly))
 
 	// Initialize Ollama service in background
 	go func() {
@@ -301,6 +303,21 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			conversation.Title = conversation.Title[:47] + "..."
 		}
 		models.Conversations.Update(conversation)
+	}
+	
+	// Check if client supports streaming (can check for HX-Request header)
+	useStreaming := r.Header.Get("HX-Request") == "true"
+	
+	if useStreaming {
+		// Return the user message and streaming setup
+		messages, _ := conversation.GetMessages()
+		
+		// Render a template that sets up SSE
+		c.Render(w, r, "ai-messages-streaming.html", map[string]interface{}{
+			"Messages":       messages,
+			"ConversationID": conversationID,
+		})
+		return
 	}
 	
 	// Build message history for Ollama
@@ -613,4 +630,143 @@ func (c *AIController) processToolCalls(response, conversationID, userID string)
 	}
 	
 	return cleanedText, toolResults
+}
+
+// streamResponse handles SSE streaming of AI responses
+func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
+	conversationID := r.PathValue("id")
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+	
+	// Verify ownership
+	conversation, err := models.Conversations.Get(conversationID)
+	if err != nil || conversation.UserID != user.ID {
+		http.Error(w, "Conversation not found", http.StatusNotFound)
+		return
+	}
+	
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable Nginx buffering
+	
+	// Create flusher for real-time updates
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "SSE not supported", http.StatusInternalServerError)
+		return
+	}
+	
+	// Get the latest pending message (should be created by sendMessage)
+	messages, _ := conversation.GetMessages()
+	if len(messages) == 0 {
+		fmt.Fprintf(w, "event: error\ndata: No messages in conversation\n\n")
+		flusher.Flush()
+		return
+	}
+	
+	// Build message history for Ollama
+	ollamaMessages := []services.OllamaMessage{
+		{
+			Role:    "system",
+			Content: c.buildSystemPrompt(),
+		},
+	}
+	
+	for _, msg := range messages {
+		if msg.Role == models.MessageRoleUser || msg.Role == models.MessageRoleAssistant {
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    msg.Role,
+				Content: msg.Content,
+			})
+		}
+	}
+	
+	// Check if Ollama service is ready
+	if !services.Ollama.IsRunning() {
+		fmt.Fprintf(w, "event: error\ndata: AI service is not running\n\n")
+		flusher.Flush()
+		return
+	}
+	
+	// Send initial status
+	fmt.Fprintf(w, "event: status\ndata: Generating response...\n\n")
+	flusher.Flush()
+	
+	// Start streaming from Ollama
+	model := "qwen2.5-coder:1.5b"
+	var fullResponse strings.Builder
+	messageStarted := false
+	
+	err = services.Ollama.StreamChat(model, ollamaMessages, func(chunk *services.OllamaChatResponse) error {
+		if chunk.Message.Content != "" {
+			// Send the chunk as an SSE event with HTML
+			if !messageStarted {
+				// Start the assistant message bubble
+				fmt.Fprintf(w, "event: message\ndata: <div class=\"chat chat-start my-2\"><div class=\"chat-image avatar\"><div class=\"w-8 h-8 rounded-full flex-shrink-0\"><div class=\"bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\" /></svg></div></div></div><div class=\"chat-bubble max-w-[70%] break-words text-sm\" id=\"streaming-bubble\">\n\n")
+				flusher.Flush()
+				messageStarted = true
+			}
+			
+			// Send the content chunk
+			content := strings.ReplaceAll(chunk.Message.Content, "\n", "<br>")
+			fmt.Fprintf(w, "event: chunk\ndata: %s\n\n", content)
+			flusher.Flush()
+			
+			fullResponse.WriteString(chunk.Message.Content)
+		}
+		
+		// Check if done
+		if chunk.Done {
+			// Close the message bubble
+			if messageStarted {
+				fmt.Fprintf(w, "event: chunk\ndata: </div></div>\n\n")
+			}
+			fmt.Fprintf(w, "event: done\ndata: complete\n\n")
+			flusher.Flush()
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		log.Printf("AIController: Streaming failed: %v", err)
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
+		flusher.Flush()
+		return
+	}
+	
+	// Save the complete response to database
+	if fullResponse.Len() > 0 {
+		// Process tool calls if any
+		finalResponse, toolResults := c.processToolCalls(fullResponse.String(), conversationID, user.ID)
+		
+		// Save assistant message
+		assistantMsg := &models.Message{
+			ConversationID: conversationID,
+			Role:           models.MessageRoleAssistant,
+			Content:        finalResponse,
+			CreatedAt:      time.Now(),
+		}
+		
+		if len(toolResults) > 0 {
+			// Save tool results as a separate message
+			for _, result := range toolResults {
+				toolMsg := &models.Message{
+					ConversationID: conversationID,
+					Role:           models.MessageRoleTool,
+					Content:        result,
+					CreatedAt:      time.Now(),
+				}
+				models.Messages.Insert(toolMsg)
+			}
+		}
+		
+		models.Messages.Insert(assistantMsg)
+		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
+	}
 }
