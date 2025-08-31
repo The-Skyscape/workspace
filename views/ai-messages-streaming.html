@@ -66,34 +66,35 @@
      sse-connect="{{host}}/ai/chat/{{.ConversationID}}/stream"
      sse-close="done">
     
-    <!-- Status indicator -->
-    <div sse-swap="status" class="hidden"></div>
-    
-    <!-- Streaming message container -->
+    <!-- Streaming container with sse-swap targets -->
     <div id="streaming-container">
-        <!-- Initial typing indicator -->
-        <div class="chat chat-start my-2" id="typing-indicator">
-            <div class="chat-image avatar">
-                <div class="w-8 h-8 rounded-full flex-shrink-0">
-                    <div class="bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
+        <!-- Typing indicator - will be replaced by 'start' event -->
+        <div sse-swap="start" hx-swap="outerHTML" id="typing-indicator">
+            <div class="chat chat-start my-2">
+                <div class="chat-image avatar">
+                    <div class="w-8 h-8 rounded-full flex-shrink-0">
+                        <div class="bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="chat-bubble max-w-[70%] break-words text-sm">
-                <span class="loading loading-dots loading-sm"></span>
+                <div class="chat-bubble max-w-[70%] break-words text-sm">
+                    <span class="loading loading-dots loading-sm"></span>
+                </div>
             </div>
         </div>
         
-        <!-- Message will be built here chunk by chunk -->
-        <div sse-swap="message" hx-swap="innerHTML"></div>
-        <div sse-swap="chunk" hx-swap="beforeend" hx-target="#streaming-bubble"></div>
+        <!-- Chunks will append to this element -->
+        <div sse-swap="chunk" hx-swap="beforeend" hx-target="#streaming-content"></div>
+        
+        <!-- Final message will replace the streaming message -->
+        <div sse-swap="complete" hx-swap="outerHTML" hx-target="#streaming-message"></div>
     </div>
     
-    <!-- Error container -->
-    <div sse-swap="error" class="alert alert-error my-2 hidden">
+    <!-- Error handling -->
+    <div sse-swap="error" hx-swap="innerHTML" class="alert alert-error my-2 hidden">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -101,45 +102,9 @@
     </div>
 </div>
 
-<script>
-// Remove typing indicator when message starts
-document.addEventListener('sse:message', function(evt) {
-    const typingIndicator = document.getElementById('typing-indicator');
-    if (typingIndicator) {
-        typingIndicator.remove();
-    }
-});
-
-// Auto-scroll as content streams in
-document.addEventListener('sse:chunk', function(evt) {
-    const messagesContainer = document.getElementById('chat-messages');
-    if (messagesContainer) {
-        // With flex-col-reverse, scrolling to 0 shows the latest messages
-        messagesContainer.scrollTop = 0;
-    }
-});
-
-// Handle completion
-document.addEventListener('sse:done', function(evt) {
-    // Remove any remaining indicators
-    const typingIndicator = document.getElementById('typing-indicator');
-    if (typingIndicator) {
-        typingIndicator.remove();
-    }
-});
-
-// Handle errors
-document.addEventListener('sse:error', function(evt) {
-    const typingIndicator = document.getElementById('typing-indicator');
-    if (typingIndicator) {
-        typingIndicator.remove();
-    }
-    
-    // Show error message
-    const errorContainer = document.querySelector('[sse-swap="error"]');
-    if (errorContainer) {
-        errorContainer.classList.remove('hidden');
-        errorContainer.querySelector('span').textContent = evt.detail.data || 'An error occurred';
-    }
-});
+<!-- Use hyperscript for auto-scroll only -->
+<script type="text/hyperscript">
+    on sse:chunk or sse:complete from body
+        set #chat-messages.scrollTop to 0
+    end
 </script>

@@ -753,29 +753,45 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		iteration++
 	}
 	
-	// Now stream the final response as HTML
-	fmt.Fprintf(w, "event: message\ndata: <div class=\"chat chat-start my-2\"><div class=\"chat-image avatar\"><div class=\"w-8 h-8 rounded-full flex-shrink-0\"><div class=\"bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-5 w-5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\" /></svg></div></div></div><div class=\"chat-bubble max-w-[70%] break-words text-sm\" id=\"streaming-bubble\">\n\n")
+	// Send initial message structure (replaces typing indicator)
+	startHTML, err := c.RenderString("ai-streaming-start.html", nil)
+	if err != nil {
+		fmt.Fprintf(w, "event: error\ndata: Failed to render template\n\n")
+		flusher.Flush()
+		return
+	}
+	fmt.Fprintf(w, "event: start\ndata: %s\n\n", startHTML)
 	flusher.Flush()
 	
-	// Convert markdown to HTML for streaming
-	htmlContent := c.RenderMessageMarkdown(finalResponse)
-	contentStr := string(htmlContent)
-	
-	// Stream the content in chunks
-	chunkSize := 100
-	for i := 0; i < len(contentStr); i += chunkSize {
+	// Stream plain text chunks for immediate feedback
+	chunkSize := 50 // Smaller chunks for smoother streaming
+	for i := 0; i < len(finalResponse); i += chunkSize {
 		end := i + chunkSize
-		if end > len(contentStr) {
-			end = len(contentStr)
+		if end > len(finalResponse) {
+			end = len(finalResponse)
 		}
 		
-		fmt.Fprintf(w, "event: chunk\ndata: %s\n\n", contentStr[i:end])
+		// Send plain text chunk (will be escaped by browser)
+		chunk := finalResponse[i:end]
+		fmt.Fprintf(w, "event: chunk\ndata: %s\n\n", template.HTMLEscapeString(chunk))
 		flusher.Flush()
-		time.Sleep(10 * time.Millisecond) // Small delay for streaming effect
+		time.Sleep(20 * time.Millisecond) // Smooth streaming effect
 	}
 	
-	// Close the message
-	fmt.Fprintf(w, "event: chunk\ndata: </div></div>\n\n")
+	// Send the complete formatted message
+	htmlContent := c.RenderMessageMarkdown(finalResponse)
+	completeHTML, err := c.RenderString("ai-streaming-complete.html", map[string]interface{}{
+		"Content": htmlContent,
+	})
+	if err != nil {
+		fmt.Fprintf(w, "event: error\ndata: Failed to render final message\n\n")
+		flusher.Flush()
+		return
+	}
+	fmt.Fprintf(w, "event: complete\ndata: %s\n\n", completeHTML)
+	flusher.Flush()
+	
+	// Signal completion
 	fmt.Fprintf(w, "event: done\ndata: complete\n\n")
 	flusher.Flush()
 	
