@@ -50,7 +50,7 @@
             {{end}}
         </div>
     </div>
-    <div class="chat-bubble {{if eq .Role "user"}}chat-bubble-primary{{end}} max-w-[70%] break-words text-sm">
+    <div class="chat-bubble {{if eq .Role "user"}}chat-bubble-primary{{end}} max-w-[85%] sm:max-w-[70%] break-words text-sm">
         {{if eq .Role "assistant"}}
             {{ai.RenderMessageMarkdown .Content}}
         {{else}}
