@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"bytes"
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -13,6 +15,10 @@ import (
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 // AIController handles AI chat conversations
@@ -359,42 +365,65 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Process tool calls if any
-	processedContent, toolResults := c.processToolCalls(response.Message.Content, conversationID, user.ID)
+	// Process tool calls and implement agentic loop
+	finalResponse := response.Message.Content
+	maxIterations := 5 // Prevent infinite loops
+	iteration := 0
 	
-	// Save tool execution messages
-	for _, result := range toolResults {
-		toolMsg := &models.Message{
-			ConversationID: conversationID,
-			Role:           models.MessageRoleTool,
-			Content:        result,
-			CreatedAt:      time.Now(),
+	for iteration < maxIterations {
+		// Check for tool calls in the response
+		processedContent, toolResults := c.processToolCalls(finalResponse, conversationID, user.ID)
+		
+		if len(toolResults) == 0 {
+			// No tool calls found, use the processed content as final response
+			finalResponse = processedContent
+			break
 		}
-		models.Messages.Insert(toolMsg)
-	}
-	
-	// If tools were used, get a follow-up response
-	if len(toolResults) > 0 {
-		// Add tool results to context
+		
+		// Save tool execution messages
 		for _, result := range toolResults {
+			toolMsg := &models.Message{
+				ConversationID: conversationID,
+				Role:           models.MessageRoleTool,
+				Content:        result,
+				CreatedAt:      time.Now(),
+			}
+			models.Messages.Insert(toolMsg)
+			
+			// Add tool result to conversation context
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "assistant",
+				Content: finalResponse, // Include the assistant's tool call
+			})
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
 				Role:    "system",
-				Content: "Tool result: " + result,
+				Content: "Tool execution result:\n" + result + "\n\nBased on this result, please provide a helpful response to the user's original request.",
 			})
 		}
 		
 		// Get new response with tool results
+		log.Printf("AIController: Getting follow-up response after tool execution (iteration %d)", iteration+1)
 		response, err = services.Ollama.Chat(model, ollamaMessages, false)
-		if err == nil {
-			processedContent = response.Message.Content
+		if err != nil {
+			log.Printf("AIController: Failed to get follow-up response: %v", err)
+			// If we can't get a follow-up, save what we have with the tool results
+			finalResponse = processedContent + "\n\n" + strings.Join(toolResults, "\n")
+			break
 		}
+		
+		// Use the new response for the next iteration
+		finalResponse = response.Message.Content
+		iteration++
+		
+		// Check if this response also contains tool calls
+		// The loop will continue if it does
 	}
 	
-	// Save assistant response
+	// Save the final assistant response
 	assistantMsg := &models.Message{
 		ConversationID: conversationID,
 		Role:           models.MessageRoleAssistant,
-		Content:        processedContent,
+		Content:        finalResponse,
 		CreatedAt:      time.Now(),
 	}
 	assistantMsg, err = models.Messages.Insert(assistantMsg)
@@ -403,7 +432,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Update conversation's last message
-	conversation.UpdateLastMessage(processedContent, models.MessageRoleAssistant)
+	conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
 	
 	// Get all messages and render
 	messages, _ = conversation.GetMessages()
@@ -430,33 +459,98 @@ File Tools:
 - read_file: Reads the content of a specific file
 - search_files: Searches for files by name pattern
 
-When you need to use a tool, respond with ONLY the tool call in this exact format:
+CRITICAL: When you need to use a tool, your ENTIRE response must be ONLY this format - nothing else:
 <tool_call>
+{"tool": "tool_name", "params": {"param": "value"}}
+</tool_call>
+
+DO NOT explain what you're going to do. DO NOT describe your plan. Just execute the tool immediately.
+
+Examples:
+
+User: "Summarize the README.md of sky-castle"
+You: <tool_call>
+{"tool": "read_file", "params": {"repo_id": "sky-castle", "path": "README.md"}}
+</tool_call>
+
+User: "What files are in the workspace repo?"
+You: <tool_call>
+{"tool": "list_files", "params": {"repo_id": "workspace"}}
+</tool_call>
+
+User: "List all repositories"
+You: <tool_call>
 {"tool": "list_repos", "params": {}}
 </tool_call>
 
-Examples of when to use tools:
-
-Repository operations:
-- "What repositories do we have?" → Use list_repos
-- "Tell me about repo xyz" → Use get_repo with repo_id
-- "Create a new repository called test" → Use create_repo
-
-File operations:
-- "What files are in repo xyz?" → Use list_files with repo_id
-- "Show me the README in repo abc" → Use read_file with repo_id and path="README.md"
-- "List files in the src directory" → Use list_files with repo_id and path="src"
-- "Find all Go files in repo xyz" → Use search_files with repo_id and pattern="*.go"
-- "Read main.go from repo abc" → Use read_file with repo_id and path="main.go"
-
 IMPORTANT RULES:
-1. When asked about repositories, files, or system data, ALWAYS use tools - never guess or make up information
-2. Use the exact XML format shown above for tool calls
-3. After I execute the tool and provide results, explain them clearly to the user
-4. You can use multiple tools in sequence if needed
+1. When asked about data, immediately execute the appropriate tool - DO NOT explain your plan
+2. Your response must be ONLY the XML tool call, nothing else
+3. After I provide tool results, then you can explain and summarize for the user
+4. If you need multiple tools, execute them one at a time
 5. For file operations, always specify the repo_id parameter`
 	
 	return prompt
+}
+
+// RenderMessageMarkdown converts message content to HTML with markdown formatting
+func (c *AIController) RenderMessageMarkdown(content string) template.HTML {
+	// Create goldmark markdown processor with GitHub Flavored Markdown
+	md := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,        // GitHub Flavored Markdown
+			extension.Linkify,    // Auto-linkify URLs
+			extension.TaskList,   // Task list support
+		),
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(),
+		),
+		goldmark.WithRendererOptions(
+			html.WithHardWraps(),
+			html.WithXHTML(),
+		),
+	)
+
+	// Convert markdown to HTML
+	var buf bytes.Buffer
+	if err := md.Convert([]byte(content), &buf); err != nil {
+		// If conversion fails, return escaped content
+		return template.HTML(template.HTMLEscapeString(content))
+	}
+
+	htmlStr := buf.String()
+	
+	// Add Tailwind/DaisyUI classes for styling
+	// Code blocks with better chat-appropriate styling
+	htmlStr = strings.ReplaceAll(htmlStr, "<pre>", `<pre class="bg-base-200 p-3 rounded-lg overflow-x-auto my-2 text-xs">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<code>", `<code class="bg-base-200 px-1 py-0.5 rounded text-xs">`)
+	
+	// Tables
+	htmlStr = strings.ReplaceAll(htmlStr, "<table>", `<table class="table table-xs table-zebra my-2">`)
+	
+	// Headings (smaller for chat context)
+	htmlStr = strings.ReplaceAll(htmlStr, "<h1", `<h1 class="text-lg font-bold mt-3 mb-2"`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<h2", `<h2 class="text-base font-semibold mt-2 mb-1"`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<h3", `<h3 class="text-sm font-semibold mt-2 mb-1"`)
+	
+	// Lists
+	htmlStr = strings.ReplaceAll(htmlStr, "<ul>", `<ul class="list-disc pl-4 my-1 space-y-0.5 text-sm">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<ol>", `<ol class="list-decimal pl-4 my-1 space-y-0.5 text-sm">`)
+	
+	// Blockquotes
+	htmlStr = strings.ReplaceAll(htmlStr, "<blockquote>", `<blockquote class="border-l-2 border-info pl-3 my-2 text-sm italic">`)
+	
+	// Paragraphs
+	htmlStr = strings.ReplaceAll(htmlStr, "<p>", `<p class="my-1">`)
+	
+	// Links
+	htmlStr = strings.ReplaceAll(htmlStr, "<a href=", `<a class="link link-info text-sm" href=`)
+	
+	// Strong and emphasis
+	htmlStr = strings.ReplaceAll(htmlStr, "<strong>", `<strong class="font-semibold">`)
+	htmlStr = strings.ReplaceAll(htmlStr, "<em>", `<em class="italic">`)
+	
+	return template.HTML(htmlStr)
 }
 
 // processToolCalls processes any tool calls in the AI response
