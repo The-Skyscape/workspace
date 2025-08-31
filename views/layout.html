@@ -183,9 +183,9 @@
         <div class="drawer-side z-50">
             <label for="ai-drawer-toggle" aria-label="close sidebar" class="drawer-overlay"></label>
             
-            <div class="menu bg-base-100 text-base-content min-h-full w-[60%] max-w-4xl p-0 shadow-xl">
+            <div class="bg-base-100 text-base-content h-full w-[60%] max-w-4xl shadow-xl flex flex-col overflow-hidden">
                 <!-- Content loads here dynamically -->
-                <div class="flex-1"
+                <div class="h-full flex flex-col"
                      hx-get="{{host}}/ai/panel" 
                      hx-trigger="load"
                      hx-swap="innerHTML"

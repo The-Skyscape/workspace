@@ -1,7 +1,7 @@
 <!-- AI Chat Interface -->
 <div class="flex flex-col h-full overflow-hidden" id="ai-panel-content">
     <!-- Chat Header -->
-    <div class="flex-shrink-0 bg-base-100 border-b border-base-300 p-4 z-10">
+    <div class="flex-shrink-0 bg-base-100 border-b border-base-300 p-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3 min-w-0">
                 <button class="btn btn-ghost btn-sm btn-circle flex-shrink-0"
@@ -26,13 +26,18 @@
     </div>
 
     <!-- Messages Area -->
-    <div class="flex-1 overflow-y-auto overflow-x-hidden p-4" id="chat-messages">
-        <div hx-get="{{host}}/ai/chat/{{.ID}}/messages"
-             hx-trigger="load"
-             hx-swap="innerHTML">
-            <!-- Messages will be loaded here -->
-            <div class="flex justify-center py-8">
-                <span class="loading loading-spinner loading-lg"></span>
+    <div class="flex-1 overflow-y-auto overflow-x-hidden" id="chat-messages">
+        <div class="flex flex-col-reverse min-h-full">
+            <div class="p-4">
+                <div hx-get="{{host}}/ai/chat/{{.ID}}/messages"
+                     hx-trigger="load"
+                     hx-swap="innerHTML"
+                     class="flex flex-col gap-2">
+                    <!-- Messages will be loaded here -->
+                    <div class="flex justify-center py-8">
+                        <span class="loading loading-spinner loading-lg"></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -40,7 +45,7 @@
     <!-- Input Area -->
     <div class="flex-shrink-0 bg-base-100 border-t border-base-300 p-4">
         <form hx-post="{{host}}/ai/chat/{{.ID}}/send"
-              hx-target="#chat-messages > div"
+              hx-target="#chat-messages .flex-col.gap-2"
               hx-swap="innerHTML"
               hx-indicator="#send-indicator"
               class="flex gap-2">
@@ -65,12 +70,13 @@
 </div>
 
 <script>
-// Auto-scroll to bottom on new messages
+// Auto-scroll to bottom on new messages (with flex-col-reverse, scroll to top shows latest)
 document.addEventListener('htmx:afterSwap', function(evt) {
-    if (evt.detail.target.id === 'chat-messages' || evt.detail.target.parentElement?.id === 'chat-messages') {
+    if (evt.detail.target.id === 'chat-messages' || evt.detail.target.closest('#chat-messages')) {
         const messagesContainer = document.getElementById('chat-messages');
         if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // With flex-col-reverse, scrolling to 0 shows the latest messages
+            messagesContainer.scrollTop = 0;
         }
     }
 });
