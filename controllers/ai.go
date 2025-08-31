@@ -135,20 +135,25 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 		conversations = []*models.Conversation{}
 	}
 	
-	// Check for search query
+	// Check if this is a search request (even if query is empty)
+	_, hasSearchParam := r.URL.Query()["q"]
 	searchQuery := strings.TrimSpace(r.URL.Query().Get("q"))
-	if searchQuery != "" {
-		filtered := []*models.Conversation{}
-		lowerQuery := strings.ToLower(searchQuery)
-		for _, conv := range conversations {
-			if strings.Contains(strings.ToLower(conv.Title), lowerQuery) ||
-			   strings.Contains(strings.ToLower(conv.LastMessage), lowerQuery) {
-				filtered = append(filtered, conv)
+	
+	if hasSearchParam {
+		// Filter conversations if search query is not empty
+		if searchQuery != "" {
+			filtered := []*models.Conversation{}
+			lowerQuery := strings.ToLower(searchQuery)
+			for _, conv := range conversations {
+				if strings.Contains(strings.ToLower(conv.Title), lowerQuery) ||
+				   strings.Contains(strings.ToLower(conv.LastMessage), lowerQuery) {
+					filtered = append(filtered, conv)
+				}
 			}
+			conversations = filtered
 		}
-		conversations = filtered
 		
-		// Return partial for search
+		// Return partial for search (even when query is empty)
 		c.Render(w, r, "ai-conversations-list.html", conversations)
 		return
 	}
