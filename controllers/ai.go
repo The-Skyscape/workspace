@@ -49,13 +49,6 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.DeleteFileTool{})
 	registry.Register(&tools.MoveFileTool{})
 	
-	// Register Git tools
-	registry.Register(&tools.GitStatusTool{})
-	registry.Register(&tools.GitDiffTool{})
-	registry.Register(&tools.GitCommitTool{})
-	registry.Register(&tools.GitBranchTool{})
-	registry.Register(&tools.GitLogTool{})
-	
 	return "ai", &AIController{
 		toolRegistry: registry,
 	}
@@ -477,13 +470,6 @@ File Modification Tools:
 - write_file: Create a new file or overwrite an existing file
 - delete_file: Delete a file from a repository
 - move_file: Move or rename a file within a repository
-
-Git Tools:
-- git_status: Show repository status (modified/staged/untracked files)
-- git_diff: Show differences in files
-- git_commit: Create a commit with staged changes
-- git_branch: Manage branches (list/create/switch/delete)
-- git_log: Show commit history
 
 CRITICAL: When you need to use a tool, your ENTIRE response must be ONLY this format - nothing else:
 <tool_call>
