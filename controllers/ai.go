@@ -43,6 +43,12 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.ReadFileTool{})
 	registry.Register(&tools.SearchFilesTool{})
 	
+	// Register file modification tools
+	registry.Register(&tools.EditFileTool{})
+	registry.Register(&tools.WriteFileTool{})
+	registry.Register(&tools.DeleteFileTool{})
+	registry.Register(&tools.MoveFileTool{})
+	
 	return "ai", &AIController{
 		toolRegistry: registry,
 	}
@@ -454,10 +460,16 @@ Repository Tools:
 - create_repo: Creates a new repository
 - get_repo_link: Generates a link to a repository page
 
-File Tools:
+File Reading Tools:
 - list_files: Lists files and directories in a repository
 - read_file: Reads the content of a specific file
 - search_files: Searches for files by name pattern
+
+File Modification Tools:
+- edit_file: Edit an existing file in a repository
+- write_file: Create a new file or overwrite an existing file
+- delete_file: Delete a file from a repository
+- move_file: Move or rename a file within a repository
 
 CRITICAL: When you need to use a tool, your ENTIRE response must be ONLY this format - nothing else:
 <tool_call>
@@ -481,6 +493,20 @@ You: <tool_call>
 User: "List all repositories"
 You: <tool_call>
 {"tool": "list_repos", "params": {}}
+</tool_call>
+
+User: "Create a new Python script hello.py in the test-repo that prints Hello World"
+You: <tool_call>
+{"tool": "write_file", "params": {"repo_id": "test-repo", "path": "hello.py", "content": "print('Hello World')", "message": "Add hello.py script"}}
+</tool_call>
+
+User: "Fix the typo in config.json where it says 'debuf' instead of 'debug'"
+You: <tool_call>
+{"tool": "read_file", "params": {"repo_id": "myapp", "path": "config.json"}}
+</tool_call>
+[After getting content, then:]
+You: <tool_call>
+{"tool": "edit_file", "params": {"repo_id": "myapp", "path": "config.json", "content": "[corrected content]", "message": "Fix typo: debuf -> debug"}}
 </tool_call>
 
 IMPORTANT RULES:
