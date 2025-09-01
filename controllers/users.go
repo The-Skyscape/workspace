@@ -117,6 +117,14 @@ func (c *UsersController) GetUserRepositories() ([]*models.Repository, error) {
 	return models.Repositories.Search("WHERE UserID = ?", userID)
 }
 
+// GetByID returns a user by their ID
+func (c *UsersController) GetByID(id string) (*authentication.User, error) {
+	if id == "" {
+		return nil, nil
+	}
+	return models.Auth.Users.Get(id)
+}
+
 // updateUserRole handles changing a user's role
 func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request) {
 	auth := c.App.Use("auth").(*authentication.Controller)

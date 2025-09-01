@@ -90,6 +90,11 @@ func (c AIController) Handle(req *http.Request) application.Controller {
 
 // Template helper methods
 
+// IsAIEnabled returns whether AI features are enabled (checks environment variable)
+func (c *AIController) IsAIEnabled() bool {
+	return services.Ollama.IsRunning()
+}
+
 // GetConversations returns all conversations for the current user (admin only)
 func (c *AIController) GetConversations() []*models.Conversation {
 	if c.Request == nil {

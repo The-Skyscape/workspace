@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -99,6 +100,13 @@ func NewOllamaService() *OllamaService {
 
 // Init initializes the Ollama service if not already running
 func (o *OllamaService) Init() error {
+	// Check if AI is enabled via environment variable
+	aiEnabled := os.Getenv("AI_ENABLED")
+	if aiEnabled != "true" {
+		log.Println("OllamaService: AI features disabled (AI_ENABLED != true)")
+		return nil
+	}
+
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -274,6 +282,11 @@ func (o *OllamaService) Restart() error {
 
 // IsRunning checks if the service is running
 func (o *OllamaService) IsRunning() bool {
+	// Check if AI is enabled
+	if os.Getenv("AI_ENABLED") != "true" {
+		return false
+	}
+
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
@@ -290,6 +303,10 @@ func (o *OllamaService) IsRunning() bool {
 
 // IsConfigured checks if Ollama is ready to use
 func (o *OllamaService) IsConfigured() bool {
+	// Check if AI is enabled
+	if os.Getenv("AI_ENABLED") != "true" {
+		return false
+	}
 	return o.IsRunning()
 }
 

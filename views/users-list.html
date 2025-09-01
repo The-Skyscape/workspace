@@ -177,7 +177,7 @@
                     <div class="flex gap-2">
                       <select name="repo_id" class="select select-bordered flex-1" required>
                         <option value="">Select Repository...</option>
-                        {{range repos.AllRepos}}
+                        {{range repos.UserRepos}}
                         <option value="{{.ID}}">{{.Name}}</option>
                         {{end}}
                       </select>
@@ -192,25 +192,7 @@
 
                   <!-- Current Permissions List -->
                   <div class="flex flex-col gap-2">
-                    {{$userID := .ID}}
-                    {{range users.GetUserPermissions}}
-                    {{if eq .UserID $userID}}
-                    <div class="flex items-center justify-between p-2 bg-base-200 rounded">
-                      <span>{{.RepoID}}</span>
-                      <div class="flex items-center gap-2">
-                        <span class="badge">{{.Role}}</span>
-                        <form hx-delete="{{host}}/settings/users/{{$userID}}/permissions" hx-target="body" hx-swap="outerHTML" class="inline">
-                          <input type="hidden" name="repo_id" value="{{.RepoID}}">
-                          <button type="submit" class="btn btn-ghost btn-xs">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                    {{end}}
-                    {{end}}
+                    <!-- Permissions list will be displayed here when permission system is implemented -->
                   </div>
                 </div>
 
