@@ -105,7 +105,9 @@ func (s *Service) Init() error {
 
 ### Critical Services
 - **VaultService** - Secret management with automatic unseal
-- **OllamaService** - Ollama container for AI features (qwen2.5-coder:1.5b model)
+- **OllamaService** - AI service (only runs when AI_ENABLED="true")
+  - Standard tier: Disabled to save resources
+  - Pro tier: Runs OpenAI-compatible models locally
 - **ActionsService** - CI/CD execution environment
 - **NotebookService** - Jupyter notebook server
 
@@ -117,10 +119,16 @@ The AI assistant provides an intelligent interface for repository operations:
 1. **Architecture**:
    - Conversation-based system (not worker-based)
    - Admin-only access for all AI features
-   - Ollama service runs qwen2.5-coder:1.5b model locally
+   - Requires AI_ENABLED="true" (Pro tier, 16GB+ RAM)
+   - Runs OpenAI-compatible models locally via Ollama
    - Tool calling system for repository operations
 
-2. **Available Tools**:
+2. **Tier Requirements**:
+   - **Standard Workspace**: AI features disabled, use external tools (Claude CLI, Copilot)
+   - **Pro Workspace**: Full AI integration with OpenAI GPT models
+   - Controlled via AI_ENABLED environment variable
+
+3. **Available Tools**:
    - `list_repos` - Lists repositories with visibility filtering
    - `get_repo` - Gets detailed repository information
    - `create_repo` - Creates new repositories (admin only)
@@ -274,6 +282,10 @@ workspace/
 - `PREFIX` - URL prefix for reverse proxy
 - `GITHUB_CLIENT_ID` - GitHub OAuth app ID
 - `GITHUB_CLIENT_SECRET` - GitHub OAuth secret
+- `AI_ENABLED` - Enable AI features ("true" for Pro tier, "false" for Standard)
+  - Automatically set during deployment based on droplet size
+  - Controls whether Ollama service starts
+  - Affects UI indicators and feature availability
 
 ## Quick Commands
 

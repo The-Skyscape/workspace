@@ -44,6 +44,13 @@ Skyscape Workspace is a full-featured development platform that empowers teams t
 - **Activity Feed**: Real-time updates on repository activity
 - **Notifications**: Email and in-app notifications (coming soon)
 
+### 🤖 **AI Integration** (Pro Tier)
+- **OpenAI GPT Models**: Integrated GPT-4 class models for Pro workspaces
+- **Local Execution**: Models run on your infrastructure for privacy
+- **No API Keys**: No external dependencies or rate limits
+- **Standard Tier**: Works great with external AI tools (Claude CLI, GitHub Copilot)
+- **Environment Controlled**: AI_ENABLED flag based on workspace tier
+
 ### 🔗 **Integrations**
 - **GitHub Sync**: Bidirectional synchronization with GitHub repositories
 - **OAuth Support**: Login with GitHub, GitLab, or custom OAuth providers
@@ -129,6 +136,20 @@ workspace/
 - Git 2.40+
 - Make (for build automation)
 
+## 💡 Workspace Tiers
+
+### Standard Workspace ($80/month or self-hosted)
+- 2 vCPUs, 4GB RAM, 80GB storage
+- Full Git, IDE, CI/CD features
+- Perfect for use with external AI tools (Claude CLI, GitHub Copilot)
+- Most cost-effective AI-assisted development workflow
+
+### Pro Workspace ($200/month)
+- 4 vCPUs, 16GB RAM, 160GB storage  
+- Integrated OpenAI GPT models (AI_ENABLED=true)
+- No API keys or rate limits needed
+- Models run locally on your infrastructure
+
 ### Installation
 
 1. **Clone the repository**
@@ -203,6 +224,9 @@ This will:
 - `PREFIX`: URL prefix for the application (default: empty)
 - `THEME`: DaisyUI theme (default: corporate)
 - `INTERNAL_DATA`: Custom data directory (default: ~/.skyscape)
+- `AI_ENABLED`: Enable OpenAI GPT features ("true" for Pro tier, "false" for Standard)
+  - Automatically set during deployment based on infrastructure
+  - Controls whether AI services start and UI features are shown
 
 ### Data Storage
 All application data is stored in `~/.skyscape/` by default:
@@ -358,7 +382,7 @@ We welcome contributions!
 - [ ] Real-time collaboration features
 - [ ] Advanced CI/CD pipeline editor
 - [ ] Kubernetes deployment support
-- [ ] AI-powered code review
+- [x] AI-powered development assistant (OpenAI GPT integration in Pro tier)
 - [ ] Multi-region deployment support
 - [ ] Enterprise SSO integration
 - [ ] GitOps workflow support
