@@ -49,7 +49,7 @@ func AI() (string, *AIController) {
 	// Initialize tool registry
 	registry := ai.NewToolRegistry()
 	
-	// Register all available tools - context is now 4k which handles them well
+	// Register essential tools optimized for llama3.2:3b
 	
 	// Repository management tools
 	registry.Register(&tools.ListReposTool{})
@@ -57,7 +57,7 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.CreateRepoTool{})
 	registry.Register(&tools.GetRepoLinkTool{})
 	
-	// File operation tools
+	// File operation tools (more convenient than terminal for file manipulation)
 	registry.Register(&tools.ListFilesTool{})
 	registry.Register(&tools.ReadFileTool{})
 	registry.Register(&tools.WriteFileTool{})
@@ -66,27 +66,20 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.MoveFileTool{})
 	registry.Register(&tools.SearchFilesTool{})
 	
-	// Terminal execution tools
+	// Terminal execution tool (use for git, npm, system commands, etc.)
 	registry.Register(&tools.RunCommandTool{})
-	registry.Register(&tools.GetWorkingDirectoryTool{})
-	registry.Register(&tools.InstallPackageTool{})
-	registry.Register(&tools.ListProcessesTool{})
 	
-	// Git operation tools
-	registry.Register(&tools.GitStatusTool{})
-	registry.Register(&tools.GitDiffTool{})
-	registry.Register(&tools.GitCommitTool{})
-	registry.Register(&tools.GitBranchTool{})
-	registry.Register(&tools.GitLogTool{})
+	// Git operation tools (only structured ones that provide real value over terminal)
+	registry.Register(&tools.GitCommitTool{}) // Structured commit with proper message formatting
 	
-	// Issue tools
+	// Issue and PR management (API-based, more efficient than terminal)
 	registry.Register(&tools.CreateIssueTool{})
 	registry.Register(&tools.ListIssuesTool{})
 	registry.Register(&tools.UpdateIssueTool{})
 	registry.Register(&tools.CreatePRTool{})
 	registry.Register(&tools.ListPRsTool{})
 	
-	// Todo management (update only - list is in context)
+	// Todo management
 	registry.Register(&tools.TodoUpdateTool{})
 	
 	return "ai", &AIController{
@@ -377,7 +370,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Non-streaming fallback (shouldn't normally happen)
 	messages, _ := conversation.GetMessages()
 	
-	// Use proper system prompt for llama3.2 with tool support
+	// Use proper system prompt for llama3.2:3b with tool support
 	systemPrompt := c.buildSystemPrompt(conversationID)
 	
 	ollamaMessages := []services.OllamaMessage{
@@ -603,36 +596,32 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	c.Render(w, r, "ai-messages.html", messages)
 }
 
-// buildSystemPrompt creates the system prompt optimized for Llama 3.2
+// buildSystemPrompt creates the system prompt optimized for llama3.2:3b
 func (c *AIController) buildSystemPrompt(conversationID string) string {
-	// Optimized for Llama 3.2's strengths: tool use, following instructions, summarization
-	prompt := `You are an AI coding assistant powered by Llama 3.2, integrated into the Skyscape development platform.
+	// Concise prompt optimized for llama3.2:3b's efficiency
+	prompt := `You are an AI coding assistant in the Skyscape development platform.
 
-You have access to powerful tools for:
-• Repository management and code analysis
-• File operations (read, write, edit, delete, move, search)
-• Git operations (status, diff, commit, branch, log)
-• Terminal command execution in sandboxed environments
-• Project management (issues, pull requests)
+**Available Tools:**
+• File operations: read, write, edit files and directories
+• Repository management: create, browse repositories  
+• Terminal: run_command for git, npm, system operations
+• Git: git_commit for structured commits
+• Issues/PRs: create and manage project issues
 
-IMPORTANT EXPLORATION GUIDELINES:
-When asked to explore, understand, or investigate something:
-1. Start by listing/searching to understand the structure
-2. Continue reading relevant files to gather information
-3. Keep exploring until you have sufficient context
-4. Only provide your analysis after thorough investigation
+**When to Use Tools:**
+- Code questions → read files to provide accurate answers
+- Exploration requests → list_files then read relevant files  
+- Development tasks → use appropriate tools for real changes
+- Simple greetings → respond naturally, no tools needed
 
-For example, if asked to "explore a directory":
-- First: list_files to see what's there
-- Then: read_file on key files (README, main files, configs)
-- Continue: read more files as needed to understand the project
-- Finally: provide a comprehensive summary based on actual content
+**Key Guidelines:**
+1. Be conversational - greet users warmly without tools
+2. For exploration: start broad (list_files), then go deep (read_file)
+3. Use terminal (run_command) for git, npm, system commands
+4. Chain multiple tools when needed - you have 5 iterations
+5. Work with real data, don't guess from file names
 
-Remember: It's better to use multiple tools to gather complete information than to guess based on file names alone. You can chain many tools together - the system supports up to 5 iterations of tool use.
-
-When users ask about code or need development tasks performed, use the appropriate tools to work with real data. You can execute terminal commands, run tests, install dependencies, and make multi-file changes.
-
-Important: Engage naturally in conversation. Not every message requires tool usage. When greeting users or having discussions, respond warmly and helpfully.`
+Keep responses helpful and direct.`
 	
 	// Check for project context file (SKYSCAPE.md) and append if exists
 	contextFile := c.loadProjectContext()
@@ -801,7 +790,27 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	
 	// Check if Ollama service is ready
 	if !services.Ollama.IsRunning() {
-		fmt.Fprintf(w, "event: error\ndata: AI service is not running\n\n")
+		log.Printf("AIController: Ollama service is not running")
+		
+		// Save error as message in conversation
+		errorMsg := &models.Message{
+			ConversationID: conversationID,
+			Role:           models.MessageRoleError,
+			Content:        "AI service is initializing. Please wait a moment and try again.",
+		}
+		models.Messages.Insert(errorMsg)
+		
+		// Stream error message
+		errorHTML := `<div class="alert alert-warning my-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+			</svg>
+			<span class="text-sm">AI service is initializing. Please wait a moment and try again.</span>
+		</div>`
+		errorHTMLEscaped := strings.ReplaceAll(errorHTML, "\n", "")
+		errorHTMLEscaped = strings.ReplaceAll(errorHTMLEscaped, "\t", "")
+		fmt.Fprintf(w, "event: complete\ndata: %s\n\n", errorHTMLEscaped)
+		fmt.Fprintf(w, "event: done\ndata: \n\n")
 		flusher.Flush()
 		return
 	}
@@ -835,7 +844,27 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	log.Printf("AIController: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
 	
 	if err != nil {
-		fmt.Fprintf(w, "event: error\ndata: Failed to get AI response: %s\n\n", err.Error())
+		log.Printf("AIController: Failed to get initial AI response: %v", err)
+		
+		// Save error as message in conversation
+		errorMsg := &models.Message{
+			ConversationID: conversationID,
+			Role:           models.MessageRoleError,
+			Content:        fmt.Sprintf("Failed to get AI response: %v", err),
+		}
+		models.Messages.Insert(errorMsg)
+		
+		// Stream error message with proper formatting
+		errorHTML := fmt.Sprintf(`<div class="alert alert-error my-2">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+			</svg>
+			<span class="text-sm">Failed to get AI response. Please try again.</span>
+		</div>`)
+		errorHTMLEscaped := strings.ReplaceAll(errorHTML, "\n", "")
+		errorHTMLEscaped = strings.ReplaceAll(errorHTMLEscaped, "\t", "")
+		fmt.Fprintf(w, "event: complete\ndata: %s\n\n", errorHTMLEscaped)
+		fmt.Fprintf(w, "event: done\ndata: \n\n")
 		flusher.Flush()
 		return
 	}

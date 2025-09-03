@@ -45,24 +45,24 @@ type OllamaStatus struct {
 
 // OllamaMessage represents a chat message
 type OllamaMessage struct {
-	Role      string             `json:"role"`    // "user", "assistant", "system", "tool"
-	Content   string             `json:"content"`
-	ToolCalls []OllamaToolCall   `json:"tool_calls,omitempty"` // Tool calls in the message
+	Role      string           `json:"role"` // "user", "assistant", "system", "tool"
+	Content   string           `json:"content"`
+	ToolCalls []OllamaToolCall `json:"tool_calls,omitempty"` // Tool calls in the message
 }
 
 // OllamaChatRequest represents a chat completion request
 type OllamaChatRequest struct {
-	Model    string           `json:"model"`
-	Messages []OllamaMessage  `json:"messages"`
-	Stream   bool             `json:"stream"`
+	Model    string                 `json:"model"`
+	Messages []OllamaMessage        `json:"messages"`
+	Stream   bool                   `json:"stream"`
 	Options  map[string]interface{} `json:"options,omitempty"`
-	Tools    []OllamaTool     `json:"tools,omitempty"`  // Native tool support
+	Tools    []OllamaTool           `json:"tools,omitempty"` // Native tool support
 }
 
 // OllamaTool represents a tool definition for function calling
 type OllamaTool struct {
-	Type     string              `json:"type"`     // Usually "function"
-	Function OllamaToolFunction  `json:"function"`
+	Type     string             `json:"type"` // Usually "function"
+	Function OllamaToolFunction `json:"function"`
 }
 
 // OllamaToolFunction defines a callable function
@@ -74,9 +74,9 @@ type OllamaToolFunction struct {
 
 // OllamaToolCall represents a tool invocation in the response
 type OllamaToolCall struct {
-	ID       string              `json:"id,omitempty"`
-	Type     string              `json:"type"`     // Usually "function"
-	Function OllamaFunctionCall  `json:"function"`
+	ID       string             `json:"id,omitempty"`
+	Type     string             `json:"type"` // Usually "function"
+	Function OllamaFunctionCall `json:"function"`
 }
 
 // OllamaFunctionCall contains the function call details
@@ -87,15 +87,15 @@ type OllamaFunctionCall struct {
 
 // OllamaChatResponse represents a chat completion response
 type OllamaChatResponse struct {
-	Model     string         `json:"model"`
-	CreatedAt string         `json:"created_at"`
-	Message   OllamaMessage  `json:"message"`
-	Done      bool          `json:"done"`
-	TotalDuration   int64   `json:"total_duration,omitempty"`
-	LoadDuration    int64   `json:"load_duration,omitempty"`
-	PromptEvalCount int     `json:"prompt_eval_count,omitempty"`
-	EvalCount       int     `json:"eval_count,omitempty"`
-	EvalDuration    int64   `json:"eval_duration,omitempty"`
+	Model           string        `json:"model"`
+	CreatedAt       string        `json:"created_at"`
+	Message         OllamaMessage `json:"message"`
+	Done            bool          `json:"done"`
+	TotalDuration   int64         `json:"total_duration,omitempty"`
+	LoadDuration    int64         `json:"load_duration,omitempty"`
+	PromptEvalCount int           `json:"prompt_eval_count,omitempty"`
+	EvalCount       int           `json:"eval_count,omitempty"`
+	EvalDuration    int64         `json:"eval_duration,omitempty"`
 }
 
 // OllamaModelInfo represents model information
@@ -117,8 +117,8 @@ func NewOllamaService() *OllamaService {
 			Port:          11434,
 			ContainerName: "skyscape-ollama",
 			DataDir:       fmt.Sprintf("%s/ollama", database.DataDir()),
-			DefaultModel:  "llama3.2:3b",         // Llama 3.2 3B - smaller and faster
-			GPUEnabled:    false,                 // CPU mode by default
+			DefaultModel:  "llama3.2:3b", // Llama 3.2 3B
+			GPUEnabled:    false,         // CPU mode by default
 		},
 		client: &http.Client{
 			Timeout: 5 * time.Minute, // Increased timeout for model loading
@@ -143,7 +143,7 @@ func (o *OllamaService) Init() error {
 	if existing != nil && existing.IsRunning() {
 		log.Println("OllamaService: Already running")
 		o.service = existing
-		
+
 		// Pull default model if not already present
 		go o.ensureDefaultModel()
 		return nil
@@ -201,13 +201,13 @@ func (o *OllamaService) startAsync() error {
 	}
 
 	log.Println("OllamaService: Container started, initializing models...")
-	
+
 	// Pull default model in background with retry logic
 	go func() {
 		log.Printf("OllamaService: Starting model initialization for %s", o.config.DefaultModel)
 		o.ensureDefaultModel()
 	}()
-	
+
 	return nil
 }
 
@@ -215,7 +215,7 @@ func (o *OllamaService) startAsync() error {
 func (o *OllamaService) Start() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	
+
 	return o.start()
 }
 
@@ -259,13 +259,13 @@ func (o *OllamaService) start() error {
 	}
 
 	log.Println("OllamaService: Container started, initializing models...")
-	
+
 	// Pull default model in background with retry logic
 	go func() {
 		log.Printf("OllamaService: Starting model initialization for %s", o.config.DefaultModel)
 		o.ensureDefaultModel()
 	}()
-	
+
 	return nil
 }
 
@@ -457,12 +457,12 @@ func (o *OllamaService) ListModels() ([]string, error) {
 // PullModel pulls a model from the Ollama registry with streaming progress
 func (o *OllamaService) PullModel(modelName string) error {
 	log.Printf("OllamaService: Pulling model %s...", modelName)
-	
+
 	payload := map[string]interface{}{
-		"name": modelName,
+		"name":   modelName,
 		"stream": true,
 	}
-	
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal request")
@@ -479,7 +479,7 @@ func (o *OllamaService) PullModel(modelName string) error {
 	decoder := json.NewDecoder(resp.Body)
 	var lastStatus string
 	progressCount := 0
-	
+
 	for {
 		var status map[string]interface{}
 		if err := decoder.Decode(&status); err != nil {
@@ -490,7 +490,7 @@ func (o *OllamaService) PullModel(modelName string) error {
 			log.Printf("OllamaService: Warning - decode error: %v", err)
 			continue
 		}
-		
+
 		// Log progress periodically to avoid spam
 		if statusMsg, ok := status["status"].(string); ok {
 			if statusMsg != lastStatus {
@@ -505,13 +505,13 @@ func (o *OllamaService) PullModel(modelName string) error {
 				}
 			}
 		}
-		
+
 		// Check for completion
 		if completed, ok := status["completed"].(bool); ok && completed {
 			log.Printf("OllamaService: Model %s pull completed", modelName)
 			break
 		}
-		
+
 		// Check for errors in response
 		if errMsg, ok := status["error"].(string); ok && errMsg != "" {
 			return fmt.Errorf("pull failed: %s", errMsg)
@@ -527,7 +527,7 @@ func (o *OllamaService) RemoveModel(modelName string) error {
 	payload := map[string]string{
 		"name": modelName,
 	}
-	
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal request")
@@ -586,7 +586,7 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	
+
 	// Log raw response for debugging empty responses
 	log.Printf("OllamaService: Raw response body length: %d bytes", len(bodyBytes))
 	if len(bodyBytes) < 1000 {
@@ -596,14 +596,14 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 		// Log first 500 chars of large responses
 		log.Printf("OllamaService: Raw response (first 500 chars): %s...", string(bodyBytes[:500]))
 	}
-	
+
 	var response OllamaChatResponse
 	if err := json.Unmarshal(bodyBytes, &response); err != nil {
 		log.Printf("OllamaService: Failed to unmarshal response: %v", err)
 		log.Printf("OllamaService: Response that failed to parse: %s", string(bodyBytes))
 		return nil, errors.Wrap(err, "failed to decode response")
 	}
-	
+
 	// Log parsed response details
 	log.Printf("OllamaService: Parsed response - Message content length: %d", len(response.Message.Content))
 	if len(response.Message.ToolCalls) > 0 {
@@ -631,7 +631,7 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 		Model:    modelName,
 		Messages: messages,
 		Stream:   stream,
-		Tools:    tools,  // Include tool definitions
+		Tools:    tools, // Include tool definitions
 		// Let Ollama use its default context size (8192 for Llama 3.2)
 	}
 
@@ -639,14 +639,14 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal request")
 	}
-	
+
 	log.Printf("OllamaService: Request body size: %d bytes", len(body))
 	log.Printf("OllamaService: Sending HTTP request to Ollama at %v", time.Now())
 
 	resp, err := o.httpRequest("POST", "/api/chat", bytes.NewReader(body))
 	httpDuration := time.Since(startTime)
 	log.Printf("OllamaService: HTTP request completed after %v", httpDuration)
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send chat request")
 	}
@@ -667,7 +667,7 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response body")
 	}
-	
+
 	// Log raw response for debugging empty responses
 	log.Printf("OllamaService: Raw response body length: %d bytes", len(bodyBytes))
 	if len(bodyBytes) < 1000 {
@@ -677,14 +677,14 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 		// Log first 500 chars of large responses
 		log.Printf("OllamaService: Raw response (first 500 chars): %s...", string(bodyBytes[:500]))
 	}
-	
+
 	var response OllamaChatResponse
 	if err := json.Unmarshal(bodyBytes, &response); err != nil {
 		log.Printf("OllamaService: Failed to unmarshal response: %v", err)
 		log.Printf("OllamaService: Response that failed to parse: %s", string(bodyBytes))
 		return nil, errors.Wrap(err, "failed to decode response")
 	}
-	
+
 	// Log parsed response details
 	log.Printf("OllamaService: Parsed response - Message content length: %d", len(response.Message.Content))
 	if len(response.Message.ToolCalls) > 0 {
@@ -756,7 +756,7 @@ func (o *OllamaService) ensureDefaultModel() {
 	retryCount := 0
 	maxRetries := 3
 	retryDelay := 10 * time.Second
-	
+
 	for retryCount < maxRetries {
 		// Wait before checking (gives container time to fully start)
 		if retryCount == 0 {
@@ -765,14 +765,14 @@ func (o *OllamaService) ensureDefaultModel() {
 			time.Sleep(retryDelay)
 			retryDelay *= 2 // Exponential backoff
 		}
-		
+
 		// Check health
 		if err := o.healthCheck(); err != nil {
 			log.Printf("OllamaService: Service not ready (attempt %d/%d): %v", retryCount+1, maxRetries, err)
 			retryCount++
 			continue
 		}
-		
+
 		// List existing models
 		models, err := o.ListModels()
 		if err != nil {
@@ -780,7 +780,7 @@ func (o *OllamaService) ensureDefaultModel() {
 			retryCount++
 			continue
 		}
-		
+
 		// Check if default model exists
 		hasDefault := false
 		modelBase := strings.Split(o.config.DefaultModel, ":")[0]
@@ -791,11 +791,11 @@ func (o *OllamaService) ensureDefaultModel() {
 				break
 			}
 		}
-		
+
 		if !hasDefault {
 			log.Printf("OllamaService: Downloading %s (this may take a few minutes)...", o.config.DefaultModel)
 			startTime := time.Now()
-			
+
 			if err := o.PullModel(o.config.DefaultModel); err != nil {
 				if strings.Contains(err.Error(), "insufficient") || strings.Contains(err.Error(), "memory") {
 					log.Printf("OllamaService: ⚠️  ERROR - Insufficient memory for %s", o.config.DefaultModel)
@@ -807,15 +807,15 @@ func (o *OllamaService) ensureDefaultModel() {
 				retryCount++
 				continue
 			}
-			
+
 			pullDuration := time.Since(startTime)
 			log.Printf("OllamaService: ✓ Model %s ready (downloaded in %.1fs)", o.config.DefaultModel, pullDuration.Seconds())
 		}
-		
+
 		// Success!
 		return
 	}
-	
+
 	log.Printf("OllamaService: ⚠️  Failed to initialize model after %d attempts", maxRetries)
 }
 
@@ -826,20 +826,20 @@ func (o *OllamaService) ensureDefaultModel() {
 func (o *OllamaService) GetServiceInfo() map[string]interface{} {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	
+
 	info := map[string]interface{}{
-		"configured":   o.IsConfigured(),
-		"running":      o.IsRunning(),
-		"port":         o.config.Port,
+		"configured":    o.IsConfigured(),
+		"running":       o.IsRunning(),
+		"port":          o.config.Port,
 		"default_model": o.config.DefaultModel,
-		"gpu_enabled":  o.config.GPUEnabled,
+		"gpu_enabled":   o.config.GPUEnabled,
 	}
-	
+
 	if o.IsRunning() {
 		if models, err := o.ListModels(); err == nil {
 			info["models"] = models
 		}
 	}
-	
+
 	return info
 }
