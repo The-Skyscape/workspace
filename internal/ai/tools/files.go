@@ -171,7 +171,7 @@ func (t *ReadFileTool) Description() string {
 
 func (t *ReadFileTool) ValidateParams(params map[string]interface{}) error {
 	repoID, exists := params["repo_id"]
-	if !exists {
+	if !exists || repoID == nil || repoID == "" {
 		return fmt.Errorf("repo_id is required")
 	}
 	
@@ -180,7 +180,7 @@ func (t *ReadFileTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	path, exists := params["path"]
-	if !exists {
+	if !exists || path == nil || path == "" {
 		return fmt.Errorf("path is required")
 	}
 	
@@ -216,8 +216,23 @@ func (t *ReadFileTool) Schema() map[string]interface{} {
 }
 
 func (t *ReadFileTool) Execute(params map[string]interface{}, userID string) (string, error) {
-	repoID := params["repo_id"].(string)
-	path := params["path"].(string)
+	repoIDVal, exists := params["repo_id"]
+	if !exists || repoIDVal == nil || repoIDVal == "" {
+		return "", fmt.Errorf("repo_id is required")
+	}
+	repoID, ok := repoIDVal.(string)
+	if !ok {
+		return "", fmt.Errorf("repo_id must be a string")
+	}
+	
+	pathVal, exists := params["path"]
+	if !exists || pathVal == nil || pathVal == "" {
+		return "", fmt.Errorf("path is required")
+	}
+	path, ok := pathVal.(string)
+	if !ok {
+		return "", fmt.Errorf("path must be a string")
+	}
 	
 	// Get user to check permissions
 	user, err := models.Auth.GetUser(userID)
