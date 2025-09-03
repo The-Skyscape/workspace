@@ -48,21 +48,26 @@ func AI() (string, *AIController) {
 	// Initialize tool registry
 	registry := ai.NewToolRegistry()
 	
-	// Register all available tools - Llama 3.2 is smart enough to use them appropriately
-	// Repository tools
+	// Register essential tools only to reduce latency
+	// Each tool definition adds ~500 bytes to every request
+	
+	// Core repository tools (most commonly used)
 	registry.Register(&tools.ListReposTool{})
 	registry.Register(&tools.GetRepoTool{})
-	registry.Register(&tools.CreateRepoTool{})
-	registry.Register(&tools.GetRepoLinkTool{})
 	
-	// File tools - both read and write operations
+	// Essential file tools (read-only for safety and performance)
 	registry.Register(&tools.ListFilesTool{})
 	registry.Register(&tools.ReadFileTool{})
 	registry.Register(&tools.SearchFilesTool{})
-	registry.Register(&tools.WriteFileTool{})
-	registry.Register(&tools.EditFileTool{})
-	registry.Register(&tools.DeleteFileTool{})
-	registry.Register(&tools.MoveFileTool{})
+	
+	// Write operations commented out to reduce prompt size
+	// Can be re-enabled when needed:
+	// registry.Register(&tools.CreateRepoTool{})
+	// registry.Register(&tools.GetRepoLinkTool{})
+	// registry.Register(&tools.WriteFileTool{})
+	// registry.Register(&tools.EditFileTool{})
+	// registry.Register(&tools.DeleteFileTool{})
+	// registry.Register(&tools.MoveFileTool{})
 	
 	return "ai", &AIController{
 		toolRegistry: registry,
@@ -829,7 +834,13 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	
 	// Always provide tools - Llama 3.2 is smart enough to know when to use them
 	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
-	log.Printf("AIController: Providing %d tools to model", len(toolDefinitions))
+	
+	// Log tool names for debugging
+	toolNames := []string{}
+	for _, td := range toolDefinitions {
+		toolNames = append(toolNames, td.Function.Name)
+	}
+	log.Printf("AIController: Providing %d tools to model: %v", len(toolDefinitions), toolNames)
 	
 	initialResponse, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 	
