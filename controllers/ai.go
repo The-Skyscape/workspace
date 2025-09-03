@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -62,7 +63,21 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.WriteFileTool{})
 	registry.Register(&tools.EditFileTool{})
 	registry.Register(&tools.DeleteFileTool{})
+	registry.Register(&tools.MoveFileTool{})
 	registry.Register(&tools.SearchFilesTool{})
+	
+	// Terminal execution tools
+	registry.Register(&tools.RunCommandTool{})
+	registry.Register(&tools.GetWorkingDirectoryTool{})
+	registry.Register(&tools.InstallPackageTool{})
+	registry.Register(&tools.ListProcessesTool{})
+	
+	// Git operation tools
+	registry.Register(&tools.GitStatusTool{})
+	registry.Register(&tools.GitDiffTool{})
+	registry.Register(&tools.GitCommitTool{})
+	registry.Register(&tools.GitBranchTool{})
+	registry.Register(&tools.GitLogTool{})
 	
 	return "ai", &AIController{
 		toolRegistry: registry,
@@ -573,78 +588,49 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 // buildSystemPrompt creates the system prompt optimized for Llama 3.2
 func (c *AIController) buildSystemPrompt() string {
 	// Optimized for Llama 3.2's strengths: tool use, following instructions, summarization
-	prompt := `You are a helpful AI assistant for the Skyscape development platform. You help users with their code, repositories, and development tasks.
+	prompt := `You are an AI coding assistant powered by Llama 3.2, integrated into the Skyscape development platform.
 
-You should engage in natural conversation with users. When they greet you, respond warmly. When they ask questions, provide helpful answers.
+You have access to powerful tools for:
+• Repository management and code analysis
+• File operations (read, write, edit, delete, move, search)
+• Git operations (status, diff, commit, branch, log)
+• Terminal command execution in sandboxed environments
+• Project management (issues, pull requests)
 
-You have access to various tools that you can use when needed to help users with their repositories and files. Only use these tools when the user's request requires information about their code or repositories.
+You can chain multiple tools together to complete complex tasks like fixing bugs, creating features, and improving code quality.
 
-Important: You are having a conversation with the user. Respond naturally to their messages. Do not treat every message as a function call request.`
+When users ask about code or need development tasks performed, use the appropriate tools to work with real data. You can execute terminal commands, run tests, install dependencies, and make multi-file changes.
+
+Important: Engage naturally in conversation. Not every message requires tool usage. When greeting users or having discussions, respond warmly and helpfully.`
+	
+	// Check for project context file (SKYSCAPE.md) and append if exists
+	contextFile := c.loadProjectContext()
+	if contextFile != "" {
+		prompt += "\n\n## Project Context\n" + contextFile
+	}
 	
 	return prompt
+}
+
+// loadProjectContext loads the SKYSCAPE.md file if it exists
+func (c *AIController) loadProjectContext() string {
+	// Try to find SKYSCAPE.md in common locations
+	possiblePaths := []string{
+		"/home/coder/skyscape/workspace/SKYSCAPE.md",
+		"/home/coder/skyscape/SKYSCAPE.md",
+		"./SKYSCAPE.md",
+	}
 	
-	/*
-	// Original verbose prompt (kept for reference)
-	prompt := `You are an AI assistant powered by GPT-OSS, integrated into the Skyscape development platform.
-- Repository management and code analysis
-- File operations with Git integration
-- Automatic tool selection and intelligent chaining
-
-## Important Guidelines
-1. Use the provided tools to interact with the system - never guess or make up information
-2. When users ask about repositories, files, or code, call the appropriate functions to get real data
-3. You can make multiple tool calls in sequence to complete complex tasks
-4. After receiving tool results, analyze them and determine if additional tools are needed
-5. Provide clear, actionable responses based on actual tool results
-
-## How Tool Calling Works
-You have native function calling capabilities. When you need information or to perform actions:
-- The system detects when you need to call tools
-- You can call multiple tools in one response when they're independent
-- After tool execution, you'll receive the results
-- Based on results, you can call additional tools if needed
-- The system handles up to 5 iterations of tool calls automatically
-
-## Multi-Tool Examples
-
-**Example 1: Code Analysis**
-User: "Analyze the main.go file and tell me what it does"
-→ Call read_file(repo_id="app", path="main.go")
-→ Receive file content
-→ Provide analysis based on actual code
-
-**Example 2: Project Setup**
-User: "Create a new Python project with a README"
-→ Call create_repo(name="python-app", description="New Python project")
-→ Call write_file(repo_id="python-app", path="README.md", content="# Python App\n...")
-→ Call write_file(repo_id="python-app", path="main.py", content="def main():\n...")
-→ Confirm creation with actual results
-
-**Example 3: Code Modification**
-User: "Fix the typo in config.json where it says 'debuf' instead of 'debug'"
-→ Call read_file(repo_id="app", path="config.json")
-→ Analyze content to find the typo
-→ Call edit_file(repo_id="app", path="config.json", content="[corrected]", message="Fix typo")
-→ Confirm the fix was applied
-
-## Tool Categories
-
-**Repository Management**: list_repos, get_repo, create_repo, delete_repo, get_repo_link
-**File Operations**: list_files, read_file, write_file, edit_file, delete_file, move_file, search_files
-**Git Operations**: git_status, git_history, git_diff, git_commit, git_push
-**Issues & PRs**: create_issue, get_issue
-**Project Management**: create_milestone, create_project_card
-
-## Error Handling
-- If a tool fails, explain the error clearly to the user
-- Suggest alternative approaches when possible
-- Never pretend a tool succeeded if it failed
-- Provide partial results when some tools succeed and others fail
-
-Remember: Your strength is in using real data from tools, not making assumptions. Always verify with tools before providing information about the system state.`
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			content, err := os.ReadFile(path)
+			if err == nil {
+				return string(content)
+			}
+		}
+	}
 	
-	return prompt
-	*/
+	return ""
 }
 
 // RenderMessageMarkdown converts message content to HTML with markdown formatting
@@ -705,42 +691,6 @@ func (c *AIController) RenderMessageMarkdown(content string) template.HTML {
 	htmlStr = strings.ReplaceAll(htmlStr, "<em>", `<em class="italic">`)
 	
 	return template.HTML(htmlStr)
-}
-
-// processToolCalls processes any tool calls in the AI response
-func (c *AIController) processToolCalls(response, conversationID, userID string) (string, []string) {
-	if c.toolRegistry == nil {
-		log.Printf("AIController: Tool registry is nil")
-		return response, nil
-	}
-	
-	log.Printf("AIController: Processing response for tool calls: %s", response)
-	
-	// Parse tool calls from the response
-	toolCalls, cleanedText := ai.ParseToolCalls(response)
-	
-	log.Printf("AIController: Found %d tool calls", len(toolCalls))
-	
-	if len(toolCalls) == 0 {
-		return response, nil
-	}
-	
-	var toolResults []string
-	
-	// Execute each tool call
-	for _, tc := range toolCalls {
-		log.Printf("AIController: Executing tool '%s' with params: %v", tc.Tool, tc.Params)
-		result, err := c.toolRegistry.ExecuteTool(tc.Tool, tc.Params, userID)
-		if err != nil {
-			toolResults = append(toolResults, ai.FormatToolResult(tc.Tool, "", err))
-			log.Printf("AIController: Tool execution failed: %v", err)
-		} else {
-			toolResults = append(toolResults, ai.FormatToolResult(tc.Tool, result, nil))
-			log.Printf("AIController: Tool '%s' executed successfully", tc.Tool)
-		}
-	}
-	
-	return cleanedText, toolResults
 }
 
 // streamResponse handles SSE streaming of AI responses
@@ -874,12 +824,14 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
 			
-			// Provide informative status
+			// Provide informative status with tool names
 			statusMsg := ""
 			if len(toolNames) == 1 {
-				statusMsg = fmt.Sprintf("Using tool: %s", toolNames[0])
+				statusMsg = fmt.Sprintf("🔧 Executing: %s", toolNames[0])
+			} else if len(toolNames) <= 3 {
+				statusMsg = fmt.Sprintf("🔧 Executing %d tools: %s", len(toolNames), strings.Join(toolNames, ", "))
 			} else {
-				statusMsg = fmt.Sprintf("Using %d tools", len(toolNames))
+				statusMsg = fmt.Sprintf("🔧 Executing %d tools", len(toolNames))
 			}
 			fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", statusMsg)
 			flusher.Flush()
@@ -927,7 +879,13 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Content: result,
 			})
 			
-			// Stream tool execution message via SSE
+			// Get tool name from the original call
+			toolName := ""
+			if i < len(initialResponse.Message.ToolCalls) {
+				toolName = initialResponse.Message.ToolCalls[i].Function.Name
+			}
+			
+			// Stream tool execution message via SSE with better formatting
 			toolHTML := fmt.Sprintf(`<div class="collapse collapse-arrow bg-base-200/30 my-2">
 				<input type="checkbox" class="peer" />
 				<div class="collapse-title min-h-0 py-2 px-3 peer-checked:pb-0">
@@ -937,8 +895,9 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 						</svg>
 						<div class="flex-1">
-							<span class="text-xs text-base-content/60">Tool Execution %d/%d</span>
-							<span class="text-xs text-info ml-2">Click to view details</span>
+							<span class="text-xs font-semibold">%s</span>
+							<span class="text-xs text-base-content/60 ml-2">Tool %d/%d</span>
+							<span class="text-xs text-info ml-2">Click for details</span>
 						</div>
 					</div>
 				</div>
@@ -947,7 +906,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 						<pre class="whitespace-pre-wrap">%s</pre>
 					</div>
 				</div>
-			</div>`, i+1, len(toolResults), template.HTMLEscapeString(result))
+			</div>`, toolName, i+1, len(toolResults), template.HTMLEscapeString(result))
 			
 			// SSE data must be on a single line - replace newlines
 			toolHTMLEscaped := strings.ReplaceAll(toolHTML, "\n", "")
