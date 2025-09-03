@@ -120,18 +120,18 @@ The AI assistant provides an intelligent interface for repository operations:
    - Conversation-based system (not worker-based)
    - Admin-only access for all AI features
    - Requires AI_ENABLED="true" (Pro tier, 16GB+ RAM)
-   - Runs GPT-OSS model locally via Ollama
+   - Runs Llama 3.2:3b model locally via Ollama
    - Native OpenAI-compatible tool calling
 
 2. **Model Configuration**:
-   - **Default Model**: `gpt-oss:20b` - Advanced reasoning and tool calling
+   - **Default Model**: `llama3.2:3b` - Fast, efficient model with native tool calling
    - **Context Window**: 128K tokens
    - **Tool Support**: Native function calling via Ollama API
    - **Reasoning**: Configurable effort levels (low/medium/high)
 
 3. **Tier Requirements**:
    - **Standard Workspace**: AI features disabled, use external tools (Claude CLI, Copilot)
-   - **Pro Workspace**: Full AI integration with GPT-OSS model
+   - **Pro Workspace**: Full AI integration with Llama model
    - Controlled via AI_ENABLED environment variable
 
 4. **Available Tools** (21 total):
@@ -142,11 +142,11 @@ The AI assistant provides an intelligent interface for repository operations:
    - **Project Management**: create_milestone, create_project_card
 
 5. **Tool Calling Format**:
-   The system now uses **native OpenAI-compatible tool calling**:
-   - Tools are defined in the request with proper schemas
-   - GPT-OSS returns structured tool_calls in the response
-   - Automatic parsing and execution of tool calls
-   - XML format still supported as fallback for compatibility
+   The system uses **native Ollama tool calling**:
+   - Tools are defined in the request with proper JSON schemas
+   - Llama 3.2:3b returns structured tool_calls in the response
+   - Automatic parsing and execution of native tool calls
+   - Direct integration with Ollama's tool calling API
 
 6. **Implementation Files**:
    - `controllers/ai.go` - Main AI controller with native tool calling
@@ -158,10 +158,10 @@ The AI assistant provides an intelligent interface for repository operations:
    - `internal/ai/tools/*.go` - 21 tool implementations
 
 7. **Key Design Decisions**:
-   - Native OpenAI-compatible tool calling for GPT-OSS
+   - Native Ollama tool calling with Llama 3.2:3b
    - Tools defined with proper JSON schemas
    - Automatic tool detection and execution
-   - XML format retained as fallback
+   - Incremental thinking approach for faster responses
    - Tool results use "tool" role in conversation
    - Agentic loop supports up to 5 iterations
 

@@ -100,7 +100,7 @@ func (r *ToolRegistry) GenerateToolPrompt() string {
 	for name, tool := range r.tools {
 		prompt += fmt.Sprintf("- **%s**: %s\n", name, tool.Description())
 		
-		// Include schema if available for GPT-OSS structured outputs
+		// Include schema if available for Ollama structured outputs
 		if schema := tool.Schema(); schema != nil {
 			if params, ok := schema["parameters"].(map[string]interface{}); ok {
 				prompt += "  Parameters:\n"
@@ -117,18 +117,14 @@ func (r *ToolRegistry) GenerateToolPrompt() string {
 		}
 	}
 	
+	// Note: Llama 3.2:3b uses native Ollama tool calling, not XML format
 	prompt += `
-To use a tool, respond with a tool call in this format:
-<tool_call>
-{"tool": "tool_name", "params": {"param1": "value1", "param2": "value2"}}
-</tool_call>
-
-You can make multiple tool calls in a single response. The GPT-OSS model has native function calling support, so you can also use structured outputs for more reliable tool usage. After I execute the tools, I'll share the results with you and you can continue with additional tool calls if needed.`
+These tools will be available to you through native function calling. The Llama model will automatically select and use the appropriate tools based on your request.`
 	
 	return prompt
 }
 
-// GenerateStructuredToolsSchema generates a schema for all tools (for GPT-OSS structured outputs)
+// GenerateStructuredToolsSchema generates a schema for all tools (for Ollama structured outputs)
 func (r *ToolRegistry) GenerateStructuredToolsSchema() []map[string]interface{} {
 	var schemas []map[string]interface{}
 	
