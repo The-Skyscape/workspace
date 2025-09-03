@@ -91,7 +91,6 @@ type OllamaChatResponse struct {
 	CreatedAt string         `json:"created_at"`
 	Message   OllamaMessage  `json:"message"`
 	Done      bool          `json:"done"`
-	ToolCalls []OllamaToolCall `json:"tool_calls,omitempty"` // Native tool calls
 	TotalDuration   int64   `json:"total_duration,omitempty"`
 	LoadDuration    int64   `json:"load_duration,omitempty"`
 	PromptEvalCount int     `json:"prompt_eval_count,omitempty"`
@@ -204,7 +203,10 @@ func (o *OllamaService) startAsync() error {
 	log.Println("OllamaService: Container started, initializing models...")
 	
 	// Pull default model in background with retry logic
-	go o.ensureDefaultModel()
+	go func() {
+		log.Printf("OllamaService: Starting model initialization for %s", o.config.DefaultModel)
+		o.ensureDefaultModel()
+	}()
 	
 	return nil
 }
@@ -259,7 +261,10 @@ func (o *OllamaService) start() error {
 	log.Println("OllamaService: Container started, initializing models...")
 	
 	// Pull default model in background with retry logic
-	go o.ensureDefaultModel()
+	go func() {
+		log.Printf("OllamaService: Starting model initialization for %s", o.config.DefaultModel)
+		o.ensureDefaultModel()
+	}()
 	
 	return nil
 }
@@ -603,12 +608,13 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 	
 	// Log parsed response details
 	log.Printf("OllamaService: Parsed response - Message content length: %d", len(response.Message.Content))
-	log.Printf("OllamaService: Response content: %q", response.Message.Content)
-	if len(response.ToolCalls) > 0 {
-		log.Printf("OllamaService: Response contains %d tool calls", len(response.ToolCalls))
-		for i, tc := range response.ToolCalls {
-			log.Printf("OllamaService: Tool call %d: %s", i, tc.Function.Name)
+	if len(response.Message.ToolCalls) > 0 {
+		log.Printf("OllamaService: Response contains %d tool calls", len(response.Message.ToolCalls))
+		for i, tc := range response.Message.ToolCalls {
+			log.Printf("OllamaService: Tool call %d: %s with args %s", i+1, tc.Function.Name, tc.Function.Arguments)
 		}
+	} else if response.Message.Content != "" {
+		log.Printf("OllamaService: Response content: %q", response.Message.Content)
 	}
 
 	return &response, nil
@@ -685,12 +691,13 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 	
 	// Log parsed response details
 	log.Printf("OllamaService: Parsed response - Message content length: %d", len(response.Message.Content))
-	log.Printf("OllamaService: Response content: %q", response.Message.Content)
-	if len(response.ToolCalls) > 0 {
-		log.Printf("OllamaService: Response contains %d tool calls", len(response.ToolCalls))
-		for i, tc := range response.ToolCalls {
-			log.Printf("OllamaService: Tool call %d: %s", i, tc.Function.Name)
+	if len(response.Message.ToolCalls) > 0 {
+		log.Printf("OllamaService: Response contains %d tool calls", len(response.Message.ToolCalls))
+		for i, tc := range response.Message.ToolCalls {
+			log.Printf("OllamaService: Tool call %d: %s with args %s", i+1, tc.Function.Name, tc.Function.Arguments)
 		}
+	} else if response.Message.Content != "" {
+		log.Printf("OllamaService: Response content: %q", response.Message.Content)
 	}
 
 	return &response, nil
@@ -752,54 +759,70 @@ func (o *OllamaService) StreamChat(modelName string, messages []OllamaMessage, c
 
 // ensureDefaultModel ensures the default model is pulled
 func (o *OllamaService) ensureDefaultModel() {
-	// Wait for service to be fully ready
-	time.Sleep(10 * time.Second)
+	retryCount := 0
+	maxRetries := 3
+	retryDelay := 10 * time.Second
 	
-	// Check health first
-	if err := o.healthCheck(); err != nil {
-		log.Printf("OllamaService: Service not ready yet, will retry model pull later: %v", err)
-		// Retry in background
-		go func() {
-			time.Sleep(30 * time.Second)
-			o.ensureDefaultModel()
-		}()
+	for retryCount < maxRetries {
+		// Wait before checking (gives container time to fully start)
+		if retryCount == 0 {
+			time.Sleep(5 * time.Second)
+		} else {
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff
+		}
+		
+		// Check health
+		if err := o.healthCheck(); err != nil {
+			log.Printf("OllamaService: Service not ready (attempt %d/%d): %v", retryCount+1, maxRetries, err)
+			retryCount++
+			continue
+		}
+		
+		// List existing models
+		models, err := o.ListModels()
+		if err != nil {
+			log.Printf("OllamaService: Failed to list models (attempt %d/%d): %v", retryCount+1, maxRetries, err)
+			retryCount++
+			continue
+		}
+		
+		// Check if default model exists
+		hasDefault := false
+		modelBase := strings.Split(o.config.DefaultModel, ":")[0]
+		for _, model := range models {
+			if strings.HasPrefix(model, modelBase) {
+				hasDefault = true
+				log.Printf("OllamaService: ✓ Model %s is ready", model)
+				break
+			}
+		}
+		
+		if !hasDefault {
+			log.Printf("OllamaService: Downloading %s (this may take a few minutes)...", o.config.DefaultModel)
+			startTime := time.Now()
+			
+			if err := o.PullModel(o.config.DefaultModel); err != nil {
+				if strings.Contains(err.Error(), "insufficient") || strings.Contains(err.Error(), "memory") {
+					log.Printf("OllamaService: ⚠️  ERROR - Insufficient memory for %s", o.config.DefaultModel)
+					log.Printf("OllamaService: This server needs more RAM for AI features.")
+					log.Printf("OllamaService: Consider upgrading to Pro tier (16GB RAM) or using external AI tools.")
+					return
+				}
+				log.Printf("OllamaService: Failed to pull model (attempt %d/%d): %v", retryCount+1, maxRetries, err)
+				retryCount++
+				continue
+			}
+			
+			pullDuration := time.Since(startTime)
+			log.Printf("OllamaService: ✓ Model %s ready (downloaded in %.1fs)", o.config.DefaultModel, pullDuration.Seconds())
+		}
+		
+		// Success!
 		return
 	}
 	
-	models, err := o.ListModels()
-	if err != nil {
-		log.Printf("OllamaService: Failed to list models: %v", err)
-		// Retry later
-		go func() {
-			time.Sleep(30 * time.Second)
-			o.ensureDefaultModel()
-		}()
-		return
-	}
-
-	// Check if default model is already installed
-	hasDefault := false
-	modelBase := strings.Split(o.config.DefaultModel, ":")[0]
-	for _, model := range models {
-		if strings.HasPrefix(model, modelBase) {
-			hasDefault = true
-			log.Printf("OllamaService: Found existing model %s", model)
-			break
-		}
-	}
-
-	if !hasDefault {
-		log.Printf("OllamaService: Default model %s not found, pulling now...", o.config.DefaultModel)
-		if err := o.PullModel(o.config.DefaultModel); err != nil {
-			log.Printf("OllamaService: ERROR - Failed to pull model %s: %v", o.config.DefaultModel, err)
-			log.Printf("OllamaService: IMPORTANT - The AI model requires more memory than available.")
-			log.Printf("OllamaService: Consider upgrading to a server with more RAM or using external AI services.")
-			// Don't try fallback models - let the admin know there's a resource issue
-			return
-		}
-	} else {
-		log.Printf("OllamaService: Model %s is already available", o.config.DefaultModel)
-	}
+	log.Printf("OllamaService: ⚠️  Failed to initialize model after %d attempts", maxRetries)
 }
 
 // determineReasoningEffort analyzes the query complexity to set appropriate reasoning level
