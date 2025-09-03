@@ -18,6 +18,9 @@ type Tool interface {
 	
 	// ValidateParams checks if the parameters are valid
 	ValidateParams(params map[string]interface{}) error
+	
+	// Schema returns the parameter schema for structured outputs (optional)
+	Schema() map[string]interface{}
 }
 
 // ToolCall represents a parsed tool call from the AI
@@ -95,7 +98,23 @@ func (r *ToolRegistry) GenerateToolPrompt() string {
 	
 	prompt := "\n\nYou have access to the following tools:\n\n"
 	for name, tool := range r.tools {
-		prompt += fmt.Sprintf("- %s: %s\n", name, tool.Description())
+		prompt += fmt.Sprintf("- **%s**: %s\n", name, tool.Description())
+		
+		// Include schema if available for GPT-OSS structured outputs
+		if schema := tool.Schema(); schema != nil {
+			if params, ok := schema["parameters"].(map[string]interface{}); ok {
+				prompt += "  Parameters:\n"
+				for paramName, paramInfo := range params {
+					if info, ok := paramInfo.(map[string]interface{}); ok {
+						required := ""
+						if info["required"] == true {
+							required = " (required)"
+						}
+						prompt += fmt.Sprintf("    - %s: %s%s\n", paramName, info["description"], required)
+					}
+				}
+			}
+		}
 	}
 	
 	prompt += `
@@ -104,9 +123,36 @@ To use a tool, respond with a tool call in this format:
 {"tool": "tool_name", "params": {"param1": "value1", "param2": "value2"}}
 </tool_call>
 
-You can make multiple tool calls in a single response. After I execute the tools, I'll share the results with you.`
+You can make multiple tool calls in a single response. The GPT-OSS model has native function calling support, so you can also use structured outputs for more reliable tool usage. After I execute the tools, I'll share the results with you and you can continue with additional tool calls if needed.`
 	
 	return prompt
+}
+
+// GenerateStructuredToolsSchema generates a schema for all tools (for GPT-OSS structured outputs)
+func (r *ToolRegistry) GenerateStructuredToolsSchema() []map[string]interface{} {
+	var schemas []map[string]interface{}
+	
+	for name, tool := range r.tools {
+		schema := map[string]interface{}{
+			"name":        name,
+			"description": tool.Description(),
+		}
+		
+		// Add parameter schema if available
+		if toolSchema := tool.Schema(); toolSchema != nil {
+			schema["parameters"] = toolSchema
+		} else {
+			// Default schema for tools without explicit schemas
+			schema["parameters"] = map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			}
+		}
+		
+		schemas = append(schemas, schema)
+	}
+	
+	return schemas
 }
 
 // MarshalToolCall converts a ToolCall to JSON string

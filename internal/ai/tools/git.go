@@ -28,6 +28,20 @@ func (t *GitStatusTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *GitStatusTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to check status for",
+		},
+	})
+}
+
 func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	
@@ -166,6 +180,25 @@ func (t *GitDiffTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *GitDiffTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"staged": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Show staged changes instead of unstaged",
+			"default":     false,
+		},
+		"file": map[string]interface{}{
+			"type":        "string",
+			"description": "Specific file to show diff for",
+		},
+	})
+}
+
 func (t *GitDiffTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	
@@ -288,6 +321,28 @@ func (t *GitCommitTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *GitCommitTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"message": map[string]interface{}{
+			"type":        "string",
+			"description": "Commit message",
+			"required":    true,
+		},
+		"files": map[string]interface{}{
+			"type":        "array",
+			"description": "Files to stage and commit (empty = all)",
+			"items": map[string]interface{}{
+				"type": "string",
+			},
+		},
+	})
+}
+
 func (t *GitCommitTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	message := params["message"].(string)
@@ -390,6 +445,26 @@ func (t *GitBranchTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	return nil
+}
+
+func (t *GitBranchTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"action": map[string]interface{}{
+			"type":        "string",
+			"enum":        []string{"list", "create", "delete", "switch"},
+			"description": "Branch operation to perform",
+			"default":     "list",
+		},
+		"name": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch name (for create/delete/switch)",
+		},
+	})
 }
 
 func (t *GitBranchTool) Execute(params map[string]interface{}, userID string) (string, error) {
@@ -525,6 +600,25 @@ func (t *GitLogTool) ValidateParams(params map[string]interface{}) error {
 		return fmt.Errorf("repo_id must be a string")
 	}
 	return nil
+}
+
+func (t *GitLogTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"limit": map[string]interface{}{
+			"type":        "integer",
+			"description": "Number of commits to show",
+			"default":     10,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to show log for",
+		},
+	})
 }
 
 func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (string, error) {

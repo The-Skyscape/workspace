@@ -57,6 +57,35 @@ func (t *EditFileTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *EditFileTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"path": map[string]interface{}{
+			"type":        "string",
+			"description": "Path to the file to edit",
+			"required":    true,
+		},
+		"content": map[string]interface{}{
+			"type":        "string",
+			"description": "New content for the file",
+			"required":    true,
+		},
+		"message": map[string]interface{}{
+			"type":        "string",
+			"description": "Commit message describing the change",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to edit file on",
+		},
+	})
+}
+
 func (t *EditFileTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	path := params["path"].(string)
@@ -160,6 +189,35 @@ func (t *WriteFileTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *WriteFileTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"path": map[string]interface{}{
+			"type":        "string",
+			"description": "Path for the new file",
+			"required":    true,
+		},
+		"content": map[string]interface{}{
+			"type":        "string",
+			"description": "Content for the new file",
+			"required":    true,
+		},
+		"message": map[string]interface{}{
+			"type":        "string",
+			"description": "Commit message describing the file creation",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to create file on",
+		},
+	})
+}
+
 func (t *WriteFileTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	path := params["path"].(string)
@@ -261,6 +319,30 @@ func (t *DeleteFileTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	return nil
+}
+
+func (t *DeleteFileTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"path": map[string]interface{}{
+			"type":        "string",
+			"description": "Path to the file to delete",
+			"required":    true,
+		},
+		"message": map[string]interface{}{
+			"type":        "string",
+			"description": "Commit message describing the deletion",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to delete file from",
+		},
+	})
 }
 
 func (t *DeleteFileTool) Execute(params map[string]interface{}, userID string) (string, error) {
@@ -367,6 +449,35 @@ func (t *MoveFileTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	return nil
+}
+
+func (t *MoveFileTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"old_path": map[string]interface{}{
+			"type":        "string",
+			"description": "Current path of the file",
+			"required":    true,
+		},
+		"new_path": map[string]interface{}{
+			"type":        "string",
+			"description": "New path for the file",
+			"required":    true,
+		},
+		"message": map[string]interface{}{
+			"type":        "string",
+			"description": "Commit message describing the move/rename",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to move file on",
+		},
+	})
 }
 
 func (t *MoveFileTool) Execute(params map[string]interface{}, userID string) (string, error) {

@@ -39,6 +39,25 @@ func (t *ListFilesTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *ListFilesTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"path": map[string]interface{}{
+			"type":        "string",
+			"description": "Directory path to list files from",
+			"default":     ".",
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch name to list files from",
+		},
+	})
+}
+
 func (t *ListFilesTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	
@@ -177,6 +196,25 @@ func (t *ReadFileTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *ReadFileTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"path": map[string]interface{}{
+			"type":        "string",
+			"description": "Path to the file to read",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch name to read file from",
+		},
+	})
+}
+
 func (t *ReadFileTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	path := params["path"].(string)
@@ -280,6 +318,25 @@ func (t *SearchFilesTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	return nil
+}
+
+func (t *SearchFilesTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"pattern": map[string]interface{}{
+			"type":        "string",
+			"description": "Search pattern (supports wildcards like *.go)",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch name to search in",
+		},
+	})
 }
 
 func (t *SearchFilesTool) Execute(params map[string]interface{}, userID string) (string, error) {

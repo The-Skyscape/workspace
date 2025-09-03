@@ -89,7 +89,7 @@ func NewOllamaService() *OllamaService {
 			Port:          11434,
 			ContainerName: "skyscape-ollama",
 			DataDir:       fmt.Sprintf("%s/ollama", database.DataDir()),
-			DefaultModel:  "qwen2.5-coder:1.5b", // Small, fast coding model
+			DefaultModel:  "gpt-oss:20b",         // GPT-OSS 20B model with native tool calling
 			GPUEnabled:    false,                 // CPU mode by default
 		},
 		client: &http.Client{
@@ -524,8 +524,10 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 		Messages: messages,
 		Stream:   stream,
 		Options: map[string]interface{}{
-			"temperature": 0.7,
-			"top_p":      0.9,
+			"temperature":      0.7,
+			"top_p":           0.9,
+			"reasoning_effort": "medium", // GPT-OSS specific: low/medium/high
+			"num_ctx":         128000,    // GPT-OSS supports 128K context
 		},
 	}
 
@@ -564,8 +566,10 @@ func (o *OllamaService) StreamChat(modelName string, messages []OllamaMessage, c
 		Messages: messages,
 		Stream:   true,
 		Options: map[string]interface{}{
-			"temperature": 0.7,
-			"top_p":      0.9,
+			"temperature":      0.7,
+			"top_p":           0.9,
+			"reasoning_effort": "medium", // GPT-OSS specific: low/medium/high
+			"num_ctx":         128000,    // GPT-OSS supports 128K context
 		},
 	}
 
@@ -650,11 +654,16 @@ func (o *OllamaService) ensureDefaultModel() {
 		log.Printf("OllamaService: Default model %s not found, pulling now...", o.config.DefaultModel)
 		if err := o.PullModel(o.config.DefaultModel); err != nil {
 			log.Printf("OllamaService: Failed to pull default model %s: %v", o.config.DefaultModel, err)
-			// Try a smaller fallback model
-			fallbackModel := "tinyllama:latest"
+			// Try a smaller GPT-OSS variant or compatible model as fallback
+			fallbackModel := "gpt-oss:latest" // Try the default/latest tag
 			log.Printf("OllamaService: Trying fallback model %s...", fallbackModel)
 			if err := o.PullModel(fallbackModel); err != nil {
-				log.Printf("OllamaService: Failed to pull fallback model: %v", err)
+				// If GPT-OSS fails completely, fall back to a smaller coding model
+				lastResortModel := "qwen2.5-coder:1.5b"
+				log.Printf("OllamaService: Trying last resort model %s...", lastResortModel)
+				if err := o.PullModel(lastResortModel); err != nil {
+					log.Printf("OllamaService: Failed to pull any models: %v", err)
+				}
 			}
 		}
 	} else {

@@ -47,6 +47,33 @@ func (t *CreateIssueTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *CreateIssueTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"title": map[string]interface{}{
+			"type":        "string",
+			"description": "Issue title",
+			"required":    true,
+		},
+		"body": map[string]interface{}{
+			"type":        "string",
+			"description": "Issue description",
+			"required":    true,
+		},
+		"labels": map[string]interface{}{
+			"type":        "array",
+			"description": "Labels to apply to the issue",
+			"items": map[string]interface{}{
+				"type": "string",
+			},
+		},
+	})
+}
+
 func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	title := params["title"].(string)
@@ -144,6 +171,22 @@ func (t *ListIssuesTool) ValidateParams(params map[string]interface{}) error {
 		return fmt.Errorf("repo_id must be a string")
 	}
 	return nil
+}
+
+func (t *ListIssuesTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"state": map[string]interface{}{
+			"type":        "string",
+			"enum":        []string{"open", "closed", "all"},
+			"description": "Filter by issue state",
+			"default":     "open",
+		},
+	})
 }
 
 func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (string, error) {
@@ -287,6 +330,34 @@ func (t *UpdateIssueTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *UpdateIssueTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"issue_number": map[string]interface{}{
+			"type":        "integer",
+			"description": "Issue number to update",
+			"required":    true,
+		},
+		"state": map[string]interface{}{
+			"type":        "string",
+			"enum":        []string{"open", "closed"},
+			"description": "New state for the issue",
+		},
+		"title": map[string]interface{}{
+			"type":        "string",
+			"description": "New title for the issue",
+		},
+		"body": map[string]interface{}{
+			"type":        "string",
+			"description": "New body for the issue",
+		},
+	})
+}
+
 func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	issueID := params["issue_id"].(string)
 	
@@ -411,6 +482,36 @@ func (t *CreatePRTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *CreatePRTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"title": map[string]interface{}{
+			"type":        "string",
+			"description": "Pull request title",
+			"required":    true,
+		},
+		"body": map[string]interface{}{
+			"type":        "string",
+			"description": "Pull request description",
+			"required":    true,
+		},
+		"head": map[string]interface{}{
+			"type":        "string",
+			"description": "Head branch (source)",
+			"required":    true,
+		},
+		"base": map[string]interface{}{
+			"type":        "string",
+			"description": "Base branch (target)",
+			"required":    true,
+		},
+	})
+}
+
 func (t *CreatePRTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	title := params["title"].(string)
@@ -519,6 +620,22 @@ func (t *ListPRsTool) ValidateParams(params map[string]interface{}) error {
 		return fmt.Errorf("repo_id must be a string")
 	}
 	return nil
+}
+
+func (t *ListPRsTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"state": map[string]interface{}{
+			"type":        "string",
+			"enum":        []string{"open", "closed", "merged", "all"},
+			"description": "Filter by PR state",
+			"default":     "open",
+		},
+	})
 }
 
 func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (string, error) {

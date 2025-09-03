@@ -31,6 +31,20 @@ func (t *ListReposTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *ListReposTool) Schema() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"visibility": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"public", "private", "all"},
+				"description": "Filter by repository visibility",
+				"default":     "all",
+			},
+		},
+	}
+}
+
 func (t *ListReposTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	// Get user to check admin status
 	user, err := models.Auth.GetUser(userID)
@@ -113,6 +127,20 @@ func (t *GetRepoTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	return nil
+}
+
+func (t *GetRepoTool) Schema() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"repo_id": map[string]interface{}{
+				"type":        "string",
+				"description": "The repository ID to get details for",
+				"required":    true,
+			},
+		},
+		"required": []string{"repo_id"},
+	}
 }
 
 func (t *GetRepoTool) Execute(params map[string]interface{}, userID string) (string, error) {
@@ -208,6 +236,30 @@ func (t *CreateRepoTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
+func (t *CreateRepoTool) Schema() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"name": map[string]interface{}{
+				"type":        "string",
+				"description": "The name of the repository to create",
+				"required":    true,
+			},
+			"description": map[string]interface{}{
+				"type":        "string",
+				"description": "A description of the repository",
+			},
+			"visibility": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"public", "private"},
+				"description": "Repository visibility",
+				"default":     "private",
+			},
+		},
+		"required": []string{"name"},
+	}
+}
+
 func (t *CreateRepoTool) Execute(params map[string]interface{}, userID string) (string, error) {
 	// Get user to check admin status
 	user, err := models.Auth.GetUser(userID)
@@ -293,6 +345,26 @@ func (t *GetRepoLinkTool) ValidateParams(params map[string]interface{}) error {
 	}
 	
 	return nil
+}
+
+func (t *GetRepoLinkTool) Schema() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"repo_id": map[string]interface{}{
+				"type":        "string",
+				"description": "The repository ID",
+				"required":    true,
+			},
+			"view": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"files", "issues", "commits", "settings"},
+				"description": "The specific view to link to",
+				"default":     "files",
+			},
+		},
+		"required": []string{"repo_id"},
+	}
 }
 
 func (t *GetRepoLinkTool) Execute(params map[string]interface{}, userID string) (string, error) {

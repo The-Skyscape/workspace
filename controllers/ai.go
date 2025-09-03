@@ -368,7 +368,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Get response from Ollama
-	model := "qwen2.5-coder:1.5b" // Use the model that's already loaded
+	model := "gpt-oss:20b" // Use GPT-OSS with native tool calling support
 	response, err := services.Ollama.Chat(model, ollamaMessages, false)
 	if err != nil {
 		log.Printf("AIController: Failed to get AI response: %v", err)
@@ -474,29 +474,27 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt for the AI
 func (c *AIController) buildSystemPrompt() string {
-	prompt := `You are an AI assistant integrated into the Skyscape development platform. 
+	// Generate dynamic tool list from registry
+	toolPrompt := c.toolRegistry.GenerateToolPrompt()
+	
+	prompt := `You are an AI assistant powered by GPT-OSS, integrated into the Skyscape development platform. 
 You help users with coding, debugging, documentation, and development tasks.
 
-You have access to tools that let you interact with the system. When users ask about repositories, files, or any system data, you MUST use these tools to get real information.
+## Core Capabilities
+- Native function calling and tool usage
+- Advanced reasoning for complex development tasks
+- Repository management and code analysis
+- File operations with Git integration
 
-Available tools:
+## Important Guidelines
+1. ALWAYS use tools to interact with the system - never guess or make up information
+2. When users ask about repositories, files, or code, use the appropriate tools to get real data
+3. You can chain multiple tool calls to complete complex tasks
+4. Provide clear, actionable responses based on tool results
+5. Use your reasoning capabilities to plan multi-step operations
 
-Repository Tools:
-- list_repos: Lists all repositories in the system
-- get_repo: Gets detailed information about a specific repository  
-- create_repo: Creates a new repository
-- get_repo_link: Generates a link to a repository page
-
-File Reading Tools:
-- list_files: Lists files and directories in a repository
-- read_file: Reads the content of a specific file
-- search_files: Searches for files by name pattern
-
-File Modification Tools:
-- edit_file: Edit an existing file in a repository
-- write_file: Create a new file or overwrite an existing file
-- delete_file: Delete a file from a repository
-- move_file: Move or rename a file within a repository
+## Tool Usage
+When you need to use tools, the GPT-OSS model supports native function calling. You can make multiple tool calls in sequence to accomplish complex tasks. After each tool execution, analyze the results and determine if additional tools are needed.
 
 CRITICAL: When you need to use a tool, your ENTIRE response must be ONLY this format - nothing else:
 <tool_call>
@@ -542,6 +540,9 @@ IMPORTANT RULES:
 3. After I provide tool results, then you can explain and summarize for the user
 4. If you need multiple tools, execute them one at a time
 5. For file operations, always specify the repo_id parameter`
+	
+	// Append the dynamically generated tool documentation
+	prompt += toolPrompt
 	
 	return prompt
 }
@@ -708,7 +709,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 	
 	// First get the complete response without streaming to handle tool calls
-	model := "qwen2.5-coder:1.5b"
+	model := "gpt-oss:20b"
 	initialResponse, err := services.Ollama.Chat(model, ollamaMessages, false)
 	if err != nil {
 		fmt.Fprintf(w, "event: error\ndata: Failed to get AI response: %s\n\n", err.Error())
