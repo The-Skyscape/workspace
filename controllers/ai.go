@@ -29,6 +29,20 @@ type AIController struct {
 	toolRegistry *ai.ToolRegistry
 }
 
+// AIMetrics tracks performance metrics for AI responses
+type AIMetrics struct {
+	StartTime        time.Time
+	ThinkingDuration time.Duration
+	ToolDuration     time.Duration
+	TotalDuration    time.Duration
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+	ToolCallCount    int
+	ModelUsed        string
+	Error            string
+}
+
 // AI returns the controller factory
 func AI() (string, *AIController) {
 	// Initialize tool registry
@@ -283,6 +297,12 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Initialize metrics
+	metrics := &AIMetrics{
+		StartTime: time.Now(),
+		ModelUsed: "llama3.1:8b",
+	}
+	
 	// Validate input
 	if content == "" {
 		c.RenderErrorMsg(w, r, "Message cannot be empty")
@@ -334,10 +354,14 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	
 	// Build message history for Ollama
 	messages, _ := conversation.GetMessages()
+	
+	// Use proper system prompt for llama3.1 with tool support
+	systemPrompt := c.buildSystemPrompt()
+	
 	ollamaMessages := []services.OllamaMessage{
 		{
 			Role:    "system",
-			Content: c.buildSystemPrompt(),
+			Content: systemPrompt,
 		},
 	}
 	
@@ -372,9 +396,14 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Get tool definitions in Ollama format
 	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
 	
-	// Get response from Ollama with tools
-	model := "llama3.2:3b" // Use llama3.2 for fast responses
+	// Get response from Ollama WITH TOOLS
+	model := "llama3.1:8b"
+	thinkingStart := time.Now()
+	log.Printf("AIController: Getting AI response with tools for message: %s", content)
 	response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+	metrics.ThinkingDuration = time.Since(thinkingStart)
+	log.Printf("AIController: Initial response received in %.1fs", metrics.ThinkingDuration.Seconds())
+	
 	if err != nil {
 		log.Printf("AIController: Failed to get AI response: %v", err)
 		
@@ -418,6 +447,11 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		models.Messages.Insert(assistantMsg)
 		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
+		
+		metrics.TotalDuration = time.Since(metrics.StartTime)
+		log.Printf("AIController: Response metrics - Time: %.1fs, Model: %s", 
+			metrics.TotalDuration.Seconds(), metrics.ModelUsed)
+		
 		messages, _ = conversation.GetMessages()
 		c.Render(w, r, "ai-messages.html", messages)
 		return
@@ -517,11 +551,16 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt for the AI
 func (c *AIController) buildSystemPrompt() string {
-	// Simple prompt for native Ollama tool calling
-	prompt := `You are an AI assistant for Skyscape, a development platform with Git repositories, files, and project management.
+	// Optimized prompt for llama3.1:8b
+	prompt := `You are an AI assistant for Skyscape, a development platform with Git repositories and code management.
 
-When users ask about repositories, files, or code, use the available tools to get real information.
-After receiving tool results, provide helpful responses based on the actual data.`
+You have access to tools for:
+- Listing and accessing repositories
+- Reading and searching files
+- Exploring project structure
+
+When users ask questions about their code or projects, use the appropriate tools to get real information before responding.
+Be concise and helpful. After using tools, provide clear responses based on the actual data retrieved.`
 	
 	return prompt
 	
@@ -779,6 +818,10 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		var toolResults []string
 		
 		if len(initialResponse.ToolCalls) > 0 {
+			// Send thinking status
+			fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Thinking...\n\n")
+			flusher.Flush()
+			
 			// Process native tool calls
 			log.Printf("AIController: Processing %d native tool calls in stream (iteration %d)", len(initialResponse.ToolCalls), iteration+1)
 			toolResults = c.processNativeToolCalls(initialResponse.ToolCalls, conversationID, user.ID)
@@ -826,6 +869,9 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		// Get follow-up response
+		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Interpreting results...\n\n")
+		flusher.Flush()
+		
 		response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 		if err != nil {
 			finalResponse = finalResponse + "\n\n" + strings.Join(toolResults, "\n")
@@ -840,13 +886,25 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	
 streamResponse:
+	// Clear status
+	fmt.Fprintf(w, "event: status\ndata: \n\n")
+	flusher.Flush()
+	
 	// Send initial message structure (replaces typing indicator)
-	startHTML, err := c.RenderString("ai-streaming-start.html", nil)
-	if err != nil {
-		fmt.Fprintf(w, "event: error\ndata: Failed to render template\n\n")
-		flusher.Flush()
-		return
-	}
+	startHTML := `<div class="chat chat-start my-2" id="streaming-message">
+		<div class="chat-image avatar">
+			<div class="w-8 h-8 rounded-full flex-shrink-0">
+				<div class="bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+					</svg>
+				</div>
+			</div>
+		</div>
+		<div class="chat-bubble max-w-[85%] sm:max-w-[70%] break-words text-sm">
+			<span id="streaming-content"></span>
+		</div>
+	</div>`
 	fmt.Fprintf(w, "event: start\ndata: %s\n\n", startHTML)
 	flusher.Flush()
 	
@@ -867,14 +925,20 @@ streamResponse:
 	
 	// Send the complete formatted message
 	htmlContent := c.RenderMessageMarkdown(finalResponse)
-	completeHTML, err := c.RenderString("ai-streaming-complete.html", map[string]interface{}{
-		"Content": htmlContent,
-	})
-	if err != nil {
-		fmt.Fprintf(w, "event: error\ndata: Failed to render final message\n\n")
-		flusher.Flush()
-		return
-	}
+	completeHTML := fmt.Sprintf(`<div class="chat chat-start my-2">
+		<div class="chat-image avatar">
+			<div class="w-8 h-8 rounded-full flex-shrink-0">
+				<div class="bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+					</svg>
+				</div>
+			</div>
+		</div>
+		<div class="chat-bubble max-w-[85%%] sm:max-w-[70%%] break-words text-sm">
+			%s
+		</div>
+	</div>`, htmlContent)
 	fmt.Fprintf(w, "event: complete\ndata: %s\n\n", completeHTML)
 	flusher.Flush()
 	
