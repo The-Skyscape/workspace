@@ -45,7 +45,7 @@ type OllamaStatus struct {
 
 // OllamaMessage represents a chat message
 type OllamaMessage struct {
-	Role    string `json:"role"`    // "user", "assistant", "system"
+	Role    string `json:"role"`    // "user", "assistant", "system", "tool"
 	Content string `json:"content"`
 }
 
@@ -55,6 +55,33 @@ type OllamaChatRequest struct {
 	Messages []OllamaMessage  `json:"messages"`
 	Stream   bool             `json:"stream"`
 	Options  map[string]interface{} `json:"options,omitempty"`
+	Tools    []OllamaTool     `json:"tools,omitempty"`  // Native tool support
+}
+
+// OllamaTool represents a tool definition for function calling
+type OllamaTool struct {
+	Type     string              `json:"type"`     // Usually "function"
+	Function OllamaToolFunction  `json:"function"`
+}
+
+// OllamaToolFunction defines a callable function
+type OllamaToolFunction struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// OllamaToolCall represents a tool invocation in the response
+type OllamaToolCall struct {
+	ID       string              `json:"id,omitempty"`
+	Type     string              `json:"type"`     // Usually "function"
+	Function OllamaFunctionCall  `json:"function"`
+}
+
+// OllamaFunctionCall contains the function call details
+type OllamaFunctionCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"` // JSON string of arguments
 }
 
 // OllamaChatResponse represents a chat completion response
@@ -63,6 +90,7 @@ type OllamaChatResponse struct {
 	CreatedAt string         `json:"created_at"`
 	Message   OllamaMessage  `json:"message"`
 	Done      bool          `json:"done"`
+	ToolCalls []OllamaToolCall `json:"tool_calls,omitempty"` // Native tool calls
 	TotalDuration   int64   `json:"total_duration,omitempty"`
 	LoadDuration    int64   `json:"load_duration,omitempty"`
 	PromptEvalCount int     `json:"prompt_eval_count,omitempty"`
@@ -523,6 +551,49 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 		Model:    modelName,
 		Messages: messages,
 		Stream:   stream,
+		Options: map[string]interface{}{
+			"temperature":      0.7,
+			"top_p":           0.9,
+			"reasoning_effort": "medium", // GPT-OSS specific: low/medium/high
+			"num_ctx":         128000,    // GPT-OSS supports 128K context
+		},
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal request")
+	}
+
+	resp, err := o.httpRequest("POST", "/api/chat", bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to send chat request")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("chat request failed: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var response OllamaChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, errors.Wrap(err, "failed to decode response")
+	}
+
+	return &response, nil
+}
+
+// ChatWithTools sends a chat request with tool definitions to Ollama
+func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage, tools []OllamaTool, stream bool) (*OllamaChatResponse, error) {
+	if modelName == "" {
+		modelName = o.config.DefaultModel
+	}
+
+	request := OllamaChatRequest{
+		Model:    modelName,
+		Messages: messages,
+		Stream:   stream,
+		Tools:    tools,  // Include tool definitions
 		Options: map[string]interface{}{
 			"temperature":      0.7,
 			"top_p":           0.9,

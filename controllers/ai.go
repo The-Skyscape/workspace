@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -367,9 +368,12 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Get response from Ollama
+	// Get tool definitions in Ollama format
+	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
+	
+	// Get response from Ollama with tools
 	model := "gpt-oss:20b" // Use GPT-OSS with native tool calling support
-	response, err := services.Ollama.Chat(model, ollamaMessages, false)
+	response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 	if err != nil {
 		log.Printf("AIController: Failed to get AI response: %v", err)
 		
@@ -404,12 +408,24 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	iteration := 0
 	
 	for iteration < maxIterations {
-		// Check for tool calls in the response
-		processedContent, toolResults := c.processToolCalls(finalResponse, conversationID, user.ID)
+		// Check for native tool calls first, then fall back to XML parsing
+		var toolResults []string
+		
+		if len(response.ToolCalls) > 0 {
+			// Process native tool calls
+			toolResults = c.processNativeToolCalls(response.ToolCalls, conversationID, user.ID)
+		} else {
+			// Fall back to XML parsing for compatibility
+			var processedContent string
+			processedContent, toolResults = c.processToolCalls(finalResponse, conversationID, user.ID)
+			if len(toolResults) == 0 {
+				finalResponse = processedContent
+				break
+			}
+		}
 		
 		if len(toolResults) == 0 {
-			// No tool calls found, use the processed content as final response
-			finalResponse = processedContent
+			// No tool calls found
 			break
 		}
 		
@@ -429,18 +445,18 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 				Content: finalResponse, // Include the assistant's tool call
 			})
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
-				Role:    "system",
-				Content: "Tool execution result:\n" + result + "\n\nBased on this result, please provide a helpful response to the user's original request.",
+				Role:    "tool",  // Use "tool" role for tool results
+				Content: result,
 			})
 		}
 		
 		// Get new response with tool results
 		log.Printf("AIController: Getting follow-up response after tool execution (iteration %d)", iteration+1)
-		response, err = services.Ollama.Chat(model, ollamaMessages, false)
+		response, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 		if err != nil {
 			log.Printf("AIController: Failed to get follow-up response: %v", err)
 			// If we can't get a follow-up, save what we have with the tool results
-			finalResponse = processedContent + "\n\n" + strings.Join(toolResults, "\n")
+			finalResponse = finalResponse + "\n\n" + strings.Join(toolResults, "\n")
 			break
 		}
 		
@@ -474,75 +490,47 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt for the AI
 func (c *AIController) buildSystemPrompt() string {
-	// Generate dynamic tool list from registry
-	toolPrompt := c.toolRegistry.GenerateToolPrompt()
-	
 	prompt := `You are an AI assistant powered by GPT-OSS, integrated into the Skyscape development platform. 
 You help users with coding, debugging, documentation, and development tasks.
 
 ## Core Capabilities
-- Native function calling and tool usage
+- Native function calling through OpenAI-compatible tool interface
 - Advanced reasoning for complex development tasks
 - Repository management and code analysis
 - File operations with Git integration
+- Automatic tool selection and chaining
 
 ## Important Guidelines
-1. ALWAYS use tools to interact with the system - never guess or make up information
-2. When users ask about repositories, files, or code, use the appropriate tools to get real data
-3. You can chain multiple tool calls to complete complex tasks
+1. Use the provided tools to interact with the system - never guess or make up information
+2. When users ask about repositories, files, or code, call the appropriate functions to get real data
+3. You can make multiple tool calls to complete complex tasks
 4. Provide clear, actionable responses based on tool results
 5. Use your reasoning capabilities to plan multi-step operations
 
-## Tool Usage
-When you need to use tools, the GPT-OSS model supports native function calling. You can make multiple tool calls in sequence to accomplish complex tasks. After each tool execution, analyze the results and determine if additional tools are needed.
+## How Tools Work
+The GPT-OSS model has native support for function calling. When you need to use a tool:
+1. The system will automatically detect when you need to call a function
+2. You will receive the tool results
+3. You can then provide a natural response incorporating those results
+4. You can chain multiple tool calls as needed
 
-CRITICAL: When you need to use a tool, your ENTIRE response must be ONLY this format - nothing else:
-<tool_call>
-{"tool": "tool_name", "params": {"param": "value"}}
-</tool_call>
+You have access to various tools for:
+- Repository management (list, get details, create)
+- File operations (list, read, write, edit, delete, move)
+- Code search and analysis
+- Git operations (status, history, diffs, commits)
+- Issue and pull request management
+- Project management (milestones, cards)
 
-DO NOT explain what you're going to do. DO NOT describe your plan. Just execute the tool immediately.
+## Examples of Tool Usage
 
-Examples:
+When a user asks "What repositories do I have?", you would naturally call the list_repos tool.
+When a user asks "Show me the README of project X", you would call read_file with the appropriate parameters.
+When a user asks "Create a new Python script", you would call write_file with the content.
 
-User: "Summarize the README.md of sky-castle"
-You: <tool_call>
-{"tool": "read_file", "params": {"repo_id": "sky-castle", "path": "README.md"}}
-</tool_call>
+The tool calling happens automatically through the native function interface - you don't need to format tool calls manually. Simply respond naturally and the system will handle tool invocation when needed.
 
-User: "What files are in the workspace repo?"
-You: <tool_call>
-{"tool": "list_files", "params": {"repo_id": "workspace"}}
-</tool_call>
-
-User: "List all repositories"
-You: <tool_call>
-{"tool": "list_repos", "params": {}}
-</tool_call>
-
-User: "Create a new Python script hello.py in the test-repo that prints Hello World"
-You: <tool_call>
-{"tool": "write_file", "params": {"repo_id": "test-repo", "path": "hello.py", "content": "print('Hello World')", "message": "Add hello.py script"}}
-</tool_call>
-
-User: "Fix the typo in config.json where it says 'debuf' instead of 'debug'"
-You: <tool_call>
-{"tool": "read_file", "params": {"repo_id": "myapp", "path": "config.json"}}
-</tool_call>
-[After getting content, then:]
-You: <tool_call>
-{"tool": "edit_file", "params": {"repo_id": "myapp", "path": "config.json", "content": "[corrected content]", "message": "Fix typo: debuf -> debug"}}
-</tool_call>
-
-IMPORTANT RULES:
-1. When asked about data, immediately execute the appropriate tool - DO NOT explain your plan
-2. Your response must be ONLY the XML tool call, nothing else
-3. After I provide tool results, then you can explain and summarize for the user
-4. If you need multiple tools, execute them one at a time
-5. For file operations, always specify the repo_id parameter`
-	
-	// Append the dynamically generated tool documentation
-	prompt += toolPrompt
+Remember: Always use tools to get real data rather than making assumptions. The tools provide access to the actual repository content and system state.`
 	
 	return prompt
 }
@@ -708,9 +696,12 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "event: status\ndata: Generating response...\n\n")
 	flusher.Flush()
 	
+	// Get tool definitions in Ollama format
+	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
+	
 	// First get the complete response without streaming to handle tool calls
 	model := "gpt-oss:20b"
-	initialResponse, err := services.Ollama.Chat(model, ollamaMessages, false)
+	initialResponse, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 	if err != nil {
 		fmt.Fprintf(w, "event: error\ndata: Failed to get AI response: %s\n\n", err.Error())
 		flusher.Flush()
@@ -723,12 +714,24 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	maxIterations := 5
 	
 	for iteration < maxIterations {
-		// Check for tool calls
-		processedContent, toolResults := c.processToolCalls(finalResponse, conversationID, user.ID)
+		// Check for native tool calls first, then fall back to XML parsing
+		var toolResults []string
+		
+		if len(initialResponse.ToolCalls) > 0 {
+			// Process native tool calls
+			toolResults = c.processNativeToolCalls(initialResponse.ToolCalls, conversationID, user.ID)
+		} else {
+			// Fall back to XML parsing for compatibility
+			var processedContent string
+			processedContent, toolResults = c.processToolCalls(finalResponse, conversationID, user.ID)
+			if len(toolResults) == 0 {
+				finalResponse = processedContent
+				break
+			}
+		}
 		
 		if len(toolResults) == 0 {
-			// No tool calls, use the processed content
-			finalResponse = processedContent
+			// No tool calls found
 			break
 		}
 		
@@ -741,26 +744,27 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				CreatedAt:      time.Now(),
 			}
 			models.Messages.Insert(toolMsg)
+			
+			// Build new context with tool results
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "assistant",
+				Content: finalResponse,
+			})
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "tool",
+				Content: result,
+			})
 		}
 		
-		// Build new context with tool results
-		ollamaMessages = append(ollamaMessages, services.OllamaMessage{
-			Role:    "assistant",
-			Content: finalResponse,
-		})
-		ollamaMessages = append(ollamaMessages, services.OllamaMessage{
-			Role:    "system",
-			Content: "Tool execution result:\n" + strings.Join(toolResults, "\n") + "\n\nBased on this result, please provide a helpful response to the user's original request.",
-		})
-		
 		// Get follow-up response
-		response, err := services.Ollama.Chat(model, ollamaMessages, false)
+		response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 		if err != nil {
-			finalResponse = processedContent + "\n\n" + strings.Join(toolResults, "\n")
+			finalResponse = finalResponse + "\n\n" + strings.Join(toolResults, "\n")
 			break
 		}
 		
 		finalResponse = response.Message.Content
+		initialResponse = response  // Update for next iteration
 		iteration++
 	}
 	
@@ -818,4 +822,65 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		models.Messages.Insert(assistantMsg)
 		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
 	}
+}
+
+// convertToOllamaTools converts tool definitions to Ollama's native format
+func (c *AIController) convertToOllamaTools(toolDefs []map[string]interface{}) []services.OllamaTool {
+	var tools []services.OllamaTool
+	
+	for _, def := range toolDefs {
+		if funcDef, ok := def["function"].(map[string]interface{}); ok {
+			tool := services.OllamaTool{
+				Type: "function",
+				Function: services.OllamaToolFunction{
+					Name:        funcDef["name"].(string),
+					Description: funcDef["description"].(string),
+				},
+			}
+			
+			// Add parameters if available
+			if params, ok := funcDef["parameters"].(map[string]interface{}); ok {
+				tool.Function.Parameters = params
+			}
+			
+			tools = append(tools, tool)
+		}
+	}
+	
+	return tools
+}
+
+// processNativeToolCalls processes tool calls from Ollama's native response format
+func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCall, conversationID, userID string) []string {
+	if c.toolRegistry == nil {
+		log.Printf("AIController: Tool registry is nil")
+		return nil
+	}
+	
+	var toolResults []string
+	
+	for _, tc := range toolCalls {
+		log.Printf("AIController: Processing native tool call '%s' with arguments: %s", 
+			tc.Function.Name, tc.Function.Arguments)
+		
+		// Parse arguments from JSON string
+		var params map[string]interface{}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &params); err != nil {
+			log.Printf("AIController: Failed to parse tool arguments: %v", err)
+			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, "", err))
+			continue
+		}
+		
+		// Execute the tool
+		result, err := c.toolRegistry.ExecuteTool(tc.Function.Name, params, userID)
+		if err != nil {
+			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, "", err))
+			log.Printf("AIController: Tool execution failed: %v", err)
+		} else {
+			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, result, nil))
+			log.Printf("AIController: Tool '%s' executed successfully", tc.Function.Name)
+		}
+	}
+	
+	return toolResults
 }

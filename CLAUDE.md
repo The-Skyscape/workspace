@@ -120,40 +120,50 @@ The AI assistant provides an intelligent interface for repository operations:
    - Conversation-based system (not worker-based)
    - Admin-only access for all AI features
    - Requires AI_ENABLED="true" (Pro tier, 16GB+ RAM)
-   - Runs OpenAI-compatible models locally via Ollama
-   - Tool calling system for repository operations
+   - Runs GPT-OSS model locally via Ollama
+   - Native OpenAI-compatible tool calling
 
-2. **Tier Requirements**:
+2. **Model Configuration**:
+   - **Default Model**: `gpt-oss:20b` - Advanced reasoning and tool calling
+   - **Context Window**: 128K tokens
+   - **Tool Support**: Native function calling via Ollama API
+   - **Reasoning**: Configurable effort levels (low/medium/high)
+
+3. **Tier Requirements**:
    - **Standard Workspace**: AI features disabled, use external tools (Claude CLI, Copilot)
-   - **Pro Workspace**: Full AI integration with OpenAI GPT models
+   - **Pro Workspace**: Full AI integration with GPT-OSS model
    - Controlled via AI_ENABLED environment variable
 
-3. **Available Tools**:
-   - `list_repos` - Lists repositories with visibility filtering
-   - `get_repo` - Gets detailed repository information
-   - `create_repo` - Creates new repositories (admin only)
-   - `get_repo_link` - Generates links to repository pages
+4. **Available Tools** (21 total):
+   - **Repository Management**: list_repos, get_repo, create_repo, delete_repo, get_repo_link
+   - **File Operations**: list_files, read_file, write_file, edit_file, delete_file, move_file, search_files
+   - **Git Operations**: git_status, git_history, git_diff, git_commit, git_push
+   - **Issue Tracking**: create_issue, get_issue
+   - **Project Management**: create_milestone, create_project_card
 
-3. **Tool Call Format**:
-   ```xml
-   <tool_call>
-   {"tool": "list_repos", "params": {"visibility": "all"}}
-   </tool_call>
-   ```
+5. **Tool Calling Format**:
+   The system now uses **native OpenAI-compatible tool calling**:
+   - Tools are defined in the request with proper schemas
+   - GPT-OSS returns structured tool_calls in the response
+   - Automatic parsing and execution of tool calls
+   - XML format still supported as fallback for compatibility
 
-4. **Implementation Files**:
-   - `controllers/ai.go` - Main AI controller with admin-only routes
+6. **Implementation Files**:
+   - `controllers/ai.go` - Main AI controller with native tool calling
+   - `services/ollama.go` - Ollama service with ChatWithTools method
    - `models/conversation.go` - Conversation model
    - `models/message.go` - Message model with roles (user/assistant/tool/error)
-   - `internal/ai/tools.go` - Tool registry and interface
-   - `internal/ai/parser.go` - Tool call parser (supports XML and JSON formats)
-   - `internal/ai/tools/repos.go` - Repository tool implementations
+   - `internal/ai/tools.go` - Tool registry with OpenAI schema generation
+   - `internal/ai/parser.go` - Tool call parser (XML fallback)
+   - `internal/ai/tools/*.go` - 21 tool implementations
 
-5. **Key Design Decisions**:
-   - Simplified from worker-based to conversation-based system
-   - Parser handles both XML-wrapped and plain JSON tool calls
-   - Tools execute with user context for proper authorization
-   - System prompt explicitly instructs when to use tools
+7. **Key Design Decisions**:
+   - Native OpenAI-compatible tool calling for GPT-OSS
+   - Tools defined with proper JSON schemas
+   - Automatic tool detection and execution
+   - XML format retained as fallback
+   - Tool results use "tool" role in conversation
+   - Agentic loop supports up to 5 iterations
 
 ### Actions System (CI/CD)
 1. Actions run in Docker sandboxes (`action-{id}-{runid}`)

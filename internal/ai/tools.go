@@ -155,6 +155,37 @@ func (r *ToolRegistry) GenerateStructuredToolsSchema() []map[string]interface{} 
 	return schemas
 }
 
+// GenerateOllamaTools generates tool definitions in Ollama's native format
+func (r *ToolRegistry) GenerateOllamaTools() []map[string]interface{} {
+	var tools []map[string]interface{}
+	
+	for name, tool := range r.tools {
+		// Build the tool definition in OpenAI-compatible format
+		toolDef := map[string]interface{}{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":        name,
+				"description": tool.Description(),
+			},
+		}
+		
+		// Add parameter schema if available
+		if toolSchema := tool.Schema(); toolSchema != nil {
+			toolDef["function"].(map[string]interface{})["parameters"] = toolSchema
+		} else {
+			// Default schema for tools without explicit schemas
+			toolDef["function"].(map[string]interface{})["parameters"] = map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			}
+		}
+		
+		tools = append(tools, toolDef)
+	}
+	
+	return tools
+}
+
 // MarshalToolCall converts a ToolCall to JSON string
 func MarshalToolCall(tc ToolCall) (string, error) {
 	data, err := json.Marshal(tc)
