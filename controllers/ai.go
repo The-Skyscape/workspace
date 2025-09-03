@@ -300,7 +300,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Initialize metrics
 	metrics := &AIMetrics{
 		StartTime: time.Now(),
-		ModelUsed: "llama3.1:8b",
+		ModelUsed: "llama3.2:3b",
 	}
 	
 	// Validate input
@@ -355,7 +355,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Build message history for Ollama
 	messages, _ := conversation.GetMessages()
 	
-	// Use proper system prompt for llama3.1 with tool support
+	// Use proper system prompt for llama3.2 with tool support
 	systemPrompt := c.buildSystemPrompt()
 	
 	ollamaMessages := []services.OllamaMessage{
@@ -397,7 +397,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
 	
 	// Get response from Ollama WITH TOOLS
-	model := "llama3.1:8b"
+	model := "llama3.2:3b"
 	thinkingStart := time.Now()
 	log.Printf("AIController: Getting AI response with tools for message: %s", content)
 	response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
@@ -551,7 +551,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt for the AI
 func (c *AIController) buildSystemPrompt() string {
-	// Optimized prompt for llama3.1:8b
+	// Optimized prompt for llama3.2:3b with native tool support
 	prompt := `You are an AI assistant for Skyscape, a development platform with Git repositories and code management.
 
 You have access to tools for:
@@ -559,8 +559,8 @@ You have access to tools for:
 - Reading and searching files
 - Exploring project structure
 
-When users ask questions about their code or projects, use the appropriate tools to get real information before responding.
-Be concise and helpful. After using tools, provide clear responses based on the actual data retrieved.`
+When users ask questions about their code or projects, use the available tools to get real information.
+After receiving tool results, provide helpful responses based on the actual data.`
 	
 	return prompt
 	
