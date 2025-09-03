@@ -66,6 +66,13 @@
      sse-connect="{{host}}/ai/chat/{{.ConversationID}}/stream"
      sse-close="done">
     
+    <!-- Status updates container -->
+    <div id="status-container" class="mb-2">
+        <div sse-swap="status" hx-swap="innerHTML" id="status-message" class="text-xs text-base-content/60 flex items-center gap-2">
+            <!-- Status messages will appear here -->
+        </div>
+    </div>
+    
     <!-- Streaming container with sse-swap targets -->
     <div id="streaming-container">
         <!-- Typing indicator - will be replaced by 'start' event -->
@@ -93,18 +100,10 @@
         <div sse-swap="complete" hx-swap="outerHTML" hx-target="#streaming-message"></div>
     </div>
     
-    <!-- Error handling -->
-    <div sse-swap="error" hx-swap="innerHTML" class="alert alert-error my-2 hidden">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span class="text-sm"></span>
+    <!-- Error handling - error event will replace this content -->
+    <div sse-swap="error" hx-swap="innerHTML" id="error-container">
+        <!-- Error message will appear here if needed -->
     </div>
 </div>
 
-<!-- Use hyperscript for auto-scroll only -->
-<script type="text/hyperscript">
-    on sse:chunk or sse:complete from body
-        set #chat-messages.scrollTop to 0
-    end
-</script>
+<!-- HTMX will handle all SSE events automatically via sse-swap directives above -->

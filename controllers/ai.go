@@ -34,22 +34,23 @@ func AI() (string, *AIController) {
 	// Initialize tool registry
 	registry := ai.NewToolRegistry()
 	
-	// Register repository tools
+	// OPTIMIZED: Register only essential tools (reduced from 11 to 5)
+	// Repository tools
 	registry.Register(&tools.ListReposTool{})
 	registry.Register(&tools.GetRepoTool{})
-	registry.Register(&tools.CreateRepoTool{})
-	registry.Register(&tools.GetRepoLinkTool{})
 	
-	// Register file tools
+	// File tools (read-only)
 	registry.Register(&tools.ListFilesTool{})
 	registry.Register(&tools.ReadFileTool{})
 	registry.Register(&tools.SearchFilesTool{})
 	
-	// Register file modification tools
-	registry.Register(&tools.EditFileTool{})
-	registry.Register(&tools.WriteFileTool{})
-	registry.Register(&tools.DeleteFileTool{})
-	registry.Register(&tools.MoveFileTool{})
+	// Commented out for performance - can be re-enabled if needed
+	// registry.Register(&tools.CreateRepoTool{})
+	// registry.Register(&tools.GetRepoLinkTool{})
+	// registry.Register(&tools.EditFileTool{})
+	// registry.Register(&tools.WriteFileTool{})
+	// registry.Register(&tools.DeleteFileTool{})
+	// registry.Register(&tools.MoveFileTool{})
 	
 	return "ai", &AIController{
 		toolRegistry: registry,
@@ -372,7 +373,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
 	
 	// Get response from Ollama with tools
-	model := "gpt-oss:20b" // Use GPT-OSS with native tool calling support
+	model := "llama3.2:3b" // Use llama3.2 for fast responses
 	response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 	if err != nil {
 		log.Printf("AIController: Failed to get AI response: %v", err)
@@ -516,12 +517,17 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt for the AI
 func (c *AIController) buildSystemPrompt() string {
-	prompt := `You are an AI assistant powered by GPT-OSS, integrated into the Skyscape development platform. 
-You help users with coding, debugging, documentation, and development tasks.
+	// Simple prompt for native Ollama tool calling
+	prompt := `You are an AI assistant for Skyscape, a development platform with Git repositories, files, and project management.
 
-## Core Capabilities
-- Native function calling through OpenAI-compatible tool interface
-- Chain-of-thought reasoning for complex problem solving
+When users ask about repositories, files, or code, use the available tools to get real information.
+After receiving tool results, provide helpful responses based on the actual data.`
+	
+	return prompt
+	
+	/*
+	// Original verbose prompt (kept for reference)
+	prompt := `You are an AI assistant powered by GPT-OSS, integrated into the Skyscape development platform.
 - Repository management and code analysis
 - File operations with Git integration
 - Automatic tool selection and intelligent chaining
@@ -580,6 +586,7 @@ User: "Fix the typo in config.json where it says 'debuf' instead of 'debug'"
 Remember: Your strength is in using real data from tools, not making assumptions. Always verify with tools before providing information about the system state.`
 	
 	return prompt
+	*/
 }
 
 // RenderMessageMarkdown converts message content to HTML with markdown formatting
@@ -747,7 +754,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
 	
 	// First get the complete response without streaming to handle tool calls
-	model := "gpt-oss:20b"
+	model := "llama3.2:3b"
 	initialResponse, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 	if err != nil {
 		fmt.Fprintf(w, "event: error\ndata: Failed to get AI response: %s\n\n", err.Error())
@@ -932,9 +939,9 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 		log.Printf("AIController: [%d/%d] Executing tool '%s' with arguments: %s", 
 			i+1, len(toolCalls), tc.Function.Name, tc.Function.Arguments)
 		
-		// Parse arguments from JSON string
+		// Parse arguments from json.RawMessage
 		var params map[string]interface{}
-		if err := json.Unmarshal([]byte(tc.Function.Arguments), &params); err != nil {
+		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
 			log.Printf("AIController: [%d/%d] Failed to parse arguments for '%s': %v", 
 				i+1, len(toolCalls), tc.Function.Name, err)
 			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, "", err))

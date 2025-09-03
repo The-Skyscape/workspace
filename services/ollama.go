@@ -45,8 +45,9 @@ type OllamaStatus struct {
 
 // OllamaMessage represents a chat message
 type OllamaMessage struct {
-	Role    string `json:"role"`    // "user", "assistant", "system", "tool"
-	Content string `json:"content"`
+	Role      string             `json:"role"`    // "user", "assistant", "system", "tool"
+	Content   string             `json:"content"`
+	ToolCalls []OllamaToolCall   `json:"tool_calls,omitempty"` // Tool calls in the message
 }
 
 // OllamaChatRequest represents a chat completion request
@@ -80,8 +81,8 @@ type OllamaToolCall struct {
 
 // OllamaFunctionCall contains the function call details
 type OllamaFunctionCall struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"` // JSON string of arguments
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"` // Can be string or object
 }
 
 // OllamaChatResponse represents a chat completion response
@@ -117,7 +118,7 @@ func NewOllamaService() *OllamaService {
 			Port:          11434,
 			ContainerName: "skyscape-ollama",
 			DataDir:       fmt.Sprintf("%s/ollama", database.DataDir()),
-			DefaultModel:  "gpt-oss:20b",         // GPT-OSS 20B model with native tool calling
+			DefaultModel:  "llama3.2:3b",         // Llama 3.2 3B - smaller and faster
 			GPUEnabled:    false,                 // CPU mode by default
 		},
 		client: &http.Client{
@@ -552,10 +553,7 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 		Messages: messages,
 		Stream:   stream,
 		Options: map[string]interface{}{
-			"temperature":      0.7,
-			"top_p":           0.9,
-			"reasoning_effort": "medium", // GPT-OSS specific: low/medium/high
-			"num_ctx":         128000,    // GPT-OSS supports 128K context
+			"num_ctx": 8192,    // Balanced for GPT-OSS performance
 		},
 	}
 
@@ -572,12 +570,45 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("chat request failed: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		errMsg := string(bodyBytes)
+		// Check for memory-related errors
+		if strings.Contains(errMsg, "insufficient memory") || strings.Contains(errMsg, "model requires more") {
+			return nil, fmt.Errorf("AI model requires more memory than available. Please upgrade to a larger server or use external AI services")
+		}
+		return nil, fmt.Errorf("chat request failed: status %d, body: %s", resp.StatusCode, errMsg)
 	}
 
+	// Read the entire response body first for debugging
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	
+	// Log raw response for debugging empty responses
+	log.Printf("OllamaService: Raw response body length: %d bytes", len(bodyBytes))
+	if len(bodyBytes) < 1000 {
+		// Log small responses entirely
+		log.Printf("OllamaService: Raw response: %s", string(bodyBytes))
+	} else {
+		// Log first 500 chars of large responses
+		log.Printf("OllamaService: Raw response (first 500 chars): %s...", string(bodyBytes[:500]))
+	}
+	
 	var response OllamaChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		log.Printf("OllamaService: Failed to unmarshal response: %v", err)
+		log.Printf("OllamaService: Response that failed to parse: %s", string(bodyBytes))
 		return nil, errors.Wrap(err, "failed to decode response")
+	}
+	
+	// Log parsed response details
+	log.Printf("OllamaService: Parsed response - Message content length: %d", len(response.Message.Content))
+	log.Printf("OllamaService: Response content: %q", response.Message.Content)
+	if len(response.ToolCalls) > 0 {
+		log.Printf("OllamaService: Response contains %d tool calls", len(response.ToolCalls))
+		for i, tc := range response.ToolCalls {
+			log.Printf("OllamaService: Tool call %d: %s", i, tc.Function.Name)
+		}
 	}
 
 	return &response, nil
@@ -585,12 +616,12 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 
 // ChatWithTools sends a chat request with tool definitions to Ollama
 func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage, tools []OllamaTool, stream bool) (*OllamaChatResponse, error) {
+	startTime := time.Now()
 	if modelName == "" {
 		modelName = o.config.DefaultModel
 	}
-	
-	// Determine reasoning effort based on complexity
-	reasoningEffort := o.determineReasoningEffort(messages, tools)
+
+	log.Printf("OllamaService: ChatWithTools called with %d messages, %d tools", len(messages), len(tools))
 
 	request := OllamaChatRequest{
 		Model:    modelName,
@@ -598,10 +629,7 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 		Stream:   stream,
 		Tools:    tools,  // Include tool definitions
 		Options: map[string]interface{}{
-			"temperature":      0.7,
-			"top_p":           0.9,
-			"reasoning_effort": reasoningEffort, // Dynamic based on complexity
-			"num_ctx":         128000,           // GPT-OSS supports 128K context
+			"num_ctx": 8192,    // Balanced for GPT-OSS performance
 		},
 	}
 
@@ -609,8 +637,14 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal request")
 	}
+	
+	log.Printf("OllamaService: Request body size: %d bytes", len(body))
+	log.Printf("OllamaService: Sending HTTP request to Ollama at %v", time.Now())
 
 	resp, err := o.httpRequest("POST", "/api/chat", bytes.NewReader(body))
+	httpDuration := time.Since(startTime)
+	log.Printf("OllamaService: HTTP request completed after %v", httpDuration)
+	
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send chat request")
 	}
@@ -618,12 +652,45 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("chat request failed: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		errMsg := string(bodyBytes)
+		// Check for memory-related errors
+		if strings.Contains(errMsg, "insufficient memory") || strings.Contains(errMsg, "model requires more") {
+			return nil, fmt.Errorf("AI model requires more memory than available. Please upgrade to a larger server or use external AI services")
+		}
+		return nil, fmt.Errorf("chat request failed: status %d, body: %s", resp.StatusCode, errMsg)
 	}
 
+	// Read the entire response body first for debugging
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response body")
+	}
+	
+	// Log raw response for debugging empty responses
+	log.Printf("OllamaService: Raw response body length: %d bytes", len(bodyBytes))
+	if len(bodyBytes) < 1000 {
+		// Log small responses entirely
+		log.Printf("OllamaService: Raw response: %s", string(bodyBytes))
+	} else {
+		// Log first 500 chars of large responses
+		log.Printf("OllamaService: Raw response (first 500 chars): %s...", string(bodyBytes[:500]))
+	}
+	
 	var response OllamaChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		log.Printf("OllamaService: Failed to unmarshal response: %v", err)
+		log.Printf("OllamaService: Response that failed to parse: %s", string(bodyBytes))
 		return nil, errors.Wrap(err, "failed to decode response")
+	}
+	
+	// Log parsed response details
+	log.Printf("OllamaService: Parsed response - Message content length: %d", len(response.Message.Content))
+	log.Printf("OllamaService: Response content: %q", response.Message.Content)
+	if len(response.ToolCalls) > 0 {
+		log.Printf("OllamaService: Response contains %d tool calls", len(response.ToolCalls))
+		for i, tc := range response.ToolCalls {
+			log.Printf("OllamaService: Tool call %d: %s", i, tc.Function.Name)
+		}
 	}
 
 	return &response, nil
@@ -640,10 +707,7 @@ func (o *OllamaService) StreamChat(modelName string, messages []OllamaMessage, c
 		Messages: messages,
 		Stream:   true,
 		Options: map[string]interface{}{
-			"temperature":      0.7,
-			"top_p":           0.9,
-			"reasoning_effort": "medium", // GPT-OSS specific: low/medium/high
-			"num_ctx":         128000,    // GPT-OSS supports 128K context
+			"num_ctx": 8192,    // Balanced for GPT-OSS performance
 		},
 	}
 
@@ -727,18 +791,11 @@ func (o *OllamaService) ensureDefaultModel() {
 	if !hasDefault {
 		log.Printf("OllamaService: Default model %s not found, pulling now...", o.config.DefaultModel)
 		if err := o.PullModel(o.config.DefaultModel); err != nil {
-			log.Printf("OllamaService: Failed to pull default model %s: %v", o.config.DefaultModel, err)
-			// Try a smaller GPT-OSS variant or compatible model as fallback
-			fallbackModel := "gpt-oss:latest" // Try the default/latest tag
-			log.Printf("OllamaService: Trying fallback model %s...", fallbackModel)
-			if err := o.PullModel(fallbackModel); err != nil {
-				// If GPT-OSS fails completely, fall back to a smaller coding model
-				lastResortModel := "qwen2.5-coder:1.5b"
-				log.Printf("OllamaService: Trying last resort model %s...", lastResortModel)
-				if err := o.PullModel(lastResortModel); err != nil {
-					log.Printf("OllamaService: Failed to pull any models: %v", err)
-				}
-			}
+			log.Printf("OllamaService: ERROR - Failed to pull model %s: %v", o.config.DefaultModel, err)
+			log.Printf("OllamaService: IMPORTANT - The AI model requires more memory than available.")
+			log.Printf("OllamaService: Consider upgrading to a server with more RAM or using external AI services.")
+			// Don't try fallback models - let the admin know there's a resource issue
+			return
 		}
 	} else {
 		log.Printf("OllamaService: Model %s is already available", o.config.DefaultModel)
@@ -746,64 +803,7 @@ func (o *OllamaService) ensureDefaultModel() {
 }
 
 // determineReasoningEffort analyzes the query complexity to set appropriate reasoning level
-func (o *OllamaService) determineReasoningEffort(messages []OllamaMessage, tools []OllamaTool) string {
-	if len(messages) == 0 {
-		return "low"
-	}
-	
-	// Get the last user message
-	var lastUserMessage string
-	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == "user" {
-			lastUserMessage = strings.ToLower(messages[i].Content)
-			break
-		}
-	}
-	
-	// High complexity indicators
-	highComplexityWords := []string{
-		"analyze", "refactor", "optimize", "design", "architect",
-		"debug", "troubleshoot", "complex", "multiple", "compare",
-		"evaluate", "implement", "migrate", "integrate",
-	}
-	
-	// Low complexity indicators
-	lowComplexityWords := []string{
-		"what is", "show", "list", "get", "find", "display",
-		"tell me", "how many", "count", "simple",
-	}
-	
-	// Check for high complexity
-	highScore := 0
-	for _, word := range highComplexityWords {
-		if strings.Contains(lastUserMessage, word) {
-			highScore++
-		}
-	}
-	
-	// Check for low complexity
-	lowScore := 0
-	for _, word := range lowComplexityWords {
-		if strings.Contains(lastUserMessage, word) {
-			lowScore++
-		}
-	}
-	
-	// Decision logic
-	if highScore >= 2 || len(tools) > 10 {
-		log.Printf("OllamaService: Using HIGH reasoning effort (high=%d, low=%d, tools=%d)", 
-			highScore, lowScore, len(tools))
-		return "high"
-	} else if lowScore >= 2 && highScore == 0 {
-		log.Printf("OllamaService: Using LOW reasoning effort (high=%d, low=%d, tools=%d)", 
-			highScore, lowScore, len(tools))
-		return "low"
-	}
-	
-	log.Printf("OllamaService: Using MEDIUM reasoning effort (high=%d, low=%d, tools=%d)", 
-		highScore, lowScore, len(tools))
-	return "medium"
-}
+// Removed determineReasoningEffort - now using fixed "low" setting for efficiency
 
 // GetServiceInfo returns information about the Ollama service
 func (o *OllamaService) GetServiceInfo() map[string]interface{} {

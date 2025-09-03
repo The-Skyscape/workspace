@@ -48,6 +48,7 @@
               hx-target="#chat-messages .flex-col.gap-2"
               hx-swap="innerHTML"
               hx-indicator="#send-indicator"
+              _="on htmx:afterRequest reset() me then go to the bottom of #chat-messages"
               class="flex gap-2">
             <input type="text" 
                    name="message" 
@@ -69,32 +70,4 @@
     </div>
 </div>
 
-<script>
-// Auto-scroll to bottom on new messages (with flex-col-reverse, scroll to top shows latest)
-document.addEventListener('htmx:afterSwap', function(evt) {
-    // Check if evt.detail and evt.detail.target exist before accessing properties
-    if (evt.detail && evt.detail.target) {
-        if (evt.detail.target.id === 'chat-messages' || evt.detail.target.closest('#chat-messages')) {
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                // With flex-col-reverse, scrolling to 0 shows the latest messages
-                messagesContainer.scrollTop = 0;
-            }
-        }
-    }
-});
-
-// Clear input after sending
-document.addEventListener('htmx:afterRequest', function(evt) {
-    // Check if all required properties exist before accessing them
-    if (evt.detail && evt.detail.successful && evt.detail.elt && evt.detail.elt.matches) {
-        if (evt.detail.elt.matches('form[hx-post*="/send"]')) {
-            evt.detail.elt.reset();
-            const inputField = evt.detail.elt.querySelector('input[name="message"]');
-            if (inputField) {
-                inputField.focus();
-            }
-        }
-    }
-});
-</script>
+<!-- Use hyperscript for simple UI behaviors in HATEOAS style -->

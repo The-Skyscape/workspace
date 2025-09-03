@@ -253,11 +253,6 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 		log.Printf("ERROR: Failed to clone repository %s to Code Server: %v", repo.ID, err)
 	}
 
-	// Also clone to IPython/Jupyter workspace for data science work
-	// Don't fail repository creation if this doesn't work
-	if err := services.IPython.CloneRepository(repo, user); err != nil {
-		log.Printf("ERROR: Failed to clone repository %s to Jupyter workspace: %v", repo.ID, err)
-	}
 
 	// Activity is already logged in models.CreateRepository()
 
@@ -318,11 +313,6 @@ func (c *ReposController) IsMarkdown(filename string) bool {
 	return ext == ".md" || ext == ".markdown" || ext == ".mdown" || ext == ".mkd"
 }
 
-// IsNotebook checks if a filename is a Jupyter notebook file
-func (c *ReposController) IsNotebook(filename string) bool {
-	ext := strings.ToLower(filepath.Ext(filename))
-	return ext == ".ipynb"
-}
 
 // deleteRepository handles POST /repos/{id}/delete
 func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Request) {
@@ -348,10 +338,6 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Also remove from IPython/Jupyter workspace (best effort, don't fail on error)
-	if err := services.IPython.RemoveRepository(repo.ID); err != nil {
-		log.Printf("WARNING: Failed to remove repository %s from Jupyter workspace: %v", repo.ID, err)
-	}
 
 	// Log activity
 	models.LogActivity("repo_deleted", fmt.Sprintf("Deleted repository %s", repo.Name),

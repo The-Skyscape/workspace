@@ -13,7 +13,6 @@ import (
 
 	"workspace/internal/github"
 	"workspace/models"
-	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
@@ -60,14 +59,6 @@ func (c *IntegrationsController) Setup(app *application.App) {
 	
 	// Vault management
 	http.Handle("POST /integrations/vault/restart", app.ProtectFunc(c.restartVault, AdminOnly()))
-	
-	// Initialize services in background
-	go func() {
-		// IPython/Jupyter service
-		if err := services.IPython.Init(); err != nil {
-			log.Printf("Warning: Failed to initialize IPython service: %v", err)
-		}
-	}()
 }
 
 // Handle prepares controller for request
