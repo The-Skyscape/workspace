@@ -756,7 +756,7 @@ func (c *AIController) RenderMessageMarkdown(content string) template.HTML {
 }
 
 // categorizeTools returns relevant tools based on the user's message and conversation state
-func (c *AIController) categorizeTools(message string, isFirstMessage bool) []string {
+func (c *AIController) categorizeTools(message string, isFirstMessage bool, lastToolUsed string) []string {
 	messageLower := strings.ToLower(message)
 
 	// Quick responses that don't need tools
@@ -792,10 +792,38 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool) []st
 		return []string{"list_repos"}
 	}
 
-	// After first tool execution, provide next logical tools
-	// This creates a natural progression and prevents tool batching
-	log.Printf("AIController: Subsequent message - providing limited tool set")
-	return []string{"get_repo", "list_files", "read_file"}
+	// After tool execution, provide next logical tools based on what was just done
+	switch lastToolUsed {
+	case "list_repos":
+		// After listing repos, allow getting details
+		log.Printf("AIController: After list_repos - providing get_repo tool")
+		return []string{"get_repo"}
+		
+	case "get_repo":
+		// After getting repo details, allow exploring files
+		log.Printf("AIController: After get_repo - providing list_files and read_file")
+		return []string{"list_files", "read_file"}
+		
+	case "list_files":
+		// After listing files, allow reading them or listing more directories
+		log.Printf("AIController: After list_files - providing read_file and list_files")
+		return []string{"read_file", "list_files"}
+		
+	case "read_file":
+		// After reading a file, allow reading more or exploring directories
+		log.Printf("AIController: After read_file - providing read_file and list_files")
+		return []string{"read_file", "list_files"}
+		
+	case "todo_update":
+		// After updating todos, provide more general tools
+		log.Printf("AIController: After todo_update - providing general tools")
+		return []string{"list_repos", "todo_update"}
+		
+	default:
+		// If we don't know the last tool, provide a safe default set
+		log.Printf("AIController: Unknown last tool '%s' - providing default exploration tools", lastToolUsed)
+		return []string{"get_repo", "list_files", "read_file"}
+	}
 }
 
 // streamResponse handles SSE streaming of AI responses
@@ -914,7 +942,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	isFirstMessage := userMessageCount <= 1
 
 	// Categorize and filter tools based on the user's message and conversation state
-	relevantToolNames := c.categorizeTools(lastUserMessage, isFirstMessage)
+	relevantToolNames := c.categorizeTools(lastUserMessage, isFirstMessage, "")
 	log.Printf("AIController: Last user message: %s", lastUserMessage)
 	log.Printf("AIController: First message: %v, User messages: %d", isFirstMessage, userMessageCount)
 	log.Printf("AIController: Selected %d relevant tools based on query: %v", len(relevantToolNames), relevantToolNames)
@@ -955,23 +983,25 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("AIController: Streaming response with Llama 3.2")
 
+	// Get all tool definitions from registry (keep available for the loop)
+	allTools := c.toolRegistry.GenerateOllamaTools()
+	allToolsMap := make(map[string]map[string]interface{})
+	for _, toolDef := range allTools {
+		if funcDef, ok := toolDef["function"].(map[string]interface{}); ok {
+			toolName := funcDef["name"].(string)
+			allToolsMap[toolName] = toolDef
+		}
+	}
+
 	// Filter the tool registry to only include relevant tools
 	var toolDefinitions []services.OllamaTool
 	if len(relevantToolNames) > 0 {
-		// Get all tool definitions from registry
-		allTools := c.toolRegistry.GenerateOllamaTools()
 		var filteredTools []map[string]interface{}
 
 		// Filter to only include relevant tools
-		for _, toolDef := range allTools {
-			if funcDef, ok := toolDef["function"].(map[string]interface{}); ok {
-				toolName := funcDef["name"].(string)
-				for _, name := range relevantToolNames {
-					if toolName == name {
-						filteredTools = append(filteredTools, toolDef)
-						break
-					}
-				}
+		for _, name := range relevantToolNames {
+			if tool, exists := allToolsMap[name]; exists {
+				filteredTools = append(filteredTools, tool)
 			}
 		}
 
@@ -1179,6 +1209,24 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		
+		// Update available tools based on what was just used
+		if lastToolUsed != "" {
+			// Re-categorize tools based on the last tool used
+			relevantToolNames := c.categorizeTools("", false, lastToolUsed)
+			log.Printf("AIController: Updating tool availability after %s - providing: %v", lastToolUsed, relevantToolNames)
+			
+			// Rebuild tool definitions with updated set
+			var filteredTools []map[string]interface{}
+			for _, name := range relevantToolNames {
+				if tool, exists := allToolsMap[name]; exists {
+					filteredTools = append(filteredTools, tool)
+				}
+			}
+			
+			// Convert to Ollama format
+			toolDefinitions = c.convertToOllamaTools(filteredTools)
+		}
+		
 		if hasFailure {
 			// Prompt to retry or work around the failure
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
@@ -1190,17 +1238,17 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			var contextPrompt string
 			switch lastToolUsed {
 			case "list_repos":
-				contextPrompt = "You just listed repositories. Analyze what you found - which repos look interesting? Are there patterns in the names? Pick out specific repositories worth exploring and explain why. Suggest exploring a specific repo's structure next. DO NOT CALL ANOTHER TOOL YET - first explain what you found."
+				contextPrompt = "You just listed repositories. Analyze what you found - which repos look interesting? If the user asked about a specific repo like 'sky-castle', you should now use get_repo to explore it. Explain your findings and continue exploring."
 			case "get_repo":
-				contextPrompt = "You got repository details. FIRST explain what this tells you about the project - language, activity, purpose. THEN suggest what to explore next. Do not call another tool in this response."
+				contextPrompt = "You got repository details. Explain what this tells you about the project. Now use list_files to explore the structure. Continue the exploration autonomously."
 			case "list_files":
-				contextPrompt = "You explored the file structure. FIRST explain what kind of project this is - frameworks, patterns, organization. THEN suggest which files would be interesting to examine. Do not call another tool in this response."
+				contextPrompt = "You explored the file structure. Explain what kind of project this is based on the structure. Pick an important file to read next (like README.md or main.go) and use read_file to examine it."
 			case "read_file":
-				contextPrompt = "You read a file. FIRST explain what this code/content does and why it's significant. THEN suggest what to look at next. Do not call another tool in this response."
+				contextPrompt = "You read a file. Explain what this code/content does. Continue exploring other important files or directories to build a complete understanding."
 			case "run_command":
-				contextPrompt = "You executed a command. FIRST explain what it accomplished and what the output tells us. THEN suggest next steps. Do not call another tool in this response."
+				contextPrompt = "You executed a command. Explain what it accomplished. Continue with the next logical step in your exploration or task."
 			default:
-				contextPrompt = "Analyze the tool results above. FIRST explain what you discovered in detail. THEN suggest next steps. Do not call another tool in this response - just analyze and discuss."
+				contextPrompt = "Analyze the tool results above. Explain what you discovered and continue with the next tool to explore further. Remember you're exploring autonomously - keep going until you have a good understanding."
 			}
 			
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
@@ -1265,7 +1313,18 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Content: "The user asked you to explore. Continue exploring by using more tools to discover interesting aspects of the repository. Don't stop after just listing - dive deeper into the structure and code.",
 			})
 			
-			// Request continuation
+			// Request continuation with updated tools for exploration
+			// Update tools for exploration continuation
+			if lastToolUsed != "" {
+				relevantToolNames := c.categorizeTools("", false, lastToolUsed)
+				var filteredTools []map[string]interface{}
+				for _, name := range relevantToolNames {
+					if tool, exists := allToolsMap[name]; exists {
+						filteredTools = append(filteredTools, tool)
+					}
+				}
+				toolDefinitions = c.convertToOllamaTools(filteredTools)
+			}
 			response, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 			if err == nil && (len(response.Message.ToolCalls) > 0 || response.Message.Content != "") {
 				initialResponse = response
