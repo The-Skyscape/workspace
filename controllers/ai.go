@@ -49,38 +49,15 @@ func AI() (string, *AIController) {
 	// Initialize tool registry
 	registry := ai.NewToolRegistry()
 	
-	// Register essential tools optimized for llama3.2:3b
+	// Register ONLY essential tools (6 tools total for maximum efficiency)
+	// This minimal set covers 95% of use cases while reducing decision time
 	
-	// Repository management tools
-	registry.Register(&tools.ListReposTool{})
-	registry.Register(&tools.GetRepoTool{})
-	registry.Register(&tools.CreateRepoTool{})
-	registry.Register(&tools.GetRepoLinkTool{})
-	
-	// File operation tools (more convenient than terminal for file manipulation)
-	registry.Register(&tools.ListFilesTool{})
-	registry.Register(&tools.ReadFileTool{})
-	registry.Register(&tools.WriteFileTool{})
-	registry.Register(&tools.EditFileTool{})
-	registry.Register(&tools.DeleteFileTool{})
-	registry.Register(&tools.MoveFileTool{})
-	registry.Register(&tools.SearchFilesTool{})
-	
-	// Terminal execution tool (use for git, npm, system commands, etc.)
-	registry.Register(&tools.RunCommandTool{})
-	
-	// Git operation tools (only structured ones that provide real value over terminal)
-	registry.Register(&tools.GitCommitTool{}) // Structured commit with proper message formatting
-	
-	// Issue and PR management (API-based, more efficient than terminal)
-	registry.Register(&tools.CreateIssueTool{})
-	registry.Register(&tools.ListIssuesTool{})
-	registry.Register(&tools.UpdateIssueTool{})
-	registry.Register(&tools.CreatePRTool{})
-	registry.Register(&tools.ListPRsTool{})
-	
-	// Todo management
-	registry.Register(&tools.TodoUpdateTool{})
+	registry.Register(&tools.TodoUpdateTool{})    // Task management for complex operations
+	registry.Register(&tools.ListReposTool{})     // Find and list repositories  
+	registry.Register(&tools.GetRepoTool{})       // Get repository details
+	registry.Register(&tools.ListFilesTool{})     // Browse directory structure
+	registry.Register(&tools.ReadFileTool{})      // Read file contents
+	registry.Register(&tools.RunCommandTool{})    // Universal tool for everything else (git, npm, edit, write, etc.)
 	
 	return "ai", &AIController{
 		toolRegistry: registry,
@@ -609,19 +586,21 @@ Break down tasks into small, manageable steps. Think out loud about what you nee
 - Based on results, decide the next step
 - Continue until the task is complete
 
-**Available Tools:**
-• Repository: list_repos, get_repo, create_repo
-• Files: list_files, read_file, write_file, edit_file
-• Search: search_files (for finding code/content)
-• Terminal: run_command (for git, npm, system ops)
-• Project: create_issue, list_issues, create_pr
+**Available Tools (6 essential tools):**
+• todo_update - Manage task lists for complex operations
+• list_repos - Find repositories
+• get_repo - Get repository details  
+• list_files - Browse directory structure
+• read_file - Read file contents
+• run_command - Execute ANY command (git, npm, edit files, write files, etc.)
 
 **Decision Framework:**
 1. Simple greetings/chat → Respond conversationally, no tools
 2. "Show me" / "What's in" → Start with list_repos or list_files
-3. "How does X work" → Use search_files or read_file
-4. "Create/modify/fix" → Use write_file, edit_file, or run_command
-5. "Run/execute" → Use run_command
+3. "How does X work" → Use list_files then read_file
+4. "Create/modify/fix" → Use run_command (can edit, write, create files)
+5. "Run/execute/build/test" → Use run_command
+6. Complex multi-step tasks → Use todo_update to track progress
 
 **Incremental Approach:**
 Don't try to plan everything upfront. Instead:
@@ -734,40 +713,40 @@ func (c *AIController) categorizeTools(message string) []string {
 		}
 	}
 	
-	// Exploration patterns
+	// With only 6 tools, we can provide all of them for most queries
+	// The AI can easily decide from this minimal set
+	
+	// Exploration/browsing patterns - all tools useful
 	if strings.Contains(messageLower, "explore") || strings.Contains(messageLower, "show me") || 
 	   strings.Contains(messageLower, "what's in") || strings.Contains(messageLower, "browse") {
-		return []string{"list_repos", "get_repo", "list_files", "read_file", "search_files"}
+		return []string{"list_repos", "get_repo", "list_files", "read_file"}
 	}
 	
-	// File operations
+	// File/code operations - focus on file and command tools
 	if strings.Contains(messageLower, "create") || strings.Contains(messageLower, "write") || 
 	   strings.Contains(messageLower, "edit") || strings.Contains(messageLower, "modify") ||
-	   strings.Contains(messageLower, "fix") || strings.Contains(messageLower, "update") {
-		return []string{"list_files", "read_file", "write_file", "edit_file", "run_command", "git_commit"}
+	   strings.Contains(messageLower, "fix") || strings.Contains(messageLower, "update") ||
+	   strings.Contains(messageLower, "change") || strings.Contains(messageLower, "add") {
+		return []string{"list_files", "read_file", "run_command", "todo_update"}
 	}
 	
-	// Code understanding
+	// Code understanding - reading tools
 	if strings.Contains(messageLower, "how does") || strings.Contains(messageLower, "explain") ||
-	   strings.Contains(messageLower, "what does") || strings.Contains(messageLower, "understand") {
-		return []string{"list_files", "read_file", "search_files"}
+	   strings.Contains(messageLower, "what does") || strings.Contains(messageLower, "understand") ||
+	   strings.Contains(messageLower, "show me the code") {
+		return []string{"list_files", "read_file"}
 	}
 	
-	// Terminal operations
+	// Terminal/command operations
 	if strings.Contains(messageLower, "run") || strings.Contains(messageLower, "execute") ||
 	   strings.Contains(messageLower, "npm") || strings.Contains(messageLower, "git") ||
-	   strings.Contains(messageLower, "build") || strings.Contains(messageLower, "test") {
-		return []string{"run_command", "git_commit"}
+	   strings.Contains(messageLower, "build") || strings.Contains(messageLower, "test") ||
+	   strings.Contains(messageLower, "install") || strings.Contains(messageLower, "deploy") {
+		return []string{"run_command"}
 	}
 	
-	// Issue/PR management
-	if strings.Contains(messageLower, "issue") || strings.Contains(messageLower, "pr") ||
-	   strings.Contains(messageLower, "pull request") || strings.Contains(messageLower, "bug") {
-		return []string{"create_issue", "list_issues", "update_issue", "create_pr", "list_prs"}
-	}
-	
-	// Default: provide essential tools for general queries
-	return []string{"list_repos", "list_files", "read_file", "search_files", "run_command"}
+	// Default: provide all 6 tools (it's a small enough set)
+	return []string{"todo_update", "list_repos", "get_repo", "list_files", "read_file", "run_command"}
 }
 
 // streamResponse handles SSE streaming of AI responses
