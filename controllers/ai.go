@@ -86,8 +86,7 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.CreatePRTool{})
 	registry.Register(&tools.ListPRsTool{})
 	
-	// Todo management tools
-	registry.Register(&tools.TodoListTool{})
+	// Todo management (update only - list is in context)
 	registry.Register(&tools.TodoUpdateTool{})
 	
 	return "ai", &AIController{
@@ -397,6 +396,17 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
+	// Add todos to context if any exist
+	todos, err := models.GetActiveTodos(conversationID)
+	if err == nil && len(todos) > 0 {
+		todoContext := models.FormatTodosForPrompt(todos)
+		todoContext += "\n\nUse todo_update tool to manage these tasks as you work."
+		ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+			Role:    "system",
+			Content: todoContext,
+		})
+	}
+	
 	// Check if Ollama service is ready
 	if !services.Ollama.IsRunning() {
 		log.Printf("AIController: Ollama service not running")
@@ -624,15 +634,6 @@ When users ask about code or need development tasks performed, use the appropria
 
 Important: Engage naturally in conversation. Not every message requires tool usage. When greeting users or having discussions, respond warmly and helpfully.`
 	
-	// Include active todos if any exist
-	if conversationID != "" {
-		todos, err := models.GetActiveTodos(conversationID)
-		if err == nil && len(todos) > 0 {
-			prompt += "\n\n" + models.FormatTodosForPrompt(todos)
-			prompt += "\nUse todo_update tool to mark tasks as in_progress when you start them, and completed when done."
-		}
-	}
-	
 	// Check for project context file (SKYSCAPE.md) and append if exists
 	contextFile := c.loadProjectContext()
 	if contextFile != "" {
@@ -785,6 +786,17 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Content: msg.Content,
 			})
 		}
+	}
+	
+	// Add todos to context if any exist
+	todos, err := models.GetActiveTodos(conversationID)
+	if err == nil && len(todos) > 0 {
+		todoContext := models.FormatTodosForPrompt(todos)
+		todoContext += "\n\nUse todo_update tool to manage these tasks as you work."
+		ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+			Role:    "system",
+			Content: todoContext,
+		})
 	}
 	
 	// Check if Ollama service is ready
@@ -1093,8 +1105,8 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 			continue
 		}
 		
-		// Inject conversation ID for todo tools
-		if tc.Function.Name == "todo_list" || tc.Function.Name == "todo_update" {
+		// Inject conversation ID for todo_update tool
+		if tc.Function.Name == "todo_update" {
 			params["_conversation_id"] = conversationID
 		}
 		

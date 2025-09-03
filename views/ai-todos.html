@@ -2,8 +2,8 @@
 <div id="todo-panel" class="border-b border-base-300 bg-base-200/30">
     <div class="collapse collapse-arrow">
         <input type="checkbox" class="peer" {{if .HasTodos}}checked{{end}} />
-        <div class="collapse-title min-h-0 py-2 px-4">
-            <div class="flex items-center justify-between">
+        <div class="collapse-title flex items-center py-2 px-4" style="min-height: 2.5rem;">
+            <div class="flex items-center justify-between flex-1">
                 <div class="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
