@@ -14,7 +14,7 @@ func (t *ListReposTool) Name() string {
 }
 
 func (t *ListReposTool) Description() string {
-	return "List all repositories. Optional params: visibility (public/private/all)"
+	return "List all repositories. Optional params: visibility (public/private/all). Default is 'all' to see everything. When searching for a specific repo, always use 'all' visibility."
 }
 
 func (t *ListReposTool) ValidateParams(params map[string]interface{}) error {

@@ -641,7 +641,7 @@ You MUST provide a response that:
 
 **AVAILABLE TOOLS:**
 1. todo_update - Track multi-step tasks (actions: add, update, remove, clear)
-2. list_repos - Discover all repositories 
+2. list_repos - Discover all repositories (use visibility:"all" to see both public and private repos)
 3. get_repo - Get repository details (use repo_id like "sky-castle")
 4. list_files - Explore directory structure (use path="." for root, or "controllers" for subdir - NO leading slashes)
 5. read_file - Examine code (use path like "README.md" or "controllers/main.go" - relative paths only)
