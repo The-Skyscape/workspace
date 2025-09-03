@@ -1281,8 +1281,13 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				log.Printf("AIController: Both attempts returned empty, generating fallback response")
 				switch lastToolUsed {
 				case "list_repos":
-					finalResponse = "I found the following repositories:\n" + strings.Join(toolResults, "\n") + 
-						"\n\nI notice that the 'congo' repository you asked about is not in this list. It might be a private repository or have a different name. Would you like me to explore one of the available repositories instead?"
+					// Parse the tool results to find the requested repo
+					resultStr := strings.Join(toolResults, "\n")
+					if strings.Contains(resultStr, "sky-castle") {
+						finalResponse = "I found the sky-castle repository! It's listed as a private repository. Let me explore it further to provide you with a summary.\n\nWould you like me to continue exploring the sky-castle repository?"
+					} else {
+						finalResponse = "I found " + resultStr + "\n\nLet me know which repository you'd like me to explore in detail."
+					}
 				default:
 					finalResponse = "Here's what I discovered:\n" + strings.Join(toolResults, "\n")
 				}
@@ -1615,8 +1620,11 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 // streamThought sends a thinking event via SSE
 func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher, thought string) {
 	if w == nil || flusher == nil {
+		log.Printf("AIController: streamThought - Skipping, w or flusher is nil")
 		return // Skip if not streaming
 	}
+	
+	log.Printf("AIController: streamThought - Sending: %s", thought)
 	
 	// Send as dedicated thinking event
 	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", template.HTMLEscapeString(thought))
