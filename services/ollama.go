@@ -558,7 +558,7 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 		Messages: messages,
 		Stream:   stream,
 		Options: map[string]interface{}{
-			"num_ctx": 8192,    // Balanced for GPT-OSS performance
+			"num_ctx": 131072,  // Llama 3.2 supports 128K context window
 		},
 	}
 
@@ -635,7 +635,7 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 		Stream:   stream,
 		Tools:    tools,  // Include tool definitions
 		Options: map[string]interface{}{
-			"num_ctx": 8192,    // Balanced for GPT-OSS performance
+			"num_ctx": 131072,  // Llama 3.2 supports 128K context window
 		},
 	}
 
@@ -714,7 +714,7 @@ func (o *OllamaService) StreamChat(modelName string, messages []OllamaMessage, c
 		Messages: messages,
 		Stream:   true,
 		Options: map[string]interface{}{
-			"num_ctx": 8192,    // Balanced for GPT-OSS performance
+			"num_ctx": 131072,  // Llama 3.2 supports 128K context window
 		},
 	}
 
