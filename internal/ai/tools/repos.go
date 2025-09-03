@@ -38,10 +38,11 @@ func (t *ListReposTool) Schema() map[string]interface{} {
 			"visibility": map[string]interface{}{
 				"type":        "string",
 				"enum":        []string{"public", "private", "all"},
-				"description": "Filter by repository visibility",
+				"description": "Filter by repository visibility (default: all). Use 'all' to see everything.",
 				"default":     "all",
 			},
 		},
+		"required": []string{}, // No required parameters, visibility is optional
 	}
 }
 
@@ -105,7 +106,7 @@ func (t *GetRepoTool) Name() string {
 }
 
 func (t *GetRepoTool) Description() string {
-	return "Get detailed information about a specific repository. Required params: repo_id"
+	return "Get detailed information about a specific repository by its ID (e.g., 'congo', 'sky-castle')"
 }
 
 func (t *GetRepoTool) ValidateParams(params map[string]interface{}) error {
@@ -127,8 +128,7 @@ func (t *GetRepoTool) Schema() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"repo_id": map[string]interface{}{
 				"type":        "string",
-				"description": "The repository ID to get details for",
-				"required":    true,
+				"description": "The repository ID (as shown in list_repos, e.g., 'congo', 'sky-castle', 'test')",
 			},
 		},
 		"required": []string{"repo_id"},

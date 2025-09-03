@@ -103,7 +103,12 @@
         </div>
     </div>
     
-    <!-- Thinking messages now appear inline in the main message stream -->
+    <!-- Thinking container - accumulates AI's thoughts -->
+    <div id="thinking-container" class="mb-2">
+        <div id="thinking-messages" class="flex flex-col gap-1">
+            <!-- Thinking messages will accumulate here -->
+        </div>
+    </div>
     
     <!-- Plan container -->
     <div id="plan-container" style="display:none;">
@@ -165,7 +170,23 @@
 
 <!-- JavaScript for handling new events and stop functionality -->
 <script>
-// Thinking messages now appear as regular messages in the main stream
+// Handle thinking events - accumulate in thinking container
+document.addEventListener('sse:thinking', function(e) {
+    const thinkingMessages = document.getElementById('thinking-messages');
+    if (thinkingMessages && e.detail.data) {
+        // Create a thinking message element
+        const thoughtDiv = document.createElement('div');
+        thoughtDiv.className = 'text-xs italic text-base-content/50 pl-4 border-l-2 border-base-300';
+        thoughtDiv.textContent = e.detail.data;
+        thinkingMessages.appendChild(thoughtDiv);
+        
+        // Auto-scroll thinking container if needed
+        const container = document.getElementById('thinking-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+});
 
 // Handle plan events
 document.addEventListener('sse:plan', function(e) {
@@ -188,8 +209,14 @@ document.addEventListener('sse:message', function(e) {
     }
 });
 
-// Show stop button when execution starts
+// Show stop button and clear thinking when execution starts
 document.addEventListener('sse:start', function(e) {
+    // Clear previous thinking messages for new response
+    const thinkingMessages = document.getElementById('thinking-messages');
+    if (thinkingMessages) {
+        thinkingMessages.innerHTML = '';
+    }
+    
     // Show stop button
     const stopContainer = document.getElementById('stop-container');
     if (stopContainer) {

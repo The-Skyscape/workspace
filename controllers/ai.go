@@ -1612,21 +1612,14 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	return toolResults
 }
 
-// streamThought sends a thinking message via SSE that appears in the main message stream
+// streamThought sends a thinking event via SSE
 func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher, thought string) {
 	if w == nil || flusher == nil {
 		return // Skip if not streaming
 	}
 	
-	// Create thinking HTML as a centered, subtle message in the main stream
-	thinkingHTML := fmt.Sprintf(`<div class="flex justify-center my-2">
-		<div class="text-xs italic text-base-content/50 px-4 py-1">
-			%s
-		</div>
-	</div>`, template.HTMLEscapeString(thought))
-	
-	// Send as message event to appear in main stream
-	fmt.Fprintf(w, "event: message\ndata: %s\n\n", thinkingHTML)
+	// Send as dedicated thinking event
+	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", template.HTMLEscapeString(thought))
 	flusher.Flush()
 	
 	// Small pause for readability
