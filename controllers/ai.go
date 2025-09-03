@@ -48,26 +48,21 @@ func AI() (string, *AIController) {
 	// Initialize tool registry
 	registry := ai.NewToolRegistry()
 	
-	// Register essential tools only to reduce latency
-	// Each tool definition adds ~500 bytes to every request
+	// Register all available tools - context is now 4k which handles them well
 	
-	// Core repository tools (most commonly used)
+	// Repository management tools
 	registry.Register(&tools.ListReposTool{})
 	registry.Register(&tools.GetRepoTool{})
+	registry.Register(&tools.CreateRepoTool{})
+	registry.Register(&tools.GetRepoLinkTool{})
 	
-	// Essential file tools (read-only for safety and performance)
+	// File operation tools
 	registry.Register(&tools.ListFilesTool{})
 	registry.Register(&tools.ReadFileTool{})
+	registry.Register(&tools.WriteFileTool{})
+	registry.Register(&tools.EditFileTool{})
+	registry.Register(&tools.DeleteFileTool{})
 	registry.Register(&tools.SearchFilesTool{})
-	
-	// Write operations commented out to reduce prompt size
-	// Can be re-enabled when needed:
-	// registry.Register(&tools.CreateRepoTool{})
-	// registry.Register(&tools.GetRepoLinkTool{})
-	// registry.Register(&tools.WriteFileTool{})
-	// registry.Register(&tools.EditFileTool{})
-	// registry.Register(&tools.DeleteFileTool{})
-	// registry.Register(&tools.MoveFileTool{})
 	
 	return "ai", &AIController{
 		toolRegistry: registry,
@@ -932,7 +927,35 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Content: result,
 			})
 			
-			log.Printf("AIController: Added streaming tool result %d/%d", i+1, len(toolResults))
+			// Stream tool execution message via SSE
+			toolHTML := fmt.Sprintf(`<div class="collapse collapse-arrow bg-base-200/30 my-2">
+				<input type="checkbox" class="peer" />
+				<div class="collapse-title min-h-0 py-2 px-3 peer-checked:pb-0">
+					<div class="flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-info flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+						</svg>
+						<div class="flex-1">
+							<span class="text-xs text-base-content/60">Tool Execution %d/%d</span>
+							<span class="text-xs text-info ml-2">Click to view details</span>
+						</div>
+					</div>
+				</div>
+				<div class="collapse-content px-3 pt-2">
+					<div class="text-xs max-h-96 overflow-y-auto">
+						<pre class="whitespace-pre-wrap">%s</pre>
+					</div>
+				</div>
+			</div>`, i+1, len(toolResults), template.HTMLEscapeString(result))
+			
+			// SSE data must be on a single line - replace newlines
+			toolHTMLEscaped := strings.ReplaceAll(toolHTML, "\n", "")
+			toolHTMLEscaped = strings.ReplaceAll(toolHTMLEscaped, "\t", "")
+			fmt.Fprintf(w, "event: tool\ndata: %s\n\n", toolHTMLEscaped)
+			flusher.Flush()
+			
+			log.Printf("AIController: Streamed tool result %d/%d via SSE", i+1, len(toolResults))
 		}
 		
 		// Get follow-up response

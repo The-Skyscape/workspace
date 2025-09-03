@@ -85,21 +85,13 @@ func (t *ListReposTool) Execute(params map[string]interface{}, userID string) (s
 		return "No repositories found.", nil
 	}
 	
-	// Format the output
+	// Format the output - concise but complete list
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("Found %d repositories:\n\n", len(repos)))
 	
 	for i, repo := range repos {
-		result.WriteString(fmt.Sprintf("%d. **%s** (ID: %s)\n", i+1, repo.Name, repo.ID))
-		if repo.Description != "" {
-			result.WriteString(fmt.Sprintf("   Description: %s\n", repo.Description))
-		}
-		result.WriteString(fmt.Sprintf("   Visibility: %s\n", repo.Visibility))
-		if repo.PrimaryLanguage != "" {
-			result.WriteString(fmt.Sprintf("   Language: %s\n", repo.PrimaryLanguage))
-		}
-		result.WriteString(fmt.Sprintf("   Last Activity: %s\n", repo.UpdatedAt.Format("Jan 2, 2006")))
-		result.WriteString("\n")
+		// Concise format: just name, ID, and visibility
+		result.WriteString(fmt.Sprintf("%d. %s (%s, %s)\n", i+1, repo.Name, repo.ID, repo.Visibility))
 	}
 	
 	return result.String(), nil
@@ -163,40 +155,17 @@ func (t *GetRepoTool) Execute(params map[string]interface{}, userID string) (str
 		return "", fmt.Errorf("access denied: repository is private")
 	}
 	
-	// Format detailed information
+	// Format detailed information - keep concise
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("## Repository: %s\n\n", repo.Name))
-	result.WriteString(fmt.Sprintf("**ID:** %s\n", repo.ID))
-	result.WriteString(fmt.Sprintf("**Description:** %s\n", repo.Description))
-	result.WriteString(fmt.Sprintf("**Visibility:** %s\n", repo.Visibility))
-	result.WriteString(fmt.Sprintf("**Default Branch:** %s\n", repo.DefaultBranch))
-	
+	result.WriteString(fmt.Sprintf("Repository: %s (ID: %s)\n", repo.Name, repo.ID))
+	if repo.Description != "" {
+		result.WriteString(fmt.Sprintf("Description: %s\n", repo.Description))
+	}
+	result.WriteString(fmt.Sprintf("Visibility: %s\n", repo.Visibility))
 	if repo.PrimaryLanguage != "" {
-		result.WriteString(fmt.Sprintf("**Primary Language:** %s\n", repo.PrimaryLanguage))
+		result.WriteString(fmt.Sprintf("Language: %s\n", repo.PrimaryLanguage))
 	}
-	
-	// Format size
-	sizeStr := "0 bytes"
-	if repo.Size > 0 {
-		if repo.Size < 1024 {
-			sizeStr = fmt.Sprintf("%d bytes", repo.Size)
-		} else if repo.Size < 1024*1024 {
-			sizeStr = fmt.Sprintf("%.2f KB", float64(repo.Size)/1024)
-		} else {
-			sizeStr = fmt.Sprintf("%.2f MB", float64(repo.Size)/(1024*1024))
-		}
-	}
-	result.WriteString(fmt.Sprintf("**Size:** %s\n", sizeStr))
-	
-	result.WriteString(fmt.Sprintf("**Created:** %s\n", repo.CreatedAt.Format("Jan 2, 2006 3:04 PM")))
-	result.WriteString(fmt.Sprintf("**Last Updated:** %s\n", repo.UpdatedAt.Format("Jan 2, 2006 3:04 PM")))
-	
-	if repo.GitHubURL != "" {
-		result.WriteString(fmt.Sprintf("\n**GitHub Integration:**\n"))
-		result.WriteString(fmt.Sprintf("- URL: %s\n", repo.GitHubURL))
-		result.WriteString(fmt.Sprintf("- Sync Direction: %s\n", repo.SyncDirection))
-		result.WriteString(fmt.Sprintf("- Auto-sync: %v\n", repo.AutoSync))
-	}
+	result.WriteString(fmt.Sprintf("Updated: %s\n", repo.UpdatedAt.Format("Jan 2, 2006")))
 	
 	return result.String(), nil
 }

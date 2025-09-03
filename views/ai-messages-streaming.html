@@ -93,6 +93,9 @@
             </div>
         </div>
         
+        <!-- Tool execution messages will be inserted before the typing indicator -->
+        <div sse-swap="tool" hx-swap="beforebegin" hx-target="#typing-indicator"></div>
+        
         <!-- Chunks will append to this element -->
         <div sse-swap="chunk" hx-swap="beforeend" hx-target="#streaming-content"></div>
         
