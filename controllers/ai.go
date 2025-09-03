@@ -598,30 +598,39 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt optimized for llama3.2:3b
 func (c *AIController) buildSystemPrompt(conversationID string) string {
-	// Concise prompt optimized for llama3.2:3b's efficiency
+	// Prompt optimized for incremental thinking and faster responses
 	prompt := `You are an AI coding assistant in the Skyscape development platform.
 
+**Think Step-by-Step:**
+Break down tasks into small, manageable steps. Think out loud about what you need to do:
+- First, understand what the user is asking
+- Then, identify the immediate next action
+- Execute that action
+- Based on results, decide the next step
+- Continue until the task is complete
+
 **Available Tools:**
-• File operations: read, write, edit files and directories
-• Repository management: create, browse repositories  
-• Terminal: run_command for git, npm, system operations
-• Git: git_commit for structured commits
-• Issues/PRs: create and manage project issues
+• Repository: list_repos, get_repo, create_repo
+• Files: list_files, read_file, write_file, edit_file
+• Search: search_files (for finding code/content)
+• Terminal: run_command (for git, npm, system ops)
+• Project: create_issue, list_issues, create_pr
 
-**When to Use Tools:**
-- Code questions → read files to provide accurate answers
-- Exploration requests → list_files then read relevant files  
-- Development tasks → use appropriate tools for real changes
-- Simple greetings → respond naturally, no tools needed
+**Decision Framework:**
+1. Simple greetings/chat → Respond conversationally, no tools
+2. "Show me" / "What's in" → Start with list_repos or list_files
+3. "How does X work" → Use search_files or read_file
+4. "Create/modify/fix" → Use write_file, edit_file, or run_command
+5. "Run/execute" → Use run_command
 
-**Key Guidelines:**
-1. Be conversational - greet users warmly without tools
-2. For exploration: start broad (list_files), then go deep (read_file)
-3. Use terminal (run_command) for git, npm, system commands
-4. Chain multiple tools when needed - you have 5 iterations
-5. Work with real data, don't guess from file names
+**Incremental Approach:**
+Don't try to plan everything upfront. Instead:
+- Take one step at a time
+- Use tool results to inform next action
+- Provide updates as you work
+- Example: "explore repo" → list_repos (find ID) → list_files (see structure) → read_file (examine code)
 
-Keep responses helpful and direct.`
+Be concise and focus on the immediate next action.`
 	
 	// Check for project context file (SKYSCAPE.md) and append if exists
 	contextFile := c.loadProjectContext()
@@ -711,6 +720,54 @@ func (c *AIController) RenderMessageMarkdown(content string) template.HTML {
 	htmlStr = strings.ReplaceAll(htmlStr, "<em>", `<em class="italic">`)
 	
 	return template.HTML(htmlStr)
+}
+
+// categorizeTools returns relevant tools based on the user's message
+func (c *AIController) categorizeTools(message string) []string {
+	messageLower := strings.ToLower(message)
+	
+	// Quick responses that don't need tools
+	greetings := []string{"hello", "hi", "hey", "good morning", "good afternoon", "good evening", "how are you", "thanks", "thank you"}
+	for _, greeting := range greetings {
+		if strings.Contains(messageLower, greeting) && len(messageLower) < 30 {
+			return []string{} // No tools needed
+		}
+	}
+	
+	// Exploration patterns
+	if strings.Contains(messageLower, "explore") || strings.Contains(messageLower, "show me") || 
+	   strings.Contains(messageLower, "what's in") || strings.Contains(messageLower, "browse") {
+		return []string{"list_repos", "get_repo", "list_files", "read_file", "search_files"}
+	}
+	
+	// File operations
+	if strings.Contains(messageLower, "create") || strings.Contains(messageLower, "write") || 
+	   strings.Contains(messageLower, "edit") || strings.Contains(messageLower, "modify") ||
+	   strings.Contains(messageLower, "fix") || strings.Contains(messageLower, "update") {
+		return []string{"list_files", "read_file", "write_file", "edit_file", "run_command", "git_commit"}
+	}
+	
+	// Code understanding
+	if strings.Contains(messageLower, "how does") || strings.Contains(messageLower, "explain") ||
+	   strings.Contains(messageLower, "what does") || strings.Contains(messageLower, "understand") {
+		return []string{"list_files", "read_file", "search_files"}
+	}
+	
+	// Terminal operations
+	if strings.Contains(messageLower, "run") || strings.Contains(messageLower, "execute") ||
+	   strings.Contains(messageLower, "npm") || strings.Contains(messageLower, "git") ||
+	   strings.Contains(messageLower, "build") || strings.Contains(messageLower, "test") {
+		return []string{"run_command", "git_commit"}
+	}
+	
+	// Issue/PR management
+	if strings.Contains(messageLower, "issue") || strings.Contains(messageLower, "pr") ||
+	   strings.Contains(messageLower, "pull request") || strings.Contains(messageLower, "bug") {
+		return []string{"create_issue", "list_issues", "update_issue", "create_pr", "list_prs"}
+	}
+	
+	// Default: provide essential tools for general queries
+	return []string{"list_repos", "list_files", "read_file", "search_files", "run_command"}
 }
 
 // streamResponse handles SSE streaming of AI responses
@@ -815,8 +872,32 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Send initial status
-	fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Processing...\n\n")
+	// Get the last user message for tool categorization
+	var lastUserMessage string
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == models.MessageRoleUser {
+			lastUserMessage = messages[i].Content
+			break
+		}
+	}
+	
+	// Categorize and filter tools based on the user's message
+	relevantToolNames := c.categorizeTools(lastUserMessage)
+	log.Printf("AIController: Last user message: %s", lastUserMessage)
+	log.Printf("AIController: Selected %d relevant tools based on query: %v", len(relevantToolNames), relevantToolNames)
+	
+	// Send initial thinking status based on query type
+	initialStatus := "🤔 Understanding your request..."
+	if len(relevantToolNames) == 0 {
+		initialStatus = "💬 Preparing response..."
+	} else if strings.Contains(strings.ToLower(lastUserMessage), "explore") {
+		initialStatus = "🔍 Planning exploration strategy..."
+	} else if strings.Contains(strings.ToLower(lastUserMessage), "create") || strings.Contains(strings.ToLower(lastUserMessage), "write") {
+		initialStatus = "✏️ Planning implementation..."
+	} else {
+		initialStatus = "🤔 Analyzing request and selecting approach..."
+	}
+	fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", initialStatus)
 	flusher.Flush()
 	
 	// Track thinking time
@@ -828,8 +909,29 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	
 	log.Printf("AIController: Streaming response with Llama 3.2")
 	
-	// Always provide tools - Llama 3.2 is smart enough to know when to use them
-	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
+	// Filter the tool registry to only include relevant tools
+	var toolDefinitions []services.OllamaTool
+	if len(relevantToolNames) > 0 {
+		// Get all tool definitions from registry
+		allTools := c.toolRegistry.GenerateOllamaTools()
+		var filteredTools []map[string]interface{}
+		
+		// Filter to only include relevant tools
+		for _, toolDef := range allTools {
+			if funcDef, ok := toolDef["function"].(map[string]interface{}); ok {
+				toolName := funcDef["name"].(string)
+				for _, name := range relevantToolNames {
+					if toolName == name {
+						filteredTools = append(filteredTools, toolDef)
+						break
+					}
+				}
+			}
+		}
+		
+		// Convert filtered tools to Ollama format
+		toolDefinitions = c.convertToOllamaTools(filteredTools)
+	}
 	
 	// Log tool names for debugging
 	toolNames := []string{}
@@ -949,7 +1051,11 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 		
 		// Get follow-up response
-		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Analyzing results...\n\n")
+		thinkingMsg := "🤔 Analyzing results and planning next step..."
+		if iteration > 0 {
+			thinkingMsg = fmt.Sprintf("🤔 Iteration %d: Thinking about what to do next...", iteration+1)
+		}
+		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", thinkingMsg)
 		flusher.Flush()
 		
 		// Get new response with tool results context
