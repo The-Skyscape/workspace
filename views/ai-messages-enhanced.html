@@ -105,8 +105,8 @@
     
     <!-- Thinking container - accumulates AI's thoughts -->
     <div id="thinking-container" class="mb-2">
-        <div id="thinking-messages" class="flex flex-col gap-1">
-            <!-- Thinking messages will accumulate here -->
+        <div id="thinking-messages" class="flex flex-col gap-1" sse-swap="thinking" hx-swap="beforeend">
+            <!-- Thinking messages will accumulate here via SSE -->
         </div>
     </div>
     
@@ -170,23 +170,7 @@
 
 <!-- JavaScript for handling new events and stop functionality -->
 <script>
-// Handle thinking events - accumulate in thinking container
-document.addEventListener('sse:thinking', function(e) {
-    const thinkingMessages = document.getElementById('thinking-messages');
-    if (thinkingMessages && e.detail.data) {
-        // Create a thinking message element
-        const thoughtDiv = document.createElement('div');
-        thoughtDiv.className = 'text-xs italic text-base-content/50 pl-4 border-l-2 border-base-300';
-        thoughtDiv.textContent = e.detail.data;
-        thinkingMessages.appendChild(thoughtDiv);
-        
-        // Auto-scroll thinking container if needed
-        const container = document.getElementById('thinking-container');
-        if (container) {
-            container.scrollTop = container.scrollHeight;
-        }
-    }
-});
+// Thinking events are now handled by HTMX's sse-swap directive
 
 // Handle plan events
 document.addEventListener('sse:plan', function(e) {

@@ -1626,8 +1626,11 @@ func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher
 	
 	log.Printf("AIController: streamThought - Sending: %s", thought)
 	
+	// Format thinking as HTML for HTMX to insert
+	thinkingHTML := fmt.Sprintf(`<div class="text-xs italic text-base-content/50 pl-4 border-l-2 border-base-300">%s</div>`, template.HTMLEscapeString(thought))
+	
 	// Send as dedicated thinking event
-	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", template.HTMLEscapeString(thought))
+	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", thinkingHTML)
 	flusher.Flush()
 	
 	// Small pause for readability
