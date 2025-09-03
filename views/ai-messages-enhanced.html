@@ -103,20 +103,7 @@
         </div>
     </div>
     
-    <!-- Thinking container (collapsible) -->
-    <div id="thinking-container" style="display:none;">
-        <div class="collapse bg-base-200/20 my-1">
-            <input type="checkbox" class="peer" checked />
-            <div class="collapse-title min-h-0 py-1 px-3 text-xs text-base-content/50">
-                <span class="loading loading-spinner loading-xs"></span> AI Chain of Thought
-            </div>
-            <div class="collapse-content px-3 pt-1">
-                <div class="text-xs italic text-base-content/50 max-h-32 overflow-y-auto" id="thinking-content" style="scrollbar-width: thin;" sse-swap="thinking" hx-swap="beforeend">
-                    <!-- Thinking messages will accumulate here via SSE -->
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Thinking messages now appear inline in the main message stream -->
     
     <!-- Plan container -->
     <div id="plan-container" style="display:none;">
@@ -178,24 +165,7 @@
 
 <!-- JavaScript for handling new events and stop functionality -->
 <script>
-// Handle thinking events
-document.addEventListener('sse:thinking', function(e) {
-    const thinkingContainer = document.getElementById('thinking-container');
-    const thinkingContent = document.getElementById('thinking-content');
-    if (thinkingContainer) {
-        // Make container visible when thinking starts
-        thinkingContainer.style.display = 'block';
-        
-        // HTMX handles the appending via sse-swap, but we still need to handle visibility and scrolling
-        // Auto-scroll to latest thought if container is expanded
-        setTimeout(() => {
-            const collapseInput = thinkingContainer.querySelector('input[type="checkbox"]');
-            if (collapseInput && collapseInput.checked && thinkingContent) {
-                thinkingContent.scrollTop = thinkingContent.scrollHeight;
-            }
-        }, 50); // Small delay to let HTMX update the DOM
-    }
-});
+// Thinking messages now appear as regular messages in the main stream
 
 // Handle plan events
 document.addEventListener('sse:plan', function(e) {
@@ -218,14 +188,8 @@ document.addEventListener('sse:message', function(e) {
     }
 });
 
-// Show stop button and clear thinking when execution starts
+// Show stop button when execution starts
 document.addEventListener('sse:start', function(e) {
-    // Clear previous thoughts for new response
-    const thinkingContent = document.getElementById('thinking-content');
-    if (thinkingContent) {
-        thinkingContent.innerHTML = '';
-    }
-    
     // Show stop button
     const stopContainer = document.getElementById('stop-container');
     if (stopContainer) {

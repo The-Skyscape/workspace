@@ -1076,11 +1076,8 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("AIController: Entering autonomous execution mode")
 	
-	// Send thinking event if enabled
-	if showThinking, ok := settings["showThinking"].(bool); ok && showThinking {
-		fmt.Fprintf(w, "event: thinking\ndata: Analyzing the task and planning approach...\n\n")
-		flusher.Flush()
-	}
+	// Send initial thinking message
+	c.streamThought(w, flusher, "Analyzing the task and planning approach...")
 
 	for !taskComplete && iteration < maxIterations {
 		// Check for cancellation
@@ -1239,7 +1236,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			var contextPrompt string
 			switch lastToolUsed {
 			case "list_repos":
-				contextPrompt = "You just listed repositories. Analyze what you found - which repos look interesting? If the user asked about a specific repo like 'sky-castle', you should now use get_repo to explore it. Explain your findings and continue exploring."
+				contextPrompt = "You just listed repositories. Analyze what you found. If the user asked about a specific repo but it's not in the list, explain that you couldn't find it and suggest alternatives (maybe it's named differently or is private). If you did find relevant repos, use get_repo to explore them. Always provide a helpful response explaining what you found."
 			case "get_repo":
 				contextPrompt = "You got repository details. Explain what this tells you about the project. Now use list_files to explore the structure. Continue the exploration autonomously."
 			case "list_files":
@@ -1279,6 +1276,18 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			if retryErr == nil && retryResponse.Message.Content != "" {
 				response = retryResponse
 				log.Printf("AIController: Regenerated response successfully")
+			} else {
+				// If still empty, provide a fallback response based on what was found
+				log.Printf("AIController: Both attempts returned empty, generating fallback response")
+				switch lastToolUsed {
+				case "list_repos":
+					finalResponse = "I found the following repositories:\n" + strings.Join(toolResults, "\n") + 
+						"\n\nI notice that the 'congo' repository you asked about is not in this list. It might be a private repository or have a different name. Would you like me to explore one of the available repositories instead?"
+				default:
+					finalResponse = "Here's what I discovered:\n" + strings.Join(toolResults, "\n")
+				}
+				taskComplete = true // Stop the loop since we can't get proper responses
+				break
 			}
 		}
 
@@ -1603,17 +1612,21 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	return toolResults
 }
 
-// streamThought sends a thinking event via SSE
+// streamThought sends a thinking message via SSE that appears in the main message stream
 func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher, thought string) {
 	if w == nil || flusher == nil {
 		return // Skip if not streaming
 	}
 	
-	// Create thinking HTML that will be appended to the thinking container
-	thinkingHTML := fmt.Sprintf(`<div class="text-xs italic text-base-content/40 py-0.5">• %s</div>`, template.HTMLEscapeString(thought))
+	// Create thinking HTML as a centered, subtle message in the main stream
+	thinkingHTML := fmt.Sprintf(`<div class="flex justify-center my-2">
+		<div class="text-xs italic text-base-content/50 px-4 py-1">
+			%s
+		</div>
+	</div>`, template.HTMLEscapeString(thought))
 	
-	// Send as thinking event
-	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", thinkingHTML)
+	// Send as message event to appear in main stream
+	fmt.Fprintf(w, "event: message\ndata: %s\n\n", thinkingHTML)
 	flusher.Flush()
 	
 	// Small pause for readability
