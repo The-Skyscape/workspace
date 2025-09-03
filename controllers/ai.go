@@ -340,11 +340,11 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Check if client supports streaming (can check for HX-Request header)
 	useStreaming := r.Header.Get("HX-Request") == "true"
 	
-	if useStreaming {
-		// Return the user message and streaming setup
+	// Check if this is an HTMX request (should always be true for our UI)
+	if r.Header.Get("HX-Request") == "true" {
+		// Return the streaming template immediately
+		// The template will connect to /stream endpoint which does the actual work
 		messages, _ := conversation.GetMessages()
-		
-		// Render a template that sets up SSE
 		c.Render(w, r, "ai-messages-streaming.html", map[string]interface{}{
 			"Messages":       messages,
 			"ConversationID": conversationID,
@@ -352,7 +352,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Build message history for Ollama
+	// Non-streaming fallback (shouldn't normally happen)
 	messages, _ := conversation.GetMessages()
 	
 	// Use proper system prompt for llama3.2 with tool support
@@ -905,7 +905,10 @@ streamResponse:
 			<span id="streaming-content"></span>
 		</div>
 	</div>`
-	fmt.Fprintf(w, "event: start\ndata: %s\n\n", startHTML)
+	// SSE data must be on a single line - replace newlines
+	startHTMLEscaped := strings.ReplaceAll(startHTML, "\n", "")
+	startHTMLEscaped = strings.ReplaceAll(startHTMLEscaped, "\t", "")
+	fmt.Fprintf(w, "event: start\ndata: %s\n\n", startHTMLEscaped)
 	flusher.Flush()
 	
 	// Stream plain text chunks for immediate feedback
@@ -939,7 +942,10 @@ streamResponse:
 			%s
 		</div>
 	</div>`, htmlContent)
-	fmt.Fprintf(w, "event: complete\ndata: %s\n\n", completeHTML)
+	// SSE data must be on a single line - replace newlines
+	completeHTMLEscaped := strings.ReplaceAll(completeHTML, "\n", "")
+	completeHTMLEscaped = strings.ReplaceAll(completeHTMLEscaped, "\t", "")
+	fmt.Fprintf(w, "event: complete\ndata: %s\n\n", completeHTMLEscaped)
 	flusher.Flush()
 	
 	// Signal completion
