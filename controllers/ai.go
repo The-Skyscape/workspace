@@ -337,9 +337,6 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		models.Conversations.Update(conversation)
 	}
 	
-	// Check if client supports streaming (can check for HX-Request header)
-	useStreaming := r.Header.Get("HX-Request") == "true"
-	
 	// Check if this is an HTMX request (should always be true for our UI)
 	if r.Header.Get("HX-Request") == "true" {
 		// Return the streaming template immediately
@@ -551,16 +548,15 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt for the AI
 func (c *AIController) buildSystemPrompt() string {
-	// Optimized prompt for llama3.2:3b with native tool support
-	prompt := `You are an AI assistant for Skyscape, a development platform with Git repositories and code management.
+	// Clear prompt for llama3.2:3b
+	prompt := `You are a helpful AI assistant for Skyscape development platform.
 
-You have access to tools for:
-- Listing and accessing repositories
-- Reading and searching files
-- Exploring project structure
+When users greet you or have general questions, respond naturally and friendly.
 
-When users ask questions about their code or projects, use the available tools to get real information.
-After receiving tool results, provide helpful responses based on the actual data.`
+You have tools available to help with code and repositories, but only use them when specifically needed:
+- Use tools ONLY when users ask about their repositories, files, or code
+- For greetings and general chat, just respond normally without tools
+- Be concise and helpful`
 	
 	return prompt
 	
@@ -789,12 +785,29 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "event: status\ndata: Generating response...\n\n")
 	flusher.Flush()
 	
-	// Get tool definitions in Ollama format
-	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
-	
-	// First get the complete response without streaming to handle tool calls
+	// Check if message might need tools
 	model := "llama3.2:3b"
-	initialResponse, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+	var initialResponse *services.OllamaChatResponse
+	var err error
+	
+	// Get the latest user message
+	lastUserMsg := ollamaMessages[len(ollamaMessages)-1].Content
+	needsTools := strings.Contains(strings.ToLower(lastUserMsg), "repo") || 
+		strings.Contains(strings.ToLower(lastUserMsg), "file") ||
+		strings.Contains(strings.ToLower(lastUserMsg), "code") ||
+		strings.Contains(strings.ToLower(lastUserMsg), "search") ||
+		strings.Contains(strings.ToLower(lastUserMsg), "list")
+	
+	if needsTools {
+		// Get tool definitions and call with tools
+		log.Printf("AIController: Message needs tools, calling ChatWithTools")
+		toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
+		initialResponse, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+	} else {
+		// Simple chat without tools
+		log.Printf("AIController: Simple message, calling Chat without tools")
+		initialResponse, err = services.Ollama.Chat(model, ollamaMessages, false)
+	}
 	if err != nil {
 		fmt.Fprintf(w, "event: error\ndata: Failed to get AI response: %s\n\n", err.Error())
 		flusher.Flush()
@@ -872,6 +885,8 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Interpreting results...\n\n")
 		flusher.Flush()
 		
+		// Need to use the toolDefinitions from earlier
+		toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
 		response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
 		if err != nil {
 			finalResponse = finalResponse + "\n\n" + strings.Join(toolResults, "\n")
@@ -886,6 +901,9 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	
 streamResponse:
+	// Track timing for metrics
+	streamStart := time.Now()
+	
 	// Clear status
 	fmt.Fprintf(w, "event: status\ndata: \n\n")
 	flusher.Flush()
@@ -926,7 +944,10 @@ streamResponse:
 		time.Sleep(20 * time.Millisecond) // Smooth streaming effect
 	}
 	
-	// Send the complete formatted message
+	// Calculate metrics
+	duration := time.Since(streamStart).Seconds()
+	
+	// Send the complete formatted message with metrics
 	htmlContent := c.RenderMessageMarkdown(finalResponse)
 	completeHTML := fmt.Sprintf(`<div class="chat chat-start my-2">
 		<div class="chat-image avatar">
@@ -940,8 +961,9 @@ streamResponse:
 		</div>
 		<div class="chat-bubble max-w-[85%%] sm:max-w-[70%%] break-words text-sm">
 			%s
+			<div class="text-xs text-base-content/60 mt-2">📊 Response: %.1fs</div>
 		</div>
-	</div>`, htmlContent)
+	</div>`, htmlContent, duration)
 	// SSE data must be on a single line - replace newlines
 	completeHTMLEscaped := strings.ReplaceAll(completeHTML, "\n", "")
 	completeHTMLEscaped = strings.ReplaceAll(completeHTMLEscaped, "\t", "")
