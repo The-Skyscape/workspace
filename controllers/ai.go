@@ -1171,11 +1171,12 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get follow-up response
-		thinkingMsg := "🤔 Analyzing results and planning next step..."
 		if iteration > 0 {
-			thinkingMsg = fmt.Sprintf("🤔 Iteration %d: Thinking about what to do next...", iteration+1)
+			c.streamThought(w, flusher, fmt.Sprintf("Iteration %d: Analyzing what to do next...", iteration+1))
+		} else {
+			c.streamThought(w, flusher, "Analyzing results and planning next step...")
 		}
-		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", thinkingMsg)
+		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Processing...\n\n", )
 		flusher.Flush()
 		
 		// Track the last tool used for context
@@ -1341,6 +1342,13 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 streamResponse:
+	// Add final thinking before response
+	if iteration > 0 {
+		c.streamThought(w, flusher, fmt.Sprintf("Completed exploration after %d iterations. Preparing response...", iteration))
+	} else {
+		c.streamThought(w, flusher, "Preparing my response...")
+	}
+	
 	// Clear status and prepare for response streaming
 	fmt.Fprintf(w, "event: status\ndata: \n\n")
 	flusher.Flush()
@@ -1500,13 +1508,13 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 				c.streamThought(w, flusher, fmt.Sprintf("I'll use %s to help with this...", tc.Function.Name))
 			}
 			
-			thoughtMsg := fmt.Sprintf("🤔 Planning: %s", tc.Function.Name)
+			// Also send planning thought
 			if len(toolCalls) > 1 {
-				thoughtMsg = fmt.Sprintf("🤔 Planning tool %d/%d: %s", i+1, len(toolCalls), tc.Function.Name)
+				c.streamThought(w, flusher, fmt.Sprintf("Planning tool %d of %d: %s", i+1, len(toolCalls), tc.Function.Name))
+			} else {
+				c.streamThought(w, flusher, fmt.Sprintf("Planning to use: %s", tc.Function.Name))
 			}
-			fmt.Fprintf(w, "event: status\ndata: %s\n\n", thoughtMsg)
-			flusher.Flush()
-			time.Sleep(200 * time.Millisecond) // Brief pause for visibility
+			time.Sleep(100 * time.Millisecond) // Brief pause for readability
 		}
 
 		log.Printf("AIController: [Tool %d/%d] Executing '%s'", i+1, len(toolCalls), tc.Function.Name)
@@ -1582,13 +1590,10 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 
 		// Stream completion status (only if streaming enabled)
 		if streaming {
-			completeMsg := fmt.Sprintf("✅ Completed: %s", tc.Function.Name)
-			if len(toolCalls) > 1 {
-				completeMsg = fmt.Sprintf("✅ Completed tool %d/%d: %s", i+1, len(toolCalls), tc.Function.Name)
-			}
-			fmt.Fprintf(w, "event: status\ndata: %s\n\n", completeMsg)
+			c.streamThought(w, flusher, fmt.Sprintf("Completed %s successfully", tc.Function.Name))
+			fmt.Fprintf(w, "event: status\ndata: Ready\n\n")
 			flusher.Flush()
-			time.Sleep(300 * time.Millisecond) // Brief pause between tools for visibility
+			time.Sleep(200 * time.Millisecond) // Brief pause between tools for visibility
 		}
 	}
 
