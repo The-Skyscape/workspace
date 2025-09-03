@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -9,10 +10,12 @@ import (
 // Conversation represents an AI chat conversation
 type Conversation struct {
 	application.Model
-	UserID      string // Owner of the conversation
-	Title       string // Conversation title (auto-generated from first message)
-	LastMessage string // Preview of the last message
-	LastRole    string // Role of last message (user/assistant)
+	UserID         string // Owner of the conversation
+	Title          string // Conversation title (auto-generated from first message)
+	LastMessage    string // Preview of the last message
+	LastRole       string // Role of last message (user/assistant)
+	WorkingContext string // JSON context for tracking state between messages
+	Settings       string // JSON settings for conversation behavior
 }
 
 // Table returns the database table name
@@ -66,4 +69,61 @@ func (c *Conversation) GenerateTitle() error {
 	}
 
 	return nil
+}
+
+// GetWorkingContext returns the parsed working context
+func (c *Conversation) GetWorkingContext() map[string]interface{} {
+	if c.WorkingContext == "" {
+		return make(map[string]interface{})
+	}
+	
+	var context map[string]interface{}
+	if err := json.Unmarshal([]byte(c.WorkingContext), &context); err != nil {
+		return make(map[string]interface{})
+	}
+	return context
+}
+
+// UpdateWorkingContext updates a key in the working context
+func (c *Conversation) UpdateWorkingContext(key string, value interface{}) error {
+	context := c.GetWorkingContext()
+	context[key] = value
+	
+	contextJSON, err := json.Marshal(context)
+	if err != nil {
+		return err
+	}
+	
+	c.WorkingContext = string(contextJSON)
+	c.UpdatedAt = time.Now()
+	return Conversations.Update(c)
+}
+
+// ClearWorkingContext clears the working context
+func (c *Conversation) ClearWorkingContext() error {
+	c.WorkingContext = "{}"
+	c.UpdatedAt = time.Now()
+	return Conversations.Update(c)
+}
+
+// GetSettings returns the parsed settings
+func (c *Conversation) GetSettings() map[string]interface{} {
+	if c.Settings == "" {
+		// Default settings
+		return map[string]interface{}{
+			"showThinking": false,
+			"maxIterations": 10,
+			"autoMode": true,
+		}
+	}
+	
+	var settings map[string]interface{}
+	if err := json.Unmarshal([]byte(c.Settings), &settings); err != nil {
+		return map[string]interface{}{
+			"showThinking": false,
+			"maxIterations": 10,
+			"autoMode": true,
+		}
+	}
+	return settings
 }

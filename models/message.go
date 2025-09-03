@@ -8,9 +8,11 @@ import (
 type Message struct {
 	application.Model
 	ConversationID string // Conversation this message belongs to
-	Role           string // user, assistant, tool, error, system
+	Role           string // user, assistant, tool, error, system, thinking, status, plan
 	Content        string // Message content
 	Metadata       string // JSON metadata for tool executions
+	ToolName       string // Name of tool that generated this output
+	TokenCount     int    // Estimated token count for context management
 }
 
 // Table returns the database table name
@@ -23,6 +25,9 @@ const (
 	MessageRoleTool      = "tool"
 	MessageRoleError     = "error"
 	MessageRoleSystem    = "system"
+	MessageRoleThinking  = "thinking"  // AI's internal reasoning
+	MessageRoleStatus    = "status"    // Progress updates
+	MessageRolePlan      = "plan"      // Structured plans
 )
 
 // IsFromUser checks if the message is from the user

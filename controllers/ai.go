@@ -84,6 +84,9 @@ func (c *AIController) Setup(app *application.App) {
 	http.Handle("GET /ai/chat/{id}/todos/panel", app.ProtectFunc(c.getTodoPanel, auth.AdminOnly))
 	http.Handle("GET /ai/chat/{id}/todos", app.ProtectFunc(c.getTodos, auth.AdminOnly))
 	http.Handle("GET /ai/chat/{id}/todos/stream", app.ProtectFunc(c.streamTodos, auth.AdminOnly))
+	
+	// Control routes - Admin only
+	http.Handle("POST /ai/chat/{id}/stop", app.ProtectFunc(c.stopExecution, auth.AdminOnly))
 
 	// Initialize Ollama service in background
 	go func() {
@@ -438,23 +441,32 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Check if model decided to use tools
 	if len(response.Message.ToolCalls) == 0 {
-		log.Printf("AIController: Model chose not to use tools for this query")
-		// Save and return the response immediately
-		assistantMsg := &models.Message{
-			ConversationID: conversationID,
-			Role:           models.MessageRoleAssistant,
-			Content:        finalResponse,
+		// Check if the response contains a text-based tool call
+		if toolCall := c.parseTextToolCall(finalResponse); toolCall != nil {
+			log.Printf("AIController: Detected text-based tool call, converting to native format")
+			response.Message.ToolCalls = []services.OllamaToolCall{*toolCall}
+			// Clear the text content since it's a tool call
+			finalResponse = ""
+			response.Message.Content = ""
+		} else {
+			log.Printf("AIController: Model chose not to use tools for this query")
+			// Save and return the response immediately
+			assistantMsg := &models.Message{
+				ConversationID: conversationID,
+				Role:           models.MessageRoleAssistant,
+				Content:        finalResponse,
+			}
+			models.Messages.Insert(assistantMsg)
+			conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
+
+			metrics.TotalDuration = time.Since(metrics.StartTime)
+			log.Printf("AIController: Direct response completed - Total: %.2fs, Thinking: %.2fs",
+				metrics.TotalDuration.Seconds(), metrics.ThinkingDuration.Seconds())
+
+			messages, _ = conversation.GetMessages()
+			c.Render(w, r, "ai-messages.html", messages)
+			return
 		}
-		models.Messages.Insert(assistantMsg)
-		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
-
-		metrics.TotalDuration = time.Since(metrics.StartTime)
-		log.Printf("AIController: Direct response completed - Total: %.2fs, Thinking: %.2fs",
-			metrics.TotalDuration.Seconds(), metrics.ThinkingDuration.Seconds())
-
-		messages, _ = conversation.GetMessages()
-		c.Render(w, r, "ai-messages.html", messages)
-		return
 	}
 
 	maxIterations := 5 // Prevent infinite loops
@@ -575,41 +587,83 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 // buildSystemPrompt creates the system prompt optimized for llama3.2:3b
 func (c *AIController) buildSystemPrompt(conversationID string) string {
-	// Prompt optimized for incremental thinking and faster responses
-	prompt := `You are an AI coding assistant in the Skyscape development platform.
+	// Prompt optimized for native tool calling with Llama 3.2
+	prompt := `You are an AI coding assistant in the Skyscape development platform, similar to Claude Code but integrated into a web interface.
 
-**Think Step-by-Step:**
-Break down tasks into small, manageable steps. Think out loud about what you need to do:
-- First, understand what the user is asking
-- Then, identify the immediate next action
-- Execute that action
-- Based on results, decide the next step
-- Continue until the task is complete
+**YOUR PERSONALITY & APPROACH:**
+- Be proactive and intelligent in your exploration
+- Provide insights and observations, not just raw data
+- Think like a developer exploring a codebase
+- Make connections between what you discover
+- Suggest interesting areas to explore based on what you find
 
-**Available Tools (6 essential tools):**
-• todo_update - Manage task lists for complex operations
-• list_repos - Find repositories
-• get_repo - Get repository details  
-• list_files - Browse directory structure
-• read_file - Read file contents
-• run_command - Execute ANY command (git, npm, edit files, write files, etc.)
+**CHAIN OF THOUGHT PROCESS:**
+Share your thinking process as quick, natural thoughts:
+- When understanding: "Let me see what you're asking for..." or "This looks like an exploration task..."
+- Before using tools: "I should start by listing repositories..." or "Now I need to check the file structure..."
+- Analyzing results: "Interesting, I found X..." or "This appears to be a Y project..."
+- Planning next steps: "I should dive deeper into..." or "Let me examine the main files..."
 
-**Decision Framework:**
-1. Simple greetings/chat → Respond conversationally, no tools
-2. "Show me" / "What's in" → Start with list_repos or list_files
-3. "How does X work" → Use list_files then read_file
-4. "Create/modify/fix" → Use run_command (can edit, write, create files)
-5. "Run/execute/build/test" → Use run_command
-6. Complex multi-step tasks → Use todo_update to track progress
+IMPORTANT PATH RULES:
+- Always use relative paths: "." for root, "controllers/main.go" for files
+- Never use absolute paths like "/src/main" or "/root/..."
+- Repository files are relative to the repo root
 
-**Incremental Approach:**
-Don't try to plan everything upfront. Instead:
-- Take one step at a time
-- Use tool results to inform next action
-- Provide updates as you work
-- Example: "explore repo" → list_repos (find ID) → list_files (see structure) → read_file (examine code)
+**TOOL USAGE - CRITICAL RULE:**
+⚠️ **USE ONLY ONE TOOL AT A TIME** ⚠️
+NEVER call multiple tools in a single response. This is MANDATORY.
 
-Be concise and focus on the immediate next action.`
+The correct pattern is:
+1. Call ONE tool
+2. Wait for results
+3. Analyze what you found
+4. THEN decide on the next tool
+
+❌ WRONG: Calling list_repos, get_repo, and read_file together
+✅ RIGHT: Call list_repos → analyze → call get_repo → analyze → call read_file
+
+**AFTER EVERY SINGLE TOOL:**
+You MUST provide a response that:
+1. Explains what you discovered
+2. Highlights interesting findings
+3. Decides what to explore next
+4. Then calls the NEXT tool (if needed)
+
+**GOOD vs BAD RESPONSES after tool execution:**
+
+❌ BAD: "I've successfully executed the requested action. The results are shown above. What would you like to do next?"
+❌ BAD: "I found 38 repositories."
+❌ BAD: "The tool completed successfully."
+
+✅ GOOD: "I found the SkyCastle repository! It appears to be a private repository. Looking at the name, it might be a game or fantasy-themed project. Would you like me to explore its file structure to understand what it does?"
+✅ GOOD: "Interesting! I can see 38 repositories here, with a mix of public and private ones. I notice 'sky-castle' at the top - is this the main project? There are also several test repositories and what looks like interview projects. Let me explore SkyCastle's structure to understand the codebase better."
+✅ GOOD: "The repository structure shows this is a Go application with models, controllers, and views - looks like an MVC architecture. I can see auth and database packages. Should I examine the main.go file to understand the application's entry point?"
+
+**AVAILABLE TOOLS:**
+1. todo_update - Track multi-step tasks (actions: add, update, remove, clear)
+2. list_repos - Discover all repositories 
+3. get_repo - Get repository details (use repo_id like "sky-castle")
+4. list_files - Explore directory structure (use path="." for root, or "controllers" for subdir - NO leading slashes)
+5. read_file - Examine code (use path like "README.md" or "controllers/main.go" - relative paths only)
+6. run_command - Execute git, edit files, run tests
+
+**EXPLORATION PATTERNS - STEP BY STEP:**
+When exploring, take it ONE STEP at a time:
+
+Step 1: list_repos → "I found X repos, let me look at SkyCastle..."
+Step 2: get_repo(repo_id="sky-castle") → "It's a private Go project, let me see the structure..."
+Step 3: list_files(repo_id="sky-castle", path=".") → "I see MVC pattern with controllers and models..."
+Step 4: read_file(repo_id="sky-castle", path="README.md") → "This explains the project purpose..."
+
+REMEMBER: ONE tool, analyze results, THEN next tool.
+Never jump ahead - explore methodically and share insights at each step.
+
+**IMPORTANT BEHAVIORS:**
+- If a tool fails, explain the error and try an alternative approach
+- When listing many items, highlight the interesting ones
+- After reading code, explain what it does and why it's significant
+- Connect findings to build understanding of the whole system
+- Be conversational and engaging, not robotic`
 
 	// Check for project context file (SKYSCAPE.md) and append if exists
 	contextFile := c.loadProjectContext()
@@ -713,14 +767,35 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool) []st
 		}
 	}
 
-	// For first message: only provide todo_update tool
-	// This allows AI to quickly decide: create a task list or respond directly
+	// PROGRESSIVE TOOL AVAILABILITY - Start with minimal tools to prevent batching
 	if isFirstMessage {
-		return []string{"todo_update", "list_repos"}
+		// For exploration requests, start with ONLY list_repos
+		if strings.Contains(messageLower, "explore") || 
+		   strings.Contains(messageLower, "repo") ||
+		   strings.Contains(messageLower, "skycastle") ||
+		   strings.Contains(messageLower, "sky-castle") {
+			// Start with just list_repos - this forces step-by-step exploration
+			log.Printf("AIController: First exploration message - providing only list_repos tool")
+			return []string{"list_repos"}
+		}
+		// For other queries, also start minimal
+		if strings.Contains(messageLower, "show") ||
+		   strings.Contains(messageLower, "what") ||
+		   strings.Contains(messageLower, "list") {
+			return []string{"list_repos"}
+		}
+		// For task planning
+		if strings.Contains(messageLower, "help") || strings.Contains(messageLower, "create") {
+			return []string{"todo_update"}
+		}
+		// Default first message - just list repos
+		return []string{"list_repos"}
 	}
 
-	// Default: provide all 6 tools (it's a small enough set)
-	return []string{"todo_update", "list_repos", "get_repo", "list_files", "read_file", "run_command"}
+	// After first tool execution, provide next logical tools
+	// This creates a natural progression and prevents tool batching
+	log.Printf("AIController: Subsequent message - providing limited tool set")
+	return []string{"get_repo", "list_files", "read_file"}
 }
 
 // streamResponse handles SSE streaming of AI responses
@@ -766,26 +841,24 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build message history for Ollama
-	ollamaMessages := []services.OllamaMessage{
-		{
-			Role:    "system",
-			Content: c.buildSystemPrompt(conversationID),
-		},
-	}
-
-	for _, msg := range messages {
-		if msg.Role == models.MessageRoleUser || msg.Role == models.MessageRoleAssistant || msg.Role == models.MessageRoleTool {
-			role := msg.Role
-			if msg.Role == models.MessageRoleTool {
-				role = "tool" // Ollama expects "tool" role for tool results
+	// Get working context and settings
+	workingContext := conversation.GetWorkingContext()
+	settings := conversation.GetSettings()
+	
+	// Enhance user message with context if needed
+	if len(messages) > 0 {
+		lastMsg := messages[len(messages)-1]
+		if lastMsg.Role == models.MessageRoleUser {
+			enhancedContent := c.resolveContextualReferences(lastMsg.Content, workingContext)
+			if enhancedContent != lastMsg.Content {
+				// Don't save the enhanced content, just use it for context
+				messages[len(messages)-1].Content = enhancedContent
 			}
-			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
-				Role:    role,
-				Content: msg.Content,
-			})
 		}
 	}
+	
+	// Build optimized context window
+	ollamaMessages := c.buildContextWindow(conversation, 30)
 
 	// Add todos to context if any exist
 	todos, err := models.GetActiveTodos(conversationID)
@@ -859,6 +932,19 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", initialStatus)
 	flusher.Flush()
+	
+	// Send initial thinking thoughts
+	messageLower := strings.ToLower(lastUserMessage)
+	if strings.Contains(messageLower, "explore") {
+		c.streamThought(w, flusher, "I see you want to explore something. Let me gather information...")
+		if strings.Contains(messageLower, "skycastle") || strings.Contains(messageLower, "sky-castle") {
+			c.streamThought(w, flusher, "Looking for the SkyCastle repository specifically...")
+		}
+	} else if strings.Contains(messageLower, "what") || strings.Contains(messageLower, "show") {
+		c.streamThought(w, flusher, "Let me check what information I can find...")
+	} else if strings.Contains(messageLower, "create") || strings.Contains(messageLower, "write") {
+		c.streamThought(w, flusher, "I'll need to understand the requirements and plan the implementation...")
+	}
 
 	// Track thinking time
 	thinkingStart := time.Now()
@@ -931,21 +1017,51 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Process tool calls with agentic loop
+	// Autonomous execution loop
 	finalResponse := initialResponse.Message.Content
 	iteration := 0
-	maxIterations := 5
+	maxIterations := 10 // Allow more iterations for complex tasks
+	taskComplete := false
+	
+	// Check settings for max iterations
+	if maxIter, ok := settings["maxIterations"].(float64); ok {
+		maxIterations = int(maxIter)
+	}
 
 	// Check if there are tool calls to process
 	if len(initialResponse.Message.ToolCalls) == 0 {
-		log.Printf("AIController: No tool calls detected, proceeding with direct response")
-		// Skip directly to streaming the response
-		goto streamResponse
+		// Check if the response contains a text-based tool call
+		if toolCall := c.parseTextToolCall(finalResponse); toolCall != nil {
+			log.Printf("AIController: Detected text-based tool call in streaming, converting to native format")
+			initialResponse.Message.ToolCalls = []services.OllamaToolCall{*toolCall}
+			// Clear the text content since it's a tool call
+			finalResponse = ""
+			initialResponse.Message.Content = ""
+		} else {
+			log.Printf("AIController: No tool calls detected, proceeding with direct response")
+			// Skip directly to streaming the response
+			goto streamResponse
+		}
 	}
 
-	log.Printf("AIController: Tool calls detected, entering agentic loop")
+	log.Printf("AIController: Entering autonomous execution mode")
+	
+	// Send thinking event if enabled
+	if showThinking, ok := settings["showThinking"].(bool); ok && showThinking {
+		fmt.Fprintf(w, "event: thinking\ndata: Analyzing the task and planning approach...\n\n")
+		flusher.Flush()
+	}
 
-	for iteration < maxIterations {
+	for !taskComplete && iteration < maxIterations {
+		// Check for cancellation
+		select {
+		case <-r.Context().Done():
+			log.Printf("AIController: Execution cancelled by user")
+			fmt.Fprintf(w, "event: status\ndata: ❌ Execution cancelled\n\n")
+			flusher.Flush()
+			return
+		default:
+		}
 		var toolResults []string
 		toolStart := time.Now()
 
@@ -956,20 +1072,34 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			for _, tc := range initialResponse.Message.ToolCalls {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
+			
+			// ENFORCE SINGLE TOOL EXECUTION
+			if len(initialResponse.Message.ToolCalls) > 1 {
+				log.Printf("AIController: WARNING - Model attempted to call %d tools at once: %v. Taking only the first one.", len(toolNames), toolNames)
+				c.streamThought(w, flusher, fmt.Sprintf("I was about to use multiple tools, but I should focus on one at a time. Starting with %s...", toolNames[0]))
+				// Take only the first tool call
+				initialResponse.Message.ToolCalls = initialResponse.Message.ToolCalls[:1]
+				toolNames = toolNames[:1]
+			}
 
 			// Provide initial status indicating tools will be used
-			statusMsg := ""
-			if len(toolNames) == 1 {
-				statusMsg = "🤖 Preparing to use tool..."
-			} else {
-				statusMsg = fmt.Sprintf("🤖 Preparing to use %d tools...", len(toolNames))
-			}
+			statusMsg := "🤖 Preparing to use tool..."
 			fmt.Fprintf(w, "event: status\ndata: %s\n\n", statusMsg)
 			flusher.Flush()
 
 			// Process native tool calls with streaming
-			log.Printf("AIController: Processing %d tool calls (iteration %d): %v", len(initialResponse.Message.ToolCalls), iteration+1, toolNames)
+			log.Printf("AIController: Processing %d tool call (iteration %d): %v", len(initialResponse.Message.ToolCalls), iteration+1, toolNames)
 			toolResults = c.processNativeToolCalls(initialResponse.Message.ToolCalls, conversationID, user.ID, w, flusher)
+			
+			// Extract and update working context from tool calls
+			for i, tc := range initialResponse.Message.ToolCalls {
+				var params map[string]interface{}
+				json.Unmarshal(tc.Function.Arguments, &params)
+				if i < len(toolResults) {
+					contextUpdate := c.extractContextFromToolCall(tc.Function.Name, params, toolResults[i])
+					c.updateWorkingContext(conversationID, contextUpdate)
+				}
+			}
 		} else {
 			// No more tool calls, exit loop
 			break
@@ -1017,6 +1147,67 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", thinkingMsg)
 		flusher.Flush()
+		
+		// Track the last tool used for context
+		var lastToolUsed string
+		if len(initialResponse.Message.ToolCalls) > 0 {
+			lastToolUsed = initialResponse.Message.ToolCalls[len(initialResponse.Message.ToolCalls)-1].Function.Name
+		}
+		
+		// Add thinking about what we found
+		if len(toolResults) > 0 && lastToolUsed != "" {
+			switch lastToolUsed {
+			case "list_repos":
+				c.streamThought(w, flusher, "I can see the available repositories. Let me identify interesting ones...")
+			case "get_repo":
+				c.streamThought(w, flusher, "Now I have details about the repository. Let me analyze what this tells us...")
+			case "list_files":
+				c.streamThought(w, flusher, "The file structure reveals the project organization. Let me identify key files...")
+			case "read_file":
+				c.streamThought(w, flusher, "I've examined the code. Let me understand what it does...")
+			default:
+				c.streamThought(w, flusher, "Let me analyze what we discovered...")
+			}
+		}
+
+		// Check if any tools failed and prompt appropriately
+		hasFailure := false
+		for _, result := range toolResults {
+			if strings.Contains(result, "❌ Tool") || strings.Contains(result, "failed:") || strings.Contains(result, "error:") {
+				hasFailure = true
+				break
+			}
+		}
+		
+		if hasFailure {
+			// Prompt to retry or work around the failure
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "system",
+				Content: "One or more tools failed. Analyze the error and either: 1) Retry with corrected parameters, 2) Try an alternative tool/approach, or 3) Explain to the user why it failed and what they can do. Be proactive - don't just report the error.",
+			})
+		} else if len(toolResults) > 0 {
+			// Create tool-specific follow-up prompts
+			var contextPrompt string
+			switch lastToolUsed {
+			case "list_repos":
+				contextPrompt = "You just listed repositories. Analyze what you found - which repos look interesting? Are there patterns in the names? Pick out specific repositories worth exploring and explain why. Suggest exploring a specific repo's structure next. DO NOT CALL ANOTHER TOOL YET - first explain what you found."
+			case "get_repo":
+				contextPrompt = "You got repository details. FIRST explain what this tells you about the project - language, activity, purpose. THEN suggest what to explore next. Do not call another tool in this response."
+			case "list_files":
+				contextPrompt = "You explored the file structure. FIRST explain what kind of project this is - frameworks, patterns, organization. THEN suggest which files would be interesting to examine. Do not call another tool in this response."
+			case "read_file":
+				contextPrompt = "You read a file. FIRST explain what this code/content does and why it's significant. THEN suggest what to look at next. Do not call another tool in this response."
+			case "run_command":
+				contextPrompt = "You executed a command. FIRST explain what it accomplished and what the output tells us. THEN suggest next steps. Do not call another tool in this response."
+			default:
+				contextPrompt = "Analyze the tool results above. FIRST explain what you discovered in detail. THEN suggest next steps. Do not call another tool in this response - just analyze and discuss."
+			}
+			
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "system",
+				Content: contextPrompt + " Remember: Never give generic responses like 'I successfully executed the action'. Always provide insights and be conversational.",
+			})
+		}
 
 		// Get new response with tool results context
 		response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
@@ -1025,11 +1216,69 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		// Log the response for debugging
+		log.Printf("AIController: Follow-up response content length: %d", len(response.Message.Content))
+		if response.Message.Content == "" && len(toolResults) > 0 {
+			log.Printf("AIController: WARNING - Empty response after tool execution, requesting regeneration")
+			// Don't force a generic response - instead ask the model to try again with stronger prompting
+			retryMessages := append(ollamaMessages, services.OllamaMessage{
+				Role:    "system",
+				Content: "You must provide a response analyzing the tool results above. Look at what was discovered and provide insights. What's interesting about these results? What should we explore next? Be specific and helpful, not generic.",
+			})
+			
+			retryResponse, retryErr := services.Ollama.ChatWithTools(model, retryMessages, toolDefinitions, false)
+			if retryErr == nil && retryResponse.Message.Content != "" {
+				response = retryResponse
+				log.Printf("AIController: Regenerated response successfully")
+			}
+		}
+
 		finalResponse = response.Message.Content
 		initialResponse = response // Update for next iteration
+		
+		// Check if task is complete based on response content and tool calls
+		lowerResponse := strings.ToLower(finalResponse)
+		noMoreTools := len(response.Message.ToolCalls) == 0
+		
+		// Only mark complete if:
+		// 1. Model explicitly says task is complete, OR
+		// 2. No more tools AND we've done at least 2 iterations, OR
+		// 3. User's original request appears satisfied (for simple queries)
+		if strings.Contains(lowerResponse, "task complete") ||
+		   strings.Contains(lowerResponse, "all done") ||
+		   strings.Contains(lowerResponse, "finished successfully") ||
+		   strings.Contains(lowerResponse, "completed successfully") ||
+		   (noMoreTools && iteration >= 2) ||
+		   (noMoreTools && strings.Contains(lowerResponse, "would you like") && iteration > 0) {
+			taskComplete = true
+			log.Printf("AIController: Task marked as complete after %d iterations", iteration+1)
+		} else if noMoreTools && iteration == 0 && strings.Contains(strings.ToLower(lastUserMessage), "explore") {
+			// For exploration tasks, don't stop after just one iteration
+			// Encourage the model to continue exploring
+			log.Printf("AIController: Exploration task detected, encouraging continuation")
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "assistant",
+				Content: finalResponse,
+			})
+			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
+				Role:    "system", 
+				Content: "The user asked you to explore. Continue exploring by using more tools to discover interesting aspects of the repository. Don't stop after just listing - dive deeper into the structure and code.",
+			})
+			
+			// Request continuation
+			response, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+			if err == nil && (len(response.Message.ToolCalls) > 0 || response.Message.Content != "") {
+				initialResponse = response
+				if response.Message.Content != "" {
+					finalResponse = finalResponse + "\n\n" + response.Message.Content
+				}
+			} else {
+				taskComplete = true
+			}
+		}
+		
 		iteration++
-
-		log.Printf("AIController: Stream iteration %d complete", iteration)
+		log.Printf("AIController: Autonomous iteration %d complete", iteration)
 	}
 
 streamResponse:
@@ -1174,6 +1423,24 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 
 		// Stream thought/planning message (only if streaming enabled)
 		if streaming {
+			// Add contextual thinking based on tool type
+			switch tc.Function.Name {
+			case "list_repos":
+				c.streamThought(w, flusher, "I need to see what repositories are available...")
+			case "get_repo":
+				c.streamThought(w, flusher, "Let me get more details about this repository...")
+			case "list_files":
+				c.streamThought(w, flusher, "I should explore the file structure to understand the project layout...")
+			case "read_file":
+				c.streamThought(w, flusher, "Let me examine this file to understand the code...")
+			case "run_command":
+				c.streamThought(w, flusher, "I'll execute a command to perform this action...")
+			case "todo_update":
+				c.streamThought(w, flusher, "Let me update the task list...")
+			default:
+				c.streamThought(w, flusher, fmt.Sprintf("I'll use %s to help with this...", tc.Function.Name))
+			}
+			
 			thoughtMsg := fmt.Sprintf("🤔 Planning: %s", tc.Function.Name)
 			if len(toolCalls) > 1 {
 				thoughtMsg = fmt.Sprintf("🤔 Planning tool %d/%d: %s", i+1, len(toolCalls), tc.Function.Name)
@@ -1223,7 +1490,8 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 		toolDuration := time.Since(toolStart)
 
 		if err != nil {
-			errorResult := ai.FormatToolResult(tc.Function.Name, "", err)
+			// Format error result with clear indication of failure
+			errorResult := fmt.Sprintf("❌ Tool '%s' failed: %v\nThe tool encountered an error and could not complete. You may want to try again with different parameters or use an alternative approach.", tc.Function.Name, err)
 			toolResults = append(toolResults, errorResult)
 			log.Printf("AIController: [Tool %d/%d] '%s' FAILED in %.3fs: %v",
 				i+1, len(toolCalls), tc.Function.Name, toolDuration.Seconds(), err)
@@ -1269,6 +1537,23 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	log.Printf("AIController: All %d tools completed in %.3fs", len(toolCalls), totalDuration.Seconds())
 
 	return toolResults
+}
+
+// streamThought sends a thinking event via SSE
+func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher, thought string) {
+	if w == nil || flusher == nil {
+		return // Skip if not streaming
+	}
+	
+	// Create thinking HTML that will be appended to the thinking container
+	thinkingHTML := fmt.Sprintf(`<div class="text-xs italic text-base-content/40 py-0.5">• %s</div>`, template.HTMLEscapeString(thought))
+	
+	// Send as thinking event
+	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", thinkingHTML)
+	flusher.Flush()
+	
+	// Small pause for readability
+	time.Sleep(100 * time.Millisecond)
 }
 
 // streamToolResult streams a single tool result via SSE
@@ -1454,5 +1739,376 @@ func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		}
+	}
+}
+
+// stopExecution handles cancellation of AI execution
+func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
+	conversationID := r.PathValue("id")
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		http.Error(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+	
+	// Verify ownership
+	conversation, err := models.Conversations.Get(conversationID)
+	if err != nil || conversation.UserID != user.ID {
+		http.Error(w, "Conversation not found", http.StatusNotFound)
+		return
+	}
+	
+	// The actual cancellation is handled by context.Done() in streamResponse
+	// This endpoint just acknowledges the request
+	log.Printf("AIController: Stop execution requested for conversation %s", conversationID)
+	
+	// Send success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `{"status":"stopped"}`)
+}
+
+// compressToolOutput compresses verbose tool outputs to save context window space
+func (c *AIController) compressToolOutput(toolName string, output string) string {
+	lines := strings.Split(output, "\n")
+	
+	switch toolName {
+	case "list_repos":
+		// Extract just repo names and IDs
+		repoCount := strings.Count(output, "Repository:")
+		if repoCount > 0 {
+			// Parse and summarize
+			summary := fmt.Sprintf("Found %d repositories", repoCount)
+			// Extract first few repo names if possible
+			var repoNames []string
+			for _, line := range lines {
+				if strings.Contains(line, "Name:") {
+					parts := strings.Split(line, "Name:")
+					if len(parts) > 1 {
+						name := strings.TrimSpace(parts[1])
+						repoNames = append(repoNames, name)
+						if len(repoNames) >= 3 {
+							break
+						}
+					}
+				}
+			}
+			if len(repoNames) > 0 {
+				summary += ": " + strings.Join(repoNames, ", ")
+				if repoCount > len(repoNames) {
+					summary += fmt.Sprintf(" (and %d more)", repoCount-len(repoNames))
+				}
+			}
+			return summary
+		}
+		
+	case "list_files":
+		fileCount := len(lines)
+		dirCount := 0
+		for _, line := range lines {
+			if strings.HasSuffix(line, "/") {
+				dirCount++
+			}
+		}
+		summary := fmt.Sprintf("Found %d files in %d directories", fileCount-dirCount, dirCount)
+		
+		// Show first few important files
+		var importantFiles []string
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasSuffix(line, "README.md") || 
+			   strings.HasSuffix(line, "main.go") ||
+			   strings.HasSuffix(line, "Makefile") ||
+			   strings.HasSuffix(line, "package.json") {
+				importantFiles = append(importantFiles, line)
+			}
+		}
+		if len(importantFiles) > 0 {
+			summary += ". Key files: " + strings.Join(importantFiles, ", ")
+		}
+		return summary
+		
+	case "read_file":
+		if len(lines) > 50 {
+			// For long files, show summary
+			return fmt.Sprintf("Read %d lines. Shows file structure and implementation details.", len(lines))
+		}
+		
+	case "run_command":
+		if len(output) > 500 {
+			// Compress long command outputs
+			preview := output
+			if len(output) > 200 {
+				preview = output[:200] + "..."
+			}
+			return fmt.Sprintf("Command output (%d chars): %s", len(output), preview)
+		}
+	}
+	
+	// For short outputs or unrecognized tools, return as-is
+	if len(output) < 200 {
+		return output
+	}
+	
+	// Default compression for long outputs
+	return fmt.Sprintf("Output (%d lines, %d chars) - content available in full context", len(lines), len(output))
+}
+
+// updateWorkingContext updates the conversation's working context with new information
+func (c *AIController) updateWorkingContext(conversationID string, updates map[string]interface{}) {
+	conversation, err := models.Conversations.Get(conversationID)
+	if err != nil {
+		log.Printf("AIController: Failed to get conversation for context update: %v", err)
+		return
+	}
+	
+	for key, value := range updates {
+		if err := conversation.UpdateWorkingContext(key, value); err != nil {
+			log.Printf("AIController: Failed to update working context: %v", err)
+		}
+	}
+}
+
+// extractContextFromToolCall extracts contextual information from tool calls
+func (c *AIController) extractContextFromToolCall(toolName string, params map[string]interface{}, result string) map[string]interface{} {
+	context := make(map[string]interface{})
+	
+	switch toolName {
+	case "get_repo", "list_repos":
+		// Extract repo information
+		if repoID, ok := params["repo_id"]; ok {
+			context["current_repo_id"] = repoID
+		}
+		if strings.Contains(result, "Name:") {
+			lines := strings.Split(result, "\n")
+			for _, line := range lines {
+				if strings.Contains(line, "Name:") {
+					parts := strings.Split(line, "Name:")
+					if len(parts) > 1 {
+						context["current_repo_name"] = strings.TrimSpace(parts[1])
+					}
+					break
+				}
+			}
+		}
+		
+	case "read_file", "write_file", "edit_file":
+		// Track current file
+		if filePath, ok := params["file_path"]; ok {
+			context["current_file_path"] = filePath
+			// Extract directory
+			if pathStr, ok := filePath.(string); ok {
+				lastSlash := strings.LastIndex(pathStr, "/")
+				if lastSlash > 0 {
+					context["current_directory"] = pathStr[:lastSlash]
+				}
+			}
+		}
+		
+	case "list_files":
+		// Track current directory
+		if path, ok := params["path"]; ok {
+			context["current_directory"] = path
+		}
+	}
+	
+	return context
+}
+
+// resolveContextualReferences enhances user messages with context
+func (c *AIController) resolveContextualReferences(message string, workingContext map[string]interface{}) string {
+	lowerMessage := strings.ToLower(message)
+	contextHints := []string{}
+	
+	// Check for contextual references
+	if strings.Contains(lowerMessage, "that repo") || 
+	   strings.Contains(lowerMessage, "the repo") ||
+	   strings.Contains(lowerMessage, "this repo") {
+		if repoName, ok := workingContext["current_repo_name"]; ok {
+			contextHints = append(contextHints, fmt.Sprintf("Repository context: %v", repoName))
+		}
+		if repoID, ok := workingContext["current_repo_id"]; ok {
+			contextHints = append(contextHints, fmt.Sprintf("Repository ID: %v", repoID))
+		}
+	}
+	
+	if strings.Contains(lowerMessage, "that file") ||
+	   strings.Contains(lowerMessage, "the file") ||
+	   strings.Contains(lowerMessage, "this file") {
+		if filePath, ok := workingContext["current_file_path"]; ok {
+			contextHints = append(contextHints, fmt.Sprintf("Current file: %v", filePath))
+		}
+	}
+	
+	if strings.Contains(lowerMessage, "that directory") ||
+	   strings.Contains(lowerMessage, "this directory") ||
+	   strings.Contains(lowerMessage, "the directory") ||
+	   strings.Contains(lowerMessage, "current directory") {
+		if dir, ok := workingContext["current_directory"]; ok {
+			contextHints = append(contextHints, fmt.Sprintf("Current directory: %v", dir))
+		}
+	}
+	
+	// Add context hints to message if any were found
+	if len(contextHints) > 0 {
+		return message + "\n\n[Context: " + strings.Join(contextHints, ", ") + "]"
+	}
+	
+	return message
+}
+
+// buildContextWindow creates an optimized context window for the AI
+func (c *AIController) buildContextWindow(conversation *models.Conversation, maxMessages int) []services.OllamaMessage {
+	messages, _ := conversation.GetMessages()
+	context := []services.OllamaMessage{
+		{
+			Role:    "system",
+			Content: c.buildSystemPromptWithAutonomy(conversation.ID),
+		},
+	}
+	
+	// Add working context as system message if it exists
+	workingContext := conversation.GetWorkingContext()
+	if len(workingContext) > 0 {
+		contextJSON, _ := json.Marshal(workingContext)
+		context = append(context, services.OllamaMessage{
+			Role:    "system", 
+			Content: fmt.Sprintf("Working Context: %s", contextJSON),
+		})
+	}
+	
+	// Smart message selection - prioritize recent and important messages
+	startIdx := 0
+	if len(messages) > maxMessages {
+		startIdx = len(messages) - maxMessages
+	}
+	
+	for i := startIdx; i < len(messages); i++ {
+		msg := messages[i]
+		
+		// Skip old thinking messages
+		if msg.Role == models.MessageRoleThinking && i < len(messages)-5 {
+			continue
+		}
+		
+		// Skip old status messages
+		if msg.Role == models.MessageRoleStatus && i < len(messages)-10 {
+			continue
+		}
+		
+		// Compress tool outputs
+		content := msg.Content
+		if msg.Role == models.MessageRoleTool && msg.ToolName != "" {
+			content = c.compressToolOutput(msg.ToolName, content)
+		}
+		
+		role := msg.Role
+		// Map custom roles to standard Ollama roles
+		switch msg.Role {
+		case models.MessageRoleThinking, models.MessageRoleStatus, models.MessageRolePlan:
+			role = "assistant"
+		case models.MessageRoleTool:
+			role = "tool"
+		}
+		
+		context = append(context, services.OllamaMessage{
+			Role:    role,
+			Content: content,
+		})
+	}
+	
+	return context
+}
+
+// buildSystemPromptWithAutonomy creates an enhanced system prompt for autonomous execution
+func (c *AIController) buildSystemPromptWithAutonomy(conversationID string) string {
+	basePrompt := c.buildSystemPrompt(conversationID)
+	
+	autonomousInstructions := `
+
+**AUTONOMOUS EXECUTION MODE:**
+You can explore and work autonomously, taking initiative to discover interesting things.
+
+For exploration tasks - FOLLOW THIS PATTERN:
+1. Use ONE tool (e.g., list_repos)
+2. Analyze and explain what you found
+3. Decide what to explore next
+4. Use the NEXT tool (e.g., get_repo)
+5. Repeat this cycle
+
+NEVER use multiple tools at once. Always:
+- One tool → Analyze → Explain → Next tool
+- Share insights after EACH tool
+- Build understanding step by step
+
+After each action, decide:
+- **CONTINUE**: Keep exploring/working (default for exploration)
+- **COMPLETE**: Only when you've thoroughly explored or finished the task
+- **CLARIFY**: Only if you genuinely need user input
+
+Be curious and thorough. For "explore" requests, don't stop after just listing - actually explore the codebase by examining files, understanding architecture, and finding interesting patterns
+
+**CONTEXT AWARENESS:**
+- Previous discoveries are preserved in your working context
+- "that repo" or "the repo" refers to the last mentioned repository
+- "that file" or "the file" refers to the current file being discussed
+- "it" refers to the last mentioned entity
+- Use context to resolve ambiguous references without asking for clarification
+
+**EXECUTION STYLE:**
+- Be proactive and take initiative
+- Break complex tasks into steps and execute them sequentially
+- Provide updates as you progress through the task
+- Only stop when the task is complete or you genuinely need user input`
+
+	return basePrompt + autonomousInstructions
+}
+
+// parseTextToolCall attempts to parse a text-based tool call from Llama's response
+func (c *AIController) parseTextToolCall(content string) *services.OllamaToolCall {
+	// Check if content looks like a JSON tool call
+	trimmed := strings.TrimSpace(content)
+	if !strings.HasPrefix(trimmed, "{") || !strings.HasSuffix(trimmed, "}") {
+		return nil
+	}
+	
+	// Try to parse as a simple tool call format
+	var simpleCall struct {
+		Name       string                 `json:"name"`
+		Parameters map[string]interface{} `json:"parameters"`
+		Arguments  map[string]interface{} `json:"arguments"`
+	}
+	
+	if err := json.Unmarshal([]byte(trimmed), &simpleCall); err != nil {
+		return nil
+	}
+	
+	// Check if we have a valid tool name
+	if simpleCall.Name == "" {
+		return nil
+	}
+	
+	// Use parameters or arguments, whichever is provided
+	args := simpleCall.Parameters
+	if args == nil {
+		args = simpleCall.Arguments
+	}
+	if args == nil {
+		args = make(map[string]interface{})
+	}
+	
+	// Convert to JSON for the arguments field
+	argsJSON, err := json.Marshal(args)
+	if err != nil {
+		return nil
+	}
+	
+	// Create the tool call in Ollama format
+	return &services.OllamaToolCall{
+		Type: "function",
+		Function: services.OllamaFunctionCall{
+			Name:      simpleCall.Name,
+			Arguments: argsJSON,
+		},
 	}
 }

@@ -1,0 +1,259 @@
+<!-- Enhanced AI Messages with Autonomous Execution Support -->
+{{range .Messages}}
+{{if eq .Role "thinking"}}
+<!-- Thinking message (collapsible) -->
+<div class="collapse bg-base-200/20 my-1" {{if not $.ShowThinking}}style="display:none;"{{end}}>
+    <input type="checkbox" class="peer" />
+    <div class="collapse-title min-h-0 py-1 px-3 text-xs text-base-content/50">
+        <span class="loading loading-spinner loading-xs"></span> AI Thinking...
+    </div>
+    <div class="collapse-content px-3 pt-1">
+        <div class="text-xs italic text-base-content/50">{{.Content}}</div>
+    </div>
+</div>
+{{else if eq .Role "status"}}
+<!-- Status update message -->
+<div class="flex items-center gap-2 my-1 text-xs text-base-content/60">
+    <span class="loading loading-ring loading-xs"></span>
+    <span>{{.Content}}</span>
+</div>
+{{else if eq .Role "plan"}}
+<!-- Plan message with formatted list -->
+<div class="card bg-base-200/30 my-2">
+    <div class="card-body p-3">
+        <div class="flex items-center gap-2 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <span class="text-sm font-semibold">Execution Plan</span>
+        </div>
+        <div class="text-sm">{{ai.RenderMessageMarkdown .Content}}</div>
+    </div>
+</div>
+{{else if eq .Role "tool"}}
+<!-- Tool execution message with collapsible accordion -->
+<div class="collapse collapse-arrow bg-base-200/30 my-2">
+    <input type="checkbox" class="peer" />
+    <div class="collapse-title min-h-0 py-2 px-3 peer-checked:pb-0">
+        <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-info flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <div class="flex-1">
+                <span class="text-xs font-semibold">{{if .ToolName}}{{.ToolName}}{{else}}Tool Execution{{end}}</span>
+                <span class="text-xs text-info ml-2">Click for details</span>
+            </div>
+        </div>
+    </div>
+    <div class="collapse-content px-3 pt-2">
+        <div class="text-xs max-h-96 overflow-y-auto">
+            <pre class="whitespace-pre-wrap font-mono bg-base-300/50 p-2 rounded">{{.Content}}</pre>
+        </div>
+    </div>
+</div>
+{{else if eq .Role "error"}}
+<!-- Error message -->
+<div class="alert alert-error my-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <span class="text-sm">{{.Content}}</span>
+</div>
+{{else}}
+<!-- Regular chat message (user/assistant) -->
+<div class="chat {{if eq .Role "user"}}chat-end{{else}}chat-start{{end}} my-2">
+    <div class="chat-image avatar">
+        <div class="w-8 h-8 rounded-full flex-shrink-0">
+            {{if eq .Role "user"}}
+                <div class="bg-primary text-primary-content w-8 h-8 flex items-center justify-center rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+            {{else}}
+                <div class="bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                </div>
+            {{end}}
+        </div>
+    </div>
+    <div class="chat-bubble {{if eq .Role "user"}}chat-bubble-primary{{end}} max-w-[70%] break-words text-sm">
+        {{if eq .Role "assistant"}}
+            {{ai.RenderMessageMarkdown .Content}}
+        {{else}}
+            <div class="whitespace-pre-wrap">{{.Content}}</div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}
+
+<!-- Enhanced SSE Streaming Container with Autonomous Support -->
+<div hx-ext="sse" 
+     sse-connect="{{host}}/ai/chat/{{.ConversationID}}/stream"
+     sse-close="done">
+    
+    <!-- Status updates container -->
+    <div id="status-container" class="mb-2">
+        <div sse-swap="status" hx-swap="innerHTML" id="status-message" class="text-xs text-base-content/60 flex items-center gap-2">
+            <!-- Status messages will appear here -->
+        </div>
+    </div>
+    
+    <!-- Thinking container (collapsible) -->
+    <div id="thinking-container" style="display:none;">
+        <div class="collapse bg-base-200/20 my-1">
+            <input type="checkbox" class="peer" checked />
+            <div class="collapse-title min-h-0 py-1 px-3 text-xs text-base-content/50">
+                <span class="loading loading-spinner loading-xs"></span> AI Chain of Thought
+            </div>
+            <div class="collapse-content px-3 pt-1">
+                <div class="text-xs italic text-base-content/50 max-h-32 overflow-y-auto" id="thinking-content" style="scrollbar-width: thin;">
+                    <!-- Thinking messages will accumulate here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Plan container -->
+    <div id="plan-container" style="display:none;">
+        <div sse-swap="plan" hx-swap="innerHTML" id="plan-message">
+            <!-- Plan will appear here -->
+        </div>
+    </div>
+    
+    <!-- Streaming container with sse-swap targets -->
+    <div id="streaming-container">
+        <!-- Typing indicator - will be replaced by 'start' event -->
+        <div sse-swap="start" hx-swap="outerHTML" id="typing-indicator">
+            <div class="chat chat-start my-2">
+                <div class="chat-image avatar">
+                    <div class="w-8 h-8 rounded-full flex-shrink-0">
+                        <div class="bg-base-300 text-base-content w-8 h-8 flex items-center justify-center rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-bubble max-w-[85%] sm:max-w-[70%] break-words text-sm">
+                    <span class="loading loading-dots loading-sm"></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Regular message container -->
+        <div sse-swap="message" hx-swap="beforebegin" hx-target="#typing-indicator"></div>
+        
+        <!-- Tool execution messages will be inserted before the typing indicator -->
+        <div sse-swap="tool" hx-swap="beforebegin" hx-target="#typing-indicator"></div>
+        
+        <!-- Chunks will append to this element -->
+        <div sse-swap="chunk" hx-swap="beforeend" hx-target="#streaming-content"></div>
+        
+        <!-- Final message will replace the streaming message -->
+        <div sse-swap="complete" hx-swap="outerHTML" hx-target="#streaming-message"></div>
+    </div>
+    
+    <!-- Error handling - error event will replace this content -->
+    <div sse-swap="error" hx-swap="innerHTML" id="error-container">
+        <!-- Error message will appear here if needed -->
+    </div>
+    
+    <!-- Stop button (appears during execution) -->
+    <div id="stop-container" class="mt-3" style="display:none;">
+        <button id="stop-button" 
+                class="btn btn-sm btn-error"
+                onclick="stopExecution()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Stop AI Execution
+        </button>
+    </div>
+</div>
+
+<!-- JavaScript for handling new events and stop functionality -->
+<script>
+// Handle thinking events
+document.addEventListener('sse:thinking', function(e) {
+    const thinkingContainer = document.getElementById('thinking-container');
+    const thinkingContent = document.getElementById('thinking-content');
+    if (thinkingContainer && thinkingContent) {
+        thinkingContainer.style.display = 'block';
+        // Append thinking messages instead of replacing
+        thinkingContent.innerHTML += e.detail.data;
+        
+        // Auto-scroll to latest thought if container is expanded
+        const collapseInput = thinkingContainer.querySelector('input[type="checkbox"]');
+        if (collapseInput && collapseInput.checked) {
+            thinkingContent.scrollTop = thinkingContent.scrollHeight;
+        }
+    }
+});
+
+// Handle plan events
+document.addEventListener('sse:plan', function(e) {
+    const planContainer = document.getElementById('plan-container');
+    const planMessage = document.getElementById('plan-message');
+    if (planContainer && planMessage) {
+        planContainer.style.display = 'block';
+        planMessage.innerHTML = e.detail.data;
+    }
+});
+
+// Handle message events
+document.addEventListener('sse:message', function(e) {
+    // Insert regular message
+    const typingIndicator = document.getElementById('typing-indicator');
+    if (typingIndicator) {
+        const messageDiv = document.createElement('div');
+        messageDiv.innerHTML = e.detail.data;
+        typingIndicator.parentNode.insertBefore(messageDiv.firstChild, typingIndicator);
+    }
+});
+
+// Show stop button and clear thinking when execution starts
+document.addEventListener('sse:start', function(e) {
+    // Clear previous thoughts for new response
+    const thinkingContent = document.getElementById('thinking-content');
+    if (thinkingContent) {
+        thinkingContent.innerHTML = '';
+    }
+    
+    // Show stop button
+    const stopContainer = document.getElementById('stop-container');
+    if (stopContainer) {
+        stopContainer.style.display = 'block';
+    }
+});
+
+// Hide stop button when execution completes
+document.addEventListener('sse:done', function(e) {
+    const stopContainer = document.getElementById('stop-container');
+    if (stopContainer) {
+        stopContainer.style.display = 'none';
+    }
+});
+
+// Stop execution function
+function stopExecution() {
+    // Send cancellation request
+    const conversationID = '{{.ConversationID}}';
+    fetch(`/ai/chat/${conversationID}/stop`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    // Hide stop button
+    const stopContainer = document.getElementById('stop-container');
+    if (stopContainer) {
+        stopContainer.style.display = 'none';
+    }
+}
+</script>
