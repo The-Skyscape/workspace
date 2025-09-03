@@ -22,15 +22,16 @@ type InfiniteScrollData struct {
 
 // GitHubRepoData represents a GitHub repository from the API
 // Used by partials/github-repos-import.html
-// Using struct with lowercase field names for template compatibility
 type GitHubRepoData struct {
-	// Lowercase field names to match template usage
-	name            string
-	description     string
-	html_url        string
-	private         bool
-	language        string
-	stargazers_count int
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	HTMLURL         string `json:"html_url"`
+	Private         bool   `json:"private"`
+	Language        string `json:"language"`
+	StargazersCount int    `json:"stargazers_count"`
+	
+	// Template compatibility methods - allows lowercase access in templates
+	// This approach maintains proper Go conventions while supporting template usage
 }
 
 // MonitoringErrorData is used for monitoring error displays

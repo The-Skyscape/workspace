@@ -588,6 +588,9 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 	if modelName == "" {
 		modelName = o.config.DefaultModel
 	}
+	
+	// Determine reasoning effort based on complexity
+	reasoningEffort := o.determineReasoningEffort(messages, tools)
 
 	request := OllamaChatRequest{
 		Model:    modelName,
@@ -597,8 +600,8 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 		Options: map[string]interface{}{
 			"temperature":      0.7,
 			"top_p":           0.9,
-			"reasoning_effort": "medium", // GPT-OSS specific: low/medium/high
-			"num_ctx":         128000,    // GPT-OSS supports 128K context
+			"reasoning_effort": reasoningEffort, // Dynamic based on complexity
+			"num_ctx":         128000,           // GPT-OSS supports 128K context
 		},
 	}
 
@@ -740,6 +743,66 @@ func (o *OllamaService) ensureDefaultModel() {
 	} else {
 		log.Printf("OllamaService: Model %s is already available", o.config.DefaultModel)
 	}
+}
+
+// determineReasoningEffort analyzes the query complexity to set appropriate reasoning level
+func (o *OllamaService) determineReasoningEffort(messages []OllamaMessage, tools []OllamaTool) string {
+	if len(messages) == 0 {
+		return "low"
+	}
+	
+	// Get the last user message
+	var lastUserMessage string
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "user" {
+			lastUserMessage = strings.ToLower(messages[i].Content)
+			break
+		}
+	}
+	
+	// High complexity indicators
+	highComplexityWords := []string{
+		"analyze", "refactor", "optimize", "design", "architect",
+		"debug", "troubleshoot", "complex", "multiple", "compare",
+		"evaluate", "implement", "migrate", "integrate",
+	}
+	
+	// Low complexity indicators
+	lowComplexityWords := []string{
+		"what is", "show", "list", "get", "find", "display",
+		"tell me", "how many", "count", "simple",
+	}
+	
+	// Check for high complexity
+	highScore := 0
+	for _, word := range highComplexityWords {
+		if strings.Contains(lastUserMessage, word) {
+			highScore++
+		}
+	}
+	
+	// Check for low complexity
+	lowScore := 0
+	for _, word := range lowComplexityWords {
+		if strings.Contains(lastUserMessage, word) {
+			lowScore++
+		}
+	}
+	
+	// Decision logic
+	if highScore >= 2 || len(tools) > 10 {
+		log.Printf("OllamaService: Using HIGH reasoning effort (high=%d, low=%d, tools=%d)", 
+			highScore, lowScore, len(tools))
+		return "high"
+	} else if lowScore >= 2 && highScore == 0 {
+		log.Printf("OllamaService: Using LOW reasoning effort (high=%d, low=%d, tools=%d)", 
+			highScore, lowScore, len(tools))
+		return "low"
+	}
+	
+	log.Printf("OllamaService: Using MEDIUM reasoning effort (high=%d, low=%d, tools=%d)", 
+		highScore, lowScore, len(tools))
+	return "medium"
 }
 
 // GetServiceInfo returns information about the Ollama service
