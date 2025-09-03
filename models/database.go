@@ -38,5 +38,6 @@ var (
 	// AI Conversations
 	Conversations = database.Manage(DB, new(Conversation))
 	Messages      = database.Manage(DB, new(Message))
+	Todos         = database.Manage(DB, new(Todo))
 )
 

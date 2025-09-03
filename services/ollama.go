@@ -557,9 +557,7 @@ func (o *OllamaService) Chat(modelName string, messages []OllamaMessage, stream 
 		Model:    modelName,
 		Messages: messages,
 		Stream:   stream,
-		Options: map[string]interface{}{
-			"num_ctx": 4096,  // Using smaller context for better performance
-		},
+		// Let Ollama use its default context size (8192 for Llama 3.2)
 	}
 
 	body, err := json.Marshal(request)
@@ -634,9 +632,7 @@ func (o *OllamaService) ChatWithTools(modelName string, messages []OllamaMessage
 		Messages: messages,
 		Stream:   stream,
 		Tools:    tools,  // Include tool definitions
-		Options: map[string]interface{}{
-			"num_ctx": 4096,  // Using smaller context for better performance
-		},
+		// Let Ollama use its default context size (8192 for Llama 3.2)
 	}
 
 	body, err := json.Marshal(request)
@@ -713,9 +709,7 @@ func (o *OllamaService) StreamChat(modelName string, messages []OllamaMessage, c
 		Model:    modelName,
 		Messages: messages,
 		Stream:   true,
-		Options: map[string]interface{}{
-			"num_ctx": 4096,  // Using smaller context for better performance
-		},
+		// Let Ollama use its default context size (8192 for Llama 3.2)
 	}
 
 	body, err := json.Marshal(request)

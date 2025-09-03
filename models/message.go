@@ -1,19 +1,16 @@
 package models
 
 import (
-	"time"
-
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
 // Message represents a single message in a conversation
 type Message struct {
 	application.Model
-	ConversationID string    // Conversation this message belongs to
-	Role           string    // user, assistant, tool, error, system
-	Content        string    // Message content
-	Metadata       string    // JSON metadata for tool executions
-	CreatedAt      time.Time
+	ConversationID string // Conversation this message belongs to
+	Role           string // user, assistant, tool, error, system
+	Content        string // Message content
+	Metadata       string // JSON metadata for tool executions
 }
 
 // Table returns the database table name

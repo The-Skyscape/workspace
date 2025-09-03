@@ -1,25 +1,22 @@
 package models
 
 import (
-	"time"
-	
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
 // ActionArtifact represents a file artifact saved from an action execution
 type ActionArtifact struct {
 	application.Model
-	ActionID    string    // ID of the action that created this artifact
-	RunID       string    // ID of the specific run that created this artifact
-	SandboxName string    // Name of the sandbox that generated the artifact
-	FileName    string    // Original filename
-	FilePath    string    // Path within sandbox
-	GroupName   string    // Group name for similar artifacts (e.g., "build.log", "coverage.xml")
-	Version     int       // Version number for this artifact group
-	ContentType string    // MIME type of the file
-	Size        int64     // File size in bytes
-	Content     []byte    // BLOB field for file content
-	CreatedAt   time.Time // When the artifact was saved
+	ActionID    string // ID of the action that created this artifact
+	RunID       string // ID of the specific run that created this artifact
+	SandboxName string // Name of the sandbox that generated the artifact
+	FileName    string // Original filename
+	FilePath    string // Path within sandbox
+	GroupName   string // Group name for similar artifacts (e.g., "build.log", "coverage.xml")
+	Version     int    // Version number for this artifact group
+	ContentType string // MIME type of the file
+	Size        int64  // File size in bytes
+	Content     []byte // BLOB field for file content
 }
 
 // Table returns the database table name
@@ -33,7 +30,6 @@ func init() {
 		ActionArtifacts.Index("CreatedAt DESC")
 	}()
 }
-
 
 // GetByAction returns all artifacts for a specific action
 func GetArtifactsByAction(actionID string) ([]*ActionArtifact, error) {
@@ -56,7 +52,7 @@ func GetGroupedArtifactsByAction(actionID string) (map[string][]*ActionArtifact,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	grouped := make(map[string][]*ActionArtifact)
 	for _, artifact := range artifacts {
 		groupName := artifact.GroupName
@@ -86,7 +82,7 @@ func (a *ActionArtifact) Save() error {
 	if a.GroupName == "" {
 		a.GroupName = a.FileName
 	}
-	
+
 	// Auto-set version if not provided
 	if a.Version == 0 {
 		version, err := GetNextArtifactVersion(a.ActionID, a.GroupName)
@@ -95,7 +91,7 @@ func (a *ActionArtifact) Save() error {
 		}
 		a.Version = version
 	}
-	
+
 	artifact, err := ActionArtifacts.Insert(a)
 	if err != nil {
 		return err

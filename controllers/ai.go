@@ -79,6 +79,17 @@ func AI() (string, *AIController) {
 	registry.Register(&tools.GitBranchTool{})
 	registry.Register(&tools.GitLogTool{})
 	
+	// Issue tools
+	registry.Register(&tools.CreateIssueTool{})
+	registry.Register(&tools.ListIssuesTool{})
+	registry.Register(&tools.UpdateIssueTool{})
+	registry.Register(&tools.CreatePRTool{})
+	registry.Register(&tools.ListPRsTool{})
+	
+	// Todo management tools
+	registry.Register(&tools.TodoListTool{})
+	registry.Register(&tools.TodoUpdateTool{})
+	
 	return "ai", &AIController{
 		toolRegistry: registry,
 	}
@@ -99,6 +110,11 @@ func (c *AIController) Setup(app *application.App) {
 	http.Handle("GET /ai/chat/{id}/messages", app.ProtectFunc(c.getMessages, auth.AdminOnly))
 	http.Handle("POST /ai/chat/{id}/send", app.ProtectFunc(c.sendMessage, auth.AdminOnly))
 	http.Handle("GET /ai/chat/{id}/stream", app.ProtectFunc(c.streamResponse, auth.AdminOnly))
+	
+	// Todo routes - Admin only
+	http.Handle("GET /ai/chat/{id}/todos/panel", app.ProtectFunc(c.getTodoPanel, auth.AdminOnly))
+	http.Handle("GET /ai/chat/{id}/todos", app.ProtectFunc(c.getTodos, auth.AdminOnly))
+	http.Handle("GET /ai/chat/{id}/todos/stream", app.ProtectFunc(c.streamTodos, auth.AdminOnly))
 
 	// Initialize Ollama service in background
 	go func() {
@@ -207,8 +223,6 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 	conversation := &models.Conversation{
 		UserID:    user.ID,
 		Title:     "New Conversation",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 	}
 	
 	conversation, err = models.Conversations.Insert(conversation)
@@ -334,7 +348,6 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		ConversationID: conversationID,
 		Role:           models.MessageRoleUser,
 		Content:        content,
-		CreatedAt:      time.Now(),
 	}
 	userMsg, err = models.Messages.Insert(userMsg)
 	if err != nil {
@@ -366,7 +379,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	messages, _ := conversation.GetMessages()
 	
 	// Use proper system prompt for llama3.2 with tool support
-	systemPrompt := c.buildSystemPrompt()
+	systemPrompt := c.buildSystemPrompt(conversationID)
 	
 	ollamaMessages := []services.OllamaMessage{
 		{
@@ -393,8 +406,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			ConversationID: conversationID,
 			Role:           models.MessageRoleError,
 			Content:        "AI service is initializing. This may take a few minutes while the model is being loaded. Please try again shortly.",
-			CreatedAt:      time.Now(),
-		}
+			}
 		models.Messages.Insert(errorMsg)
 		
 		// Render messages with error
@@ -432,8 +444,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			ConversationID: conversationID,
 			Role:           models.MessageRoleError,
 			Content:        errorMessage,
-			CreatedAt:      time.Now(),
-		}
+			}
 		models.Messages.Insert(errorMsg)
 		
 		// Render messages with error
@@ -453,8 +464,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			ConversationID: conversationID,
 			Role:           models.MessageRoleAssistant,
 			Content:        finalResponse,
-			CreatedAt:      time.Now(),
-		}
+			}
 		models.Messages.Insert(assistantMsg)
 		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
 		
@@ -484,8 +494,8 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Printf("AIController: Executing %d tools (iteration %d): %v", len(response.Message.ToolCalls), iteration+1, toolNames)
 			
-			// Process native tool calls
-			toolResults = c.processNativeToolCalls(response.Message.ToolCalls, conversationID, user.ID)
+			// Process native tool calls (without streaming in sendMessage)
+			toolResults = c.processNativeToolCalls(response.Message.ToolCalls, conversationID, user.ID, nil, nil)
 			
 			toolDuration := time.Since(toolStart)
 			metrics.ToolDuration += toolDuration
@@ -516,8 +526,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 				ConversationID: conversationID,
 				Role:           models.MessageRoleTool,
 				Content:        result,
-				CreatedAt:      time.Now(),
-			}
+					}
 			models.Messages.Insert(toolMsg)
 			
 			// Add tool result to conversation context
@@ -554,7 +563,6 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		ConversationID: conversationID,
 		Role:           models.MessageRoleAssistant,
 		Content:        finalResponse,
-		CreatedAt:      time.Now(),
 	}
 	assistantMsg, err = models.Messages.Insert(assistantMsg)
 	if err != nil {
@@ -586,7 +594,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildSystemPrompt creates the system prompt optimized for Llama 3.2
-func (c *AIController) buildSystemPrompt() string {
+func (c *AIController) buildSystemPrompt(conversationID string) string {
 	// Optimized for Llama 3.2's strengths: tool use, following instructions, summarization
 	prompt := `You are an AI coding assistant powered by Llama 3.2, integrated into the Skyscape development platform.
 
@@ -597,11 +605,33 @@ You have access to powerful tools for:
 • Terminal command execution in sandboxed environments
 • Project management (issues, pull requests)
 
-You can chain multiple tools together to complete complex tasks like fixing bugs, creating features, and improving code quality.
+IMPORTANT EXPLORATION GUIDELINES:
+When asked to explore, understand, or investigate something:
+1. Start by listing/searching to understand the structure
+2. Continue reading relevant files to gather information
+3. Keep exploring until you have sufficient context
+4. Only provide your analysis after thorough investigation
+
+For example, if asked to "explore a directory":
+- First: list_files to see what's there
+- Then: read_file on key files (README, main files, configs)
+- Continue: read more files as needed to understand the project
+- Finally: provide a comprehensive summary based on actual content
+
+Remember: It's better to use multiple tools to gather complete information than to guess based on file names alone. You can chain many tools together - the system supports up to 5 iterations of tool use.
 
 When users ask about code or need development tasks performed, use the appropriate tools to work with real data. You can execute terminal commands, run tests, install dependencies, and make multi-file changes.
 
 Important: Engage naturally in conversation. Not every message requires tool usage. When greeting users or having discussions, respond warmly and helpfully.`
+	
+	// Include active todos if any exist
+	if conversationID != "" {
+		todos, err := models.GetActiveTodos(conversationID)
+		if err == nil && len(todos) > 0 {
+			prompt += "\n\n" + models.FormatTodosForPrompt(todos)
+			prompt += "\nUse todo_update tool to mark tasks as in_progress when you start them, and completed when done."
+		}
+	}
 	
 	// Check for project context file (SKYSCAPE.md) and append if exists
 	contextFile := c.loadProjectContext()
@@ -740,7 +770,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	ollamaMessages := []services.OllamaMessage{
 		{
 			Role:    "system",
-			Content: c.buildSystemPrompt(),
+			Content: c.buildSystemPrompt(conversationID),
 		},
 	}
 	
@@ -824,21 +854,19 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
 			
-			// Provide informative status with tool names
+			// Provide initial status indicating tools will be used
 			statusMsg := ""
 			if len(toolNames) == 1 {
-				statusMsg = fmt.Sprintf("🔧 Executing: %s", toolNames[0])
-			} else if len(toolNames) <= 3 {
-				statusMsg = fmt.Sprintf("🔧 Executing %d tools: %s", len(toolNames), strings.Join(toolNames, ", "))
+				statusMsg = "🤖 Preparing to use tool..."
 			} else {
-				statusMsg = fmt.Sprintf("🔧 Executing %d tools", len(toolNames))
+				statusMsg = fmt.Sprintf("🤖 Preparing to use %d tools...", len(toolNames))
 			}
-			fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", statusMsg)
+			fmt.Fprintf(w, "event: status\ndata: %s\n\n", statusMsg)
 			flusher.Flush()
 			
-			// Process native tool calls
+			// Process native tool calls with streaming
 			log.Printf("AIController: Processing %d tool calls (iteration %d): %v", len(initialResponse.Message.ToolCalls), iteration+1, toolNames)
-			toolResults = c.processNativeToolCalls(initialResponse.Message.ToolCalls, conversationID, user.ID)
+			toolResults = c.processNativeToolCalls(initialResponse.Message.ToolCalls, conversationID, user.ID, w, flusher)
 		} else {
 			// No more tool calls, exit loop
 			break
@@ -863,14 +891,13 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		
-		// Then add each tool result
-		for i, result := range toolResults {
+		// Save tool results to the database and add to conversation context
+		for _, result := range toolResults {
 			toolMsg := &models.Message{
 				ConversationID: conversationID,
 				Role:           models.MessageRoleTool,
 				Content:        result,
-				CreatedAt:      time.Now(),
-			}
+					}
 			models.Messages.Insert(toolMsg)
 			
 			// Add tool result to conversation context
@@ -878,43 +905,6 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Role:    "tool",
 				Content: result,
 			})
-			
-			// Get tool name from the original call
-			toolName := ""
-			if i < len(initialResponse.Message.ToolCalls) {
-				toolName = initialResponse.Message.ToolCalls[i].Function.Name
-			}
-			
-			// Stream tool execution message via SSE with better formatting
-			toolHTML := fmt.Sprintf(`<div class="collapse collapse-arrow bg-base-200/30 my-2">
-				<input type="checkbox" class="peer" />
-				<div class="collapse-title min-h-0 py-2 px-3 peer-checked:pb-0">
-					<div class="flex items-center gap-2">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-info flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-						</svg>
-						<div class="flex-1">
-							<span class="text-xs font-semibold">%s</span>
-							<span class="text-xs text-base-content/60 ml-2">Tool %d/%d</span>
-							<span class="text-xs text-info ml-2">Click for details</span>
-						</div>
-					</div>
-				</div>
-				<div class="collapse-content px-3 pt-2">
-					<div class="text-xs max-h-96 overflow-y-auto">
-						<pre class="whitespace-pre-wrap">%s</pre>
-					</div>
-				</div>
-			</div>`, toolName, i+1, len(toolResults), template.HTMLEscapeString(result))
-			
-			// SSE data must be on a single line - replace newlines
-			toolHTMLEscaped := strings.ReplaceAll(toolHTML, "\n", "")
-			toolHTMLEscaped = strings.ReplaceAll(toolHTMLEscaped, "\t", "")
-			fmt.Fprintf(w, "event: tool\ndata: %s\n\n", toolHTMLEscaped)
-			flusher.Flush()
-			
-			log.Printf("AIController: Streamed tool result %d/%d via SSE", i+1, len(toolResults))
 		}
 		
 		// Get follow-up response
@@ -1026,8 +1016,7 @@ streamResponse:
 			ConversationID: conversationID,
 			Role:           models.MessageRoleAssistant,
 			Content:        finalResponse,
-			CreatedAt:      time.Now(),
-		}
+			}
 		
 		models.Messages.Insert(assistantMsg)
 		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
@@ -1061,7 +1050,7 @@ func (c *AIController) convertToOllamaTools(toolDefs []map[string]interface{}) [
 }
 
 // processNativeToolCalls processes tool calls from Ollama's native response format
-func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCall, conversationID, userID string) []string {
+func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
 	if c.toolRegistry == nil {
 		log.Printf("AIController: ERROR - Tool registry is nil")
 		return nil
@@ -1069,11 +1058,24 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	
 	var toolResults []string
 	startTime := time.Now()
+	streaming := w != nil && flusher != nil  // Check if streaming is enabled
 	
 	log.Printf("AIController: Processing %d tool calls", len(toolCalls))
 	
 	for i, tc := range toolCalls {
 		toolStart := time.Now()
+		
+		// Stream thought/planning message (only if streaming enabled)
+		if streaming {
+			thoughtMsg := fmt.Sprintf("🤔 Planning: %s", tc.Function.Name)
+			if len(toolCalls) > 1 {
+				thoughtMsg = fmt.Sprintf("🤔 Planning tool %d/%d: %s", i+1, len(toolCalls), tc.Function.Name)
+			}
+			fmt.Fprintf(w, "event: status\ndata: %s\n\n", thoughtMsg)
+			flusher.Flush()
+			time.Sleep(200 * time.Millisecond) // Brief pause for visibility
+		}
+		
 		log.Printf("AIController: [Tool %d/%d] Executing '%s'", i+1, len(toolCalls), tc.Function.Name)
 		
 		// Parse arguments from json.RawMessage
@@ -1081,24 +1083,53 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
 			log.Printf("AIController: [Tool %d/%d] ERROR - Failed to parse arguments for '%s': %v", 
 				i+1, len(toolCalls), tc.Function.Name, err)
-			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, "", fmt.Errorf("invalid arguments: %v", err)))
+			errorResult := ai.FormatToolResult(tc.Function.Name, "", fmt.Errorf("invalid arguments: %v", err))
+			toolResults = append(toolResults, errorResult)
+			
+			// Stream error immediately (only if streaming enabled)
+			if streaming {
+				c.streamToolResult(w, flusher, tc.Function.Name, errorResult, i+1, len(toolCalls))
+			}
 			continue
+		}
+		
+		// Inject conversation ID for todo tools
+		if tc.Function.Name == "todo_list" || tc.Function.Name == "todo_update" {
+			params["_conversation_id"] = conversationID
 		}
 		
 		// Log parsed parameters for debugging
 		log.Printf("AIController: [Tool %d/%d] Parameters: %v", i+1, len(toolCalls), params)
+		
+		// Stream execution status (only if streaming enabled)
+		if streaming {
+			execMsg := fmt.Sprintf("🔧 Executing: %s", tc.Function.Name)
+			if len(toolCalls) > 1 {
+				execMsg = fmt.Sprintf("🔧 Executing tool %d/%d: %s", i+1, len(toolCalls), tc.Function.Name)
+			}
+			fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", execMsg)
+			flusher.Flush()
+		}
 		
 		// Execute the tool
 		result, err := c.toolRegistry.ExecuteTool(tc.Function.Name, params, userID)
 		toolDuration := time.Since(toolStart)
 		
 		if err != nil {
-			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, "", err))
+			errorResult := ai.FormatToolResult(tc.Function.Name, "", err)
+			toolResults = append(toolResults, errorResult)
 			log.Printf("AIController: [Tool %d/%d] '%s' FAILED in %.3fs: %v", 
 				i+1, len(toolCalls), tc.Function.Name, toolDuration.Seconds(), err)
+			
+			// Stream error result immediately (only if streaming enabled)
+			if streaming {
+				c.streamToolResult(w, flusher, tc.Function.Name, errorResult, i+1, len(toolCalls))
+			}
 		} else {
-			toolResults = append(toolResults, ai.FormatToolResult(tc.Function.Name, result, nil))
-			// Better result preview
+			successResult := ai.FormatToolResult(tc.Function.Name, result, nil)
+			toolResults = append(toolResults, successResult)
+			
+			// Better result preview for logging
 			lines := strings.Split(result, "\n")
 			preview := result
 			if len(lines) > 3 {
@@ -1108,6 +1139,22 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 			}
 			log.Printf("AIController: [Tool %d/%d] '%s' SUCCESS in %.3fs. Result preview: %s", 
 				i+1, len(toolCalls), tc.Function.Name, toolDuration.Seconds(), preview)
+			
+			// Stream success result immediately (only if streaming enabled)
+			if streaming {
+				c.streamToolResult(w, flusher, tc.Function.Name, successResult, i+1, len(toolCalls))
+			}
+		}
+		
+		// Stream completion status (only if streaming enabled)
+		if streaming {
+			completeMsg := fmt.Sprintf("✅ Completed: %s", tc.Function.Name)
+			if len(toolCalls) > 1 {
+				completeMsg = fmt.Sprintf("✅ Completed tool %d/%d: %s", i+1, len(toolCalls), tc.Function.Name)
+			}
+			fmt.Fprintf(w, "event: status\ndata: %s\n\n", completeMsg)
+			flusher.Flush()
+			time.Sleep(300 * time.Millisecond) // Brief pause between tools for visibility
 		}
 	}
 	
@@ -1115,4 +1162,190 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	log.Printf("AIController: All %d tools completed in %.3fs", len(toolCalls), totalDuration.Seconds())
 	
 	return toolResults
+}
+
+// streamToolResult streams a single tool result via SSE
+func (c *AIController) streamToolResult(w http.ResponseWriter, flusher http.Flusher, toolName string, result string, current int, total int) {
+	// Create the tool result HTML
+	toolHTML := fmt.Sprintf(`<div class="collapse collapse-arrow bg-base-200/30 my-2">
+		<input type="checkbox" class="peer" />
+		<div class="collapse-title min-h-0 py-2 px-3 peer-checked:pb-0">
+			<div class="flex items-center gap-2">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-info flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+				</svg>
+				<div class="flex-1">
+					<span class="text-xs font-semibold">%s</span>`, toolName)
+	
+	// Add progress indicator if multiple tools
+	if total > 1 {
+		toolHTML += fmt.Sprintf(`<span class="text-xs text-base-content/60 ml-2">Tool %d/%d</span>`, current, total)
+	}
+	
+	toolHTML += `<span class="text-xs text-info ml-2">Click for details</span>
+				</div>
+			</div>
+		</div>
+		<div class="collapse-content px-3 pt-2">
+			<div class="text-xs max-h-96 overflow-y-auto">
+				<pre class="whitespace-pre-wrap font-mono bg-base-300/50 p-2 rounded">` + template.HTMLEscapeString(result) + `</pre>
+			</div>
+		</div>
+	</div>`
+	
+	// SSE data must be on a single line - replace newlines
+	toolHTMLEscaped := strings.ReplaceAll(toolHTML, "\n", "")
+	toolHTMLEscaped = strings.ReplaceAll(toolHTMLEscaped, "\t", "")
+	fmt.Fprintf(w, "event: tool\ndata: %s\n\n", toolHTMLEscaped)
+	flusher.Flush()
+	
+	log.Printf("AIController: Streamed tool result %d/%d via SSE", current, total)
+}
+
+// getTodoPanel renders the todo panel for a conversation
+func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
+	conversationID := r.PathValue("id")
+	
+	// Get conversation
+	conversation, err := models.Conversations.Get(conversationID)
+	if err != nil {
+		c.RenderErrorMsg(w, r, "Conversation not found")
+		return
+	}
+	
+	// Check ownership
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || conversation.UserID != user.ID {
+		c.RenderErrorMsg(w, r, "Unauthorized")
+		return
+	}
+	
+	// Get todos
+	todos, err := models.GetTodosByConversation(conversationID)
+	if err != nil {
+		todos = []*models.Todo{}
+	}
+	
+	// Calculate stats
+	completedCount := 0
+	for _, todo := range todos {
+		if todo.Status == models.TodoStatusCompleted {
+			completedCount++
+		}
+	}
+	
+	totalCount := len(todos)
+	percentComplete := 0
+	if totalCount > 0 {
+		percentComplete = (completedCount * 100) / totalCount
+	}
+	
+	// Render panel
+	c.Render(w, r, "ai-todos.html", map[string]interface{}{
+		"ConversationID":  conversationID,
+		"Todos":           todos,
+		"HasTodos":        len(todos) > 0,
+		"TotalCount":      totalCount,
+		"CompletedCount":  completedCount,
+		"PercentComplete": percentComplete,
+	})
+}
+
+// getTodos returns just the todo list items (for HTMX refresh)
+func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
+	conversationID := r.PathValue("id")
+	
+	// Get conversation
+	conversation, err := models.Conversations.Get(conversationID)
+	if err != nil {
+		c.RenderErrorMsg(w, r, "Conversation not found")
+		return
+	}
+	
+	// Check ownership
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || conversation.UserID != user.ID {
+		c.RenderErrorMsg(w, r, "Unauthorized")
+		return
+	}
+	
+	// Get todos
+	todos, err := models.GetTodosByConversation(conversationID)
+	if err != nil {
+		todos = []*models.Todo{}
+	}
+	
+	// Render just the todo items
+	w.Header().Set("Content-Type", "text/html")
+	for _, todo := range todos {
+		statusIcon := ""
+		contentClass := "text-sm text-base-content/80"
+		
+		switch todo.Status {
+		case models.TodoStatusCompleted:
+			statusIcon = `<input type="checkbox" checked disabled class="checkbox checkbox-xs checkbox-success mt-0.5" />`
+			contentClass = "text-sm line-through text-base-content/50"
+		case models.TodoStatusInProgress:
+			statusIcon = `<span class="loading loading-spinner loading-xs text-primary mt-0.5"></span>`
+			contentClass = "text-sm text-primary font-medium"
+		default:
+			statusIcon = `<input type="checkbox" disabled class="checkbox checkbox-xs mt-0.5" />`
+		}
+		
+		fmt.Fprintf(w, `<div class="flex items-start gap-2 py-1 group">
+			%s
+			<span class="%s">%s</span>
+		</div>`, statusIcon, contentClass, template.HTMLEscapeString(todo.Content))
+	}
+}
+
+// streamTodos provides SSE endpoint for todo updates
+func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
+	conversationID := r.PathValue("id")
+	
+	// Get conversation
+	conversation, err := models.Conversations.Get(conversationID)
+	if err != nil {
+		http.Error(w, "Conversation not found", http.StatusNotFound)
+		return
+	}
+	
+	// Check ownership
+	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	if err != nil || conversation.UserID != user.ID {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	
+	// Send initial connection event
+	fmt.Fprintf(w, "event: connected\ndata: Todo stream connected\n\n")
+	flusher.Flush()
+	
+	// Keep connection alive with periodic pings
+	// In a real implementation, this would watch for todo changes
+	// For now, just keep the connection open
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Fprintf(w, "event: ping\ndata: keepalive\n\n")
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
 }

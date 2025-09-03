@@ -155,6 +155,9 @@ func (t *ListFilesTool) Execute(params map[string]interface{}, userID string) (s
 		}
 	}
 	
+	// Add exploration hint
+	result.WriteString("\n💡 *Use read_file to examine specific files for more details.*")
+	
 	return result.String(), nil
 }
 
@@ -437,6 +440,9 @@ func (t *SearchFilesTool) Execute(params map[string]interface{}, userID string) 
 		for _, match := range matches {
 			result.WriteString(fmt.Sprintf("📄 %s\n", match))
 		}
+		
+		// Add exploration hint
+		result.WriteString("\n💡 *Use read_file to examine these files for their content.*")
 	}
 	
 	return result.String(), nil

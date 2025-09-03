@@ -9,12 +9,10 @@ import (
 // Conversation represents an AI chat conversation
 type Conversation struct {
 	application.Model
-	UserID       string    // Owner of the conversation
-	Title        string    // Conversation title (auto-generated from first message)
-	LastMessage  string    // Preview of the last message
-	LastRole     string    // Role of last message (user/assistant)
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	UserID      string // Owner of the conversation
+	Title       string // Conversation title (auto-generated from first message)
+	LastMessage string // Preview of the last message
+	LastRole    string // Role of last message (user/assistant)
 }
 
 // Table returns the database table name
@@ -39,12 +37,12 @@ func (c *Conversation) UpdateLastMessage(content, role string) error {
 	c.LastMessage = content
 	c.LastRole = role
 	c.UpdatedAt = time.Now()
-	
+
 	// Truncate message for preview
 	if len(c.LastMessage) > 100 {
 		c.LastMessage = c.LastMessage[:97] + "..."
 	}
-	
+
 	return Conversations.Update(c)
 }
 
@@ -54,7 +52,7 @@ func (c *Conversation) GenerateTitle() error {
 	if err != nil || len(messages) == 0 {
 		return err
 	}
-	
+
 	// Find first user message
 	for _, msg := range messages {
 		if msg.Role == "user" {
@@ -66,6 +64,6 @@ func (c *Conversation) GenerateTitle() error {
 			return Conversations.Update(c)
 		}
 	}
-	
+
 	return nil
 }

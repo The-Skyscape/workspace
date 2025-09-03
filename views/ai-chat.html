@@ -25,6 +25,13 @@
         </div>
     </div>
 
+    <!-- Todo Panel -->
+    <div hx-get="{{host}}/ai/chat/{{.ID}}/todos/panel"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <!-- Todo panel will be loaded here -->
+    </div>
+
     <!-- Messages Area -->
     <div class="flex-1 overflow-y-auto overflow-x-hidden" id="chat-messages">
         <div class="flex flex-col-reverse min-h-full">
