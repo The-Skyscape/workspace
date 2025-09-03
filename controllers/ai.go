@@ -340,7 +340,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		// Return the streaming template immediately
 		// The template will connect to /stream endpoint which does the actual work
 		messages, _ := conversation.GetMessages()
-		c.Render(w, r, "ai-messages-streaming.html", map[string]interface{}{
+		c.Render(w, r, "ai-messages-enhanced.html", map[string]interface{}{
 			"Messages":       messages,
 			"ConversationID": conversationID,
 		})

@@ -111,8 +111,8 @@
                 <span class="loading loading-spinner loading-xs"></span> AI Chain of Thought
             </div>
             <div class="collapse-content px-3 pt-1">
-                <div class="text-xs italic text-base-content/50 max-h-32 overflow-y-auto" id="thinking-content" style="scrollbar-width: thin;">
-                    <!-- Thinking messages will accumulate here -->
+                <div class="text-xs italic text-base-content/50 max-h-32 overflow-y-auto" id="thinking-content" style="scrollbar-width: thin;" sse-swap="thinking" hx-swap="beforeend">
+                    <!-- Thinking messages will accumulate here via SSE -->
                 </div>
             </div>
         </div>
@@ -182,16 +182,18 @@
 document.addEventListener('sse:thinking', function(e) {
     const thinkingContainer = document.getElementById('thinking-container');
     const thinkingContent = document.getElementById('thinking-content');
-    if (thinkingContainer && thinkingContent) {
+    if (thinkingContainer) {
+        // Make container visible when thinking starts
         thinkingContainer.style.display = 'block';
-        // Append thinking messages instead of replacing
-        thinkingContent.innerHTML += e.detail.data;
         
+        // HTMX handles the appending via sse-swap, but we still need to handle visibility and scrolling
         // Auto-scroll to latest thought if container is expanded
-        const collapseInput = thinkingContainer.querySelector('input[type="checkbox"]');
-        if (collapseInput && collapseInput.checked) {
-            thinkingContent.scrollTop = thinkingContent.scrollHeight;
-        }
+        setTimeout(() => {
+            const collapseInput = thinkingContainer.querySelector('input[type="checkbox"]');
+            if (collapseInput && collapseInput.checked && thinkingContent) {
+                thinkingContent.scrollTop = thinkingContent.scrollHeight;
+            }
+        }, 50); // Small delay to let HTMX update the DOM
     }
 });
 
