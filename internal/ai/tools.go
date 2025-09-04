@@ -117,9 +117,9 @@ func (r *ToolRegistry) GenerateToolPrompt() string {
 		}
 	}
 	
-	// Note: Llama 3.2:3b uses native Ollama tool calling, not XML format
+	// Note: gpt-oss uses native Ollama tool calling, not XML format
 	prompt += `
-These tools will be available to you through native function calling. The Llama model will automatically select and use the appropriate tools based on your request.`
+These tools will be available to you through native function calling. The GPT-OSS model will automatically select and use the appropriate tools based on your request.`
 	
 	return prompt
 }

@@ -117,12 +117,10 @@ func NewOllamaService() *OllamaService {
 			Port:          11434,
 			ContainerName: "skyscape-ollama",
 			DataDir:       fmt.Sprintf("%s/ollama", database.DataDir()),
-			DefaultModel:  "llama3.2:3b", // Llama 3.2 3B
-			GPUEnabled:    false,         // CPU mode by default
+			DefaultModel:  "gpt-oss", // GPT-OSS model
+			GPUEnabled:    true,      // CPU mode by default
 		},
-		client: &http.Client{
-			Timeout: 5 * time.Minute, // Increased timeout for model loading
-		},
+		client: &http.Client{},
 	}
 }
 

@@ -299,7 +299,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Initialize metrics
 	metrics := &AIMetrics{
 		StartTime: time.Now(),
-		ModelUsed: "llama3.2:3b",
+		ModelUsed: "gpt-oss",
 	}
 
 	// Validate input
@@ -350,7 +350,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Non-streaming fallback (shouldn't normally happen)
 	messages, _ := conversation.GetMessages()
 
-	// Use proper system prompt for llama3.2:3b with tool support
+	// Use proper system prompt for gpt-oss with tool support
 	systemPrompt := c.buildSystemPrompt(conversationID)
 
 	ollamaMessages := []services.OllamaMessage{
@@ -402,7 +402,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
 
 	// Always provide tools to Llama 3.2 - let it decide when to use them
-	model := "llama3.2:3b"
+	model := "gpt-oss"
 	thinkingStart := time.Now()
 	log.Printf("AIController: Sending request to Llama 3.2 with %d tools available", len(toolDefinitions))
 	response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
@@ -585,9 +585,9 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	c.Render(w, r, "ai-messages.html", messages)
 }
 
-// buildSystemPrompt creates the system prompt optimized for llama3.2:3b
+// buildSystemPrompt creates the system prompt optimized for gpt-oss
 func (c *AIController) buildSystemPrompt(conversationID string) string {
-	// Prompt optimized for native tool calling with Llama 3.2
+	// Prompt optimized for native tool calling with gpt-oss
 	prompt := `You are an AI coding assistant in the Skyscape development platform, similar to Claude Code but integrated into a web interface.
 
 **YOUR PERSONALITY & APPROACH:**
@@ -838,7 +838,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	// Initialize metrics for tracking
 	metrics := &AIMetrics{
 		StartTime: time.Now(),
-		ModelUsed: "llama3.2:3b",
+		ModelUsed: "gpt-oss",
 	}
 
 	// Verify ownership
@@ -978,7 +978,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	thinkingStart := time.Now()
 
 	// Always use Llama 3.2 with tools available - let the model decide when to use them
-	model := "llama3.2:3b"
+	model := "gpt-oss"
 	var initialResponse *services.OllamaChatResponse
 
 	log.Printf("AIController: Streaming response with Llama 3.2")
