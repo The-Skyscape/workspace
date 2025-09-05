@@ -112,13 +112,25 @@ var (
 
 // NewOllamaService creates a new Ollama service with default configuration
 func NewOllamaService() *OllamaService {
+	// Get AI model from environment variable
+	aiModel := os.Getenv("AI_MODEL")
+	if aiModel == "" {
+		aiModel = "llama3.2:1b" // Default to small efficient model
+	}
+	
+	// Enable GPU for larger models
+	gpuEnabled := false
+	if strings.Contains(aiModel, "gpt-oss") || strings.Contains(aiModel, "llama2") {
+		gpuEnabled = true
+	}
+	
 	return &OllamaService{
 		config: &OllamaConfig{
 			Port:          11434,
 			ContainerName: "skyscape-ollama",
 			DataDir:       fmt.Sprintf("%s/ollama", database.DataDir()),
-			DefaultModel:  "gpt-oss", // GPT-OSS model
-			GPUEnabled:    true,      // CPU mode by default
+			DefaultModel:  aiModel,
+			GPUEnabled:    gpuEnabled,
 		},
 		client: &http.Client{},
 	}
@@ -310,6 +322,13 @@ func (o *OllamaService) Restart() error {
 
 	log.Println("OllamaService: Restarted")
 	return nil
+}
+
+// GetDefaultModel returns the configured default model
+func (o *OllamaService) GetDefaultModel() string {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.config.DefaultModel
 }
 
 // IsRunning checks if the service is running

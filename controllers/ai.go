@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"workspace/internal/ai"
-	"workspace/internal/ai/tools"
+	"workspace/internal/agents"
+	"workspace/internal/agents/providers"
+	"workspace/internal/agents/tools"
 	"workspace/models"
 	"workspace/services"
 
@@ -27,7 +28,8 @@ import (
 // AIController handles AI chat conversations
 type AIController struct {
 	application.BaseController
-	toolRegistry *ai.ToolRegistry
+	toolRegistry *agents.ToolRegistry
+	provider     agents.Provider
 }
 
 // AIMetrics tracks performance metrics for AI responses
@@ -47,17 +49,9 @@ type AIMetrics struct {
 // AI returns the controller factory
 func AI() (string, *AIController) {
 	// Initialize tool registry
-	registry := ai.NewToolRegistry()
+	registry := agents.NewToolRegistry()
 
-	// Register ONLY essential tools (6 tools total for maximum efficiency)
-	// This minimal set covers 95% of use cases while reducing decision time
-
-	registry.Register(&tools.TodoUpdateTool{}) // Task management for complex operations
-	registry.Register(&tools.ListReposTool{})  // Find and list repositories
-	registry.Register(&tools.GetRepoTool{})    // Get repository details
-	registry.Register(&tools.ListFilesTool{})  // Browse directory structure
-	registry.Register(&tools.ReadFileTool{})   // Read file contents
-	registry.Register(&tools.RunCommandTool{}) // Universal tool for everything else (git, npm, edit, write, etc.)
+	// Note: Tools will be registered in Setup based on provider capabilities
 
 	return "ai", &AIController{
 		toolRegistry: registry,
@@ -68,6 +62,19 @@ func AI() (string, *AIController) {
 func (c *AIController) Setup(app *application.App) {
 	c.App = app
 	auth := app.Use("auth").(*authentication.Controller)
+	
+	// Initialize provider based on AI_MODEL environment variable
+	provider, err := providers.NewProvider()
+	if err != nil {
+		log.Printf("AIController: Failed to initialize provider: %v", err)
+		// Continue without provider - AI features will be disabled
+	} else {
+		c.provider = provider
+		log.Printf("AIController: Initialized %s with model %s", provider.Name(), provider.Model())
+		
+		// Register only the tools supported by this provider
+		c.registerSupportedTools(provider)
+	}
 
 	// Conversation routes - Admin only
 	http.Handle("GET /ai/panel", app.ProtectFunc(c.panel, auth.AdminOnly))
@@ -103,6 +110,66 @@ func (c *AIController) Setup(app *application.App) {
 func (c AIController) Handle(req *http.Request) application.Controller {
 	c.Request = req
 	return &c
+}
+
+// registerSupportedTools registers only the tools supported by the provider
+func (c *AIController) registerSupportedTools(provider agents.Provider) {
+	// Map of all available tools
+	allTools := map[string]agents.ToolImplementation{
+		// Repository tools
+		"list_repos":   &tools.ListReposTool{},
+		"get_repo":     &tools.GetRepoTool{},
+		"create_repo":  &tools.CreateRepoTool{},
+		// "delete_repo":  &tools.DeleteRepoTool{}, // Not implemented yet
+		"get_repo_link": &tools.GetRepoLinkTool{},
+		
+		// File tools
+		"list_files":   &tools.ListFilesTool{},
+		"read_file":    &tools.ReadFileTool{},
+		"write_file":   &tools.WriteFileTool{},
+		"edit_file":    &tools.EditFileTool{},
+		"delete_file":  &tools.DeleteFileTool{},
+		"move_file":    &tools.MoveFileTool{},
+		"search_files": &tools.SearchFilesTool{},
+		
+		// Git tools
+		"git_status":  &tools.GitStatusTool{},
+		"git_history": &tools.GitLogTool{}, // Use GitLogTool
+		"git_diff":    &tools.GitDiffTool{},
+		"git_commit":  &tools.GitCommitTool{},
+		// "git_push":    &tools.GitPushTool{}, // Not implemented
+		
+		// Issue tools
+		"create_issue": &tools.CreateIssueTool{},
+		"get_issue":    &tools.ListIssuesTool{}, // Use ListIssuesTool
+		
+		// Project tools
+		// "create_milestone":     &tools.CreateMilestoneTool{}, // Not implemented
+		// "create_project_card":  &tools.CreateProjectCardTool{}, // Not implemented
+		
+		// Terminal tool
+		"terminal_execute": &tools.RunCommandTool{},
+		
+		// Todo tools
+		// "create_todo": &tools.TodoCreateTool{}, // Not implemented
+		"list_todos":  &tools.TodoListTool{},
+		"update_todo": &tools.TodoUpdateTool{},
+	}
+	
+	// Register only the tools this provider supports
+	supportedTools := provider.SupportedTools()
+	registeredCount := 0
+	
+	for _, toolName := range supportedTools {
+		if tool, exists := allTools[toolName]; exists {
+			c.toolRegistry.Register(tool)
+			registeredCount++
+		} else {
+			log.Printf("AIController: Warning - provider claims support for unknown tool: %s", toolName)
+		}
+	}
+	
+	log.Printf("AIController: Registered %d/%d tools for %s", registeredCount, len(supportedTools), provider.Name())
 }
 
 // Template helper methods
@@ -299,7 +366,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Initialize metrics
 	metrics := &AIMetrics{
 		StartTime: time.Now(),
-		ModelUsed: "gpt-oss",
+		ModelUsed: services.Ollama.GetDefaultModel(),
 	}
 
 	// Validate input
@@ -380,9 +447,9 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Check if Ollama service is ready
-	if !services.Ollama.IsRunning() {
-		log.Printf("AIController: Ollama service not running")
+	// Check if provider is ready
+	if c.provider == nil {
+		log.Printf("AIController: AI provider not initialized")
 
 		// Save error message with helpful information
 		errorMsg := &models.Message{
@@ -398,14 +465,16 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get tool definitions in Ollama format
-	toolDefinitions := c.convertToOllamaTools(c.toolRegistry.GenerateOllamaTools())
+	// Convert messages to agent format
+	agentMessages := agents.ConvertOllamaToAgentMessages(ollamaMessages)
 
-	// Always provide tools to Llama 3.2 - let it decide when to use them
-	model := "gpt-oss"
+	// Get tools in agent format
+	tools := agents.ConvertRegistryToAgentTools(c.toolRegistry, c.provider.SupportedTools())
+
+	// Use provider to send request with tools
 	thinkingStart := time.Now()
-	log.Printf("AIController: Sending request to Llama 3.2 with %d tools available", len(toolDefinitions))
-	response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+	log.Printf("AIController: Sending request to %s with %d tools available", c.provider.Model(), len(tools))
+	response, err := c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 	metrics.ThinkingDuration = time.Since(thinkingStart)
 	log.Printf("AIController: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
 
@@ -437,36 +506,28 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process tool calls and implement agentic loop
-	finalResponse := response.Message.Content
+	finalResponse := response.Content
 
 	// Check if model decided to use tools
-	if len(response.Message.ToolCalls) == 0 {
-		// Check if the response contains a text-based tool call
-		if toolCall := c.parseTextToolCall(finalResponse); toolCall != nil {
-			log.Printf("AIController: Detected text-based tool call, converting to native format")
-			response.Message.ToolCalls = []services.OllamaToolCall{*toolCall}
-			// Clear the text content since it's a tool call
-			finalResponse = ""
-			response.Message.Content = ""
-		} else {
-			log.Printf("AIController: Model chose not to use tools for this query")
-			// Save and return the response immediately
-			assistantMsg := &models.Message{
-				ConversationID: conversationID,
-				Role:           models.MessageRoleAssistant,
-				Content:        finalResponse,
-			}
-			models.Messages.Insert(assistantMsg)
-			conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
-
-			metrics.TotalDuration = time.Since(metrics.StartTime)
-			log.Printf("AIController: Direct response completed - Total: %.2fs, Thinking: %.2fs",
-				metrics.TotalDuration.Seconds(), metrics.ThinkingDuration.Seconds())
-
-			messages, _ = conversation.GetMessages()
-			c.Render(w, r, "ai-messages.html", messages)
-			return
+	if len(response.ToolCalls) == 0 {
+		// Native tool calling only - no text parsing needed
+		log.Printf("AIController: Model chose not to use tools for this query")
+		// Save and return the response immediately
+		assistantMsg := &models.Message{
+			ConversationID: conversationID,
+			Role:           models.MessageRoleAssistant,
+			Content:        finalResponse,
 		}
+		models.Messages.Insert(assistantMsg)
+		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
+
+		metrics.TotalDuration = time.Since(metrics.StartTime)
+		log.Printf("AIController: Direct response completed - Total: %.2fs, Thinking: %.2fs",
+			metrics.TotalDuration.Seconds(), metrics.ThinkingDuration.Seconds())
+
+		messages, _ = conversation.GetMessages()
+		c.Render(w, r, "ai-messages.html", messages)
+		return
 	}
 
 	maxIterations := 5 // Prevent infinite loops
@@ -478,20 +539,20 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		var toolResults []string
 		toolStart := time.Now()
 
-		if len(response.Message.ToolCalls) > 0 {
+		if len(response.ToolCalls) > 0 {
 			// Log tool usage
 			toolNames := []string{}
-			for _, tc := range response.Message.ToolCalls {
+			for _, tc := range response.ToolCalls {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
-			log.Printf("AIController: Executing %d tools (iteration %d): %v", len(response.Message.ToolCalls), iteration+1, toolNames)
+			log.Printf("AIController: Executing %d tools (iteration %d): %v", len(response.ToolCalls), iteration+1, toolNames)
 
 			// Process native tool calls (without streaming in sendMessage)
-			toolResults = c.processNativeToolCalls(response.Message.ToolCalls, conversationID, user.ID, nil, nil)
+			toolResults = c.processNativeAgentToolCalls(response.ToolCalls, conversationID, user.ID, nil, nil)
 
 			toolDuration := time.Since(toolStart)
 			metrics.ToolDuration += toolDuration
-			metrics.ToolCallCount += len(response.Message.ToolCalls)
+			metrics.ToolCallCount += len(response.ToolCalls)
 			log.Printf("AIController: Tools executed in %.2fs", toolDuration.Seconds())
 		} else {
 			// No more tool calls, exit loop
@@ -533,7 +594,9 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		// Get new response with tool results
 		followUpStart := time.Now()
 		log.Printf("AIController: Getting follow-up response after tool execution (iteration %d)", iteration+1)
-		response, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+		agentMessages = agents.ConvertOllamaToAgentMessages(ollamaMessages)
+		tools = agents.ConvertRegistryToAgentTools(c.toolRegistry, c.provider.SupportedTools())
+		response, err = c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 		metrics.ThinkingDuration += time.Since(followUpStart)
 		if err != nil {
 			log.Printf("AIController: Failed to get follow-up response: %v", err)
@@ -543,7 +606,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Update response for next iteration check
-		finalResponse = response.Message.Content
+		finalResponse = response.Content
 		iteration++
 
 		// The loop will continue if the new response contains tool calls
@@ -838,7 +901,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	// Initialize metrics for tracking
 	metrics := &AIMetrics{
 		StartTime: time.Now(),
-		ModelUsed: "gpt-oss",
+		ModelUsed: services.Ollama.GetDefaultModel(),
 	}
 
 	// Verify ownership
@@ -977,46 +1040,23 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	// Track thinking time
 	thinkingStart := time.Now()
 
-	// Always use Llama 3.2 with tools available - let the model decide when to use them
-	model := "gpt-oss"
-	var initialResponse *services.OllamaChatResponse
+	// Convert messages to agent format
+	agentMessages := agents.ConvertOllamaToAgentMessages(ollamaMessages)
+	var initialResponse *agents.Response
 
-	log.Printf("AIController: Streaming response with Llama 3.2")
+	log.Printf("AIController: Streaming response with %s", c.provider.Model())
 
-	// Get all tool definitions from registry (keep available for the loop)
-	allTools := c.toolRegistry.GenerateOllamaTools()
-	allToolsMap := make(map[string]map[string]interface{})
-	for _, toolDef := range allTools {
-		if funcDef, ok := toolDef["function"].(map[string]interface{}); ok {
-			toolName := funcDef["name"].(string)
-			allToolsMap[toolName] = toolDef
-		}
-	}
-
-	// Filter the tool registry to only include relevant tools
-	var toolDefinitions []services.OllamaTool
-	if len(relevantToolNames) > 0 {
-		var filteredTools []map[string]interface{}
-
-		// Filter to only include relevant tools
-		for _, name := range relevantToolNames {
-			if tool, exists := allToolsMap[name]; exists {
-				filteredTools = append(filteredTools, tool)
-			}
-		}
-
-		// Convert filtered tools to Ollama format
-		toolDefinitions = c.convertToOllamaTools(filteredTools)
-	}
+	// Get tools in agent format - provider will filter to supported ones
+	tools := agents.ConvertRegistryToAgentTools(c.toolRegistry, c.provider.SupportedTools())
 
 	// Log tool names for debugging
 	toolNames := []string{}
-	for _, td := range toolDefinitions {
-		toolNames = append(toolNames, td.Function.Name)
+	for _, t := range tools {
+		toolNames = append(toolNames, t.Function.Name)
 	}
-	log.Printf("AIController: Providing %d tools to model: %v", len(toolDefinitions), toolNames)
+	log.Printf("AIController: Providing %d tools to model: %v", len(tools), toolNames)
 
-	initialResponse, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+	initialResponse, err = c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 
 	metrics.ThinkingDuration = time.Since(thinkingStart)
 	log.Printf("AIController: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
@@ -1048,7 +1088,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Autonomous execution loop
-	finalResponse := initialResponse.Message.Content
+	finalResponse := initialResponse.Content
 	iteration := 0
 	maxIterations := 10 // Allow more iterations for complex tasks
 	taskComplete := false
@@ -1059,19 +1099,11 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if there are tool calls to process
-	if len(initialResponse.Message.ToolCalls) == 0 {
-		// Check if the response contains a text-based tool call
-		if toolCall := c.parseTextToolCall(finalResponse); toolCall != nil {
-			log.Printf("AIController: Detected text-based tool call in streaming, converting to native format")
-			initialResponse.Message.ToolCalls = []services.OllamaToolCall{*toolCall}
-			// Clear the text content since it's a tool call
-			finalResponse = ""
-			initialResponse.Message.Content = ""
-		} else {
-			log.Printf("AIController: No tool calls detected, proceeding with direct response")
-			// Skip directly to streaming the response
-			goto streamResponse
-		}
+	if len(initialResponse.ToolCalls) == 0 {
+		// Native tool calling only - no text parsing needed
+		log.Printf("AIController: No tool calls detected, proceeding with direct response")
+		// Skip directly to streaming the response
+		goto streamResponse
 	}
 
 	log.Printf("AIController: Entering autonomous execution mode")
@@ -1093,19 +1125,19 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		toolStart := time.Now()
 
 		// Native tool calls from Ollama/Llama 3.2
-		if len(initialResponse.Message.ToolCalls) > 0 {
+		if len(initialResponse.ToolCalls) > 0 {
 			// Send status about tool usage
 			toolNames := []string{}
-			for _, tc := range initialResponse.Message.ToolCalls {
+			for _, tc := range initialResponse.ToolCalls {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
 			
 			// ENFORCE SINGLE TOOL EXECUTION
-			if len(initialResponse.Message.ToolCalls) > 1 {
+			if len(initialResponse.ToolCalls) > 1 {
 				log.Printf("AIController: WARNING - Model attempted to call %d tools at once: %v. Taking only the first one.", len(toolNames), toolNames)
 				c.streamThought(w, flusher, fmt.Sprintf("I was about to use multiple tools, but I should focus on one at a time. Starting with %s...", toolNames[0]))
 				// Take only the first tool call
-				initialResponse.Message.ToolCalls = initialResponse.Message.ToolCalls[:1]
+				initialResponse.ToolCalls = initialResponse.ToolCalls[:1]
 				toolNames = toolNames[:1]
 			}
 
@@ -1115,11 +1147,11 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 
 			// Process native tool calls with streaming
-			log.Printf("AIController: Processing %d tool call (iteration %d): %v", len(initialResponse.Message.ToolCalls), iteration+1, toolNames)
-			toolResults = c.processNativeToolCalls(initialResponse.Message.ToolCalls, conversationID, user.ID, w, flusher)
+			log.Printf("AIController: Processing %d tool call (iteration %d): %v", len(initialResponse.ToolCalls), iteration+1, toolNames)
+			toolResults = c.processNativeAgentToolCalls(initialResponse.ToolCalls, conversationID, user.ID, w, flusher)
 			
 			// Extract and update working context from tool calls
-			for i, tc := range initialResponse.Message.ToolCalls {
+			for i, tc := range initialResponse.ToolCalls {
 				var params map[string]interface{}
 				json.Unmarshal(tc.Function.Arguments, &params)
 				if i < len(toolResults) {
@@ -1178,8 +1210,8 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		
 		// Track the last tool used for context
 		var lastToolUsed string
-		if len(initialResponse.Message.ToolCalls) > 0 {
-			lastToolUsed = initialResponse.Message.ToolCalls[len(initialResponse.Message.ToolCalls)-1].Function.Name
+		if len(initialResponse.ToolCalls) > 0 {
+			lastToolUsed = initialResponse.ToolCalls[len(initialResponse.ToolCalls)-1].Function.Name
 		}
 		
 		// Add thinking about what we found
@@ -1213,16 +1245,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			relevantToolNames := c.categorizeTools("", false, lastToolUsed)
 			log.Printf("AIController: Updating tool availability after %s - providing: %v", lastToolUsed, relevantToolNames)
 			
-			// Rebuild tool definitions with updated set
-			var filteredTools []map[string]interface{}
-			for _, name := range relevantToolNames {
-				if tool, exists := allToolsMap[name]; exists {
-					filteredTools = append(filteredTools, tool)
-				}
-			}
-			
-			// Convert to Ollama format
-			toolDefinitions = c.convertToOllamaTools(filteredTools)
+			// Tools are dynamically filtered by the provider
 		}
 		
 		if hasFailure {
@@ -1256,15 +1279,17 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Get new response with tool results context
-		response, err := services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
+		agentMessages = agents.ConvertOllamaToAgentMessages(ollamaMessages)
+		tools = agents.ConvertRegistryToAgentTools(c.toolRegistry, c.provider.SupportedTools())
+		response, err := c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 		if err != nil {
 			finalResponse = finalResponse + "\n\n" + strings.Join(toolResults, "\n")
 			break
 		}
 
 		// Log the response for debugging
-		log.Printf("AIController: Follow-up response content length: %d", len(response.Message.Content))
-		if response.Message.Content == "" && len(toolResults) > 0 {
+		log.Printf("AIController: Follow-up response content length: %d", len(response.Content))
+		if response.Content == "" && len(toolResults) > 0 {
 			log.Printf("AIController: WARNING - Empty response after tool execution, requesting regeneration")
 			// Don't force a generic response - instead ask the model to try again with stronger prompting
 			retryMessages := append(ollamaMessages, services.OllamaMessage{
@@ -1272,8 +1297,9 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Content: "You must provide a response analyzing the tool results above. Look at what was discovered and provide insights. What's interesting about these results? What should we explore next? Be specific and helpful, not generic.",
 			})
 			
-			retryResponse, retryErr := services.Ollama.ChatWithTools(model, retryMessages, toolDefinitions, false)
-			if retryErr == nil && retryResponse.Message.Content != "" {
+			retryAgentMessages := agents.ConvertOllamaToAgentMessages(retryMessages)
+			retryResponse, retryErr := c.provider.ChatWithTools(retryAgentMessages, tools, agents.ChatOptions{})
+			if retryErr == nil && retryResponse.Content != "" {
 				response = retryResponse
 				log.Printf("AIController: Regenerated response successfully")
 			} else {
@@ -1296,12 +1322,12 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		finalResponse = response.Message.Content
+		finalResponse = response.Content
 		initialResponse = response // Update for next iteration
 		
 		// Check if task is complete based on response content and tool calls
 		lowerResponse := strings.ToLower(finalResponse)
-		noMoreTools := len(response.Message.ToolCalls) == 0
+		noMoreTools := len(response.ToolCalls) == 0
 		
 		// Only mark complete if:
 		// 1. Model explicitly says task is complete, OR
@@ -1331,20 +1357,15 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			// Request continuation with updated tools for exploration
 			// Update tools for exploration continuation
 			if lastToolUsed != "" {
-				relevantToolNames := c.categorizeTools("", false, lastToolUsed)
-				var filteredTools []map[string]interface{}
-				for _, name := range relevantToolNames {
-					if tool, exists := allToolsMap[name]; exists {
-						filteredTools = append(filteredTools, tool)
-					}
-				}
-				toolDefinitions = c.convertToOllamaTools(filteredTools)
+				_ = c.categorizeTools("", false, lastToolUsed) // For future use
+				// Tools are dynamically filtered by the provider
 			}
-			response, err = services.Ollama.ChatWithTools(model, ollamaMessages, toolDefinitions, false)
-			if err == nil && (len(response.Message.ToolCalls) > 0 || response.Message.Content != "") {
+			agentMessages = agents.ConvertOllamaToAgentMessages(ollamaMessages)
+			response, err = c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
+			if err == nil && (len(response.ToolCalls) > 0 || response.Content != "") {
 				initialResponse = response
-				if response.Message.Content != "" {
-					finalResponse = finalResponse + "\n\n" + response.Message.Content
+				if response.Content != "" {
+					finalResponse = finalResponse + "\n\n" + response.Content
 				}
 			} else {
 				taskComplete = true
@@ -1460,30 +1481,110 @@ streamResponse:
 	}
 }
 
-// convertToOllamaTools converts tool definitions to Ollama's native format
-func (c *AIController) convertToOllamaTools(toolDefs []map[string]interface{}) []services.OllamaTool {
-	var tools []services.OllamaTool
 
-	for _, def := range toolDefs {
-		if funcDef, ok := def["function"].(map[string]interface{}); ok {
-			tool := services.OllamaTool{
-				Type: "function",
-				Function: services.OllamaToolFunction{
-					Name:        funcDef["name"].(string),
-					Description: funcDef["description"].(string),
-				},
-			}
-
-			// Add parameters if available
-			if params, ok := funcDef["parameters"].(map[string]interface{}); ok {
-				tool.Function.Parameters = params
-			}
-
-			tools = append(tools, tool)
-		}
+// processNativeAgentToolCalls processes native tool calls from agent provider
+func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
+	if c.toolRegistry == nil {
+		log.Printf("AIController: ERROR - Tool registry is nil")
+		return nil
 	}
 
-	return tools
+	var toolResults []string
+	startTime := time.Now()
+	streaming := w != nil && flusher != nil // Check if streaming is enabled
+
+	log.Printf("AIController: Processing %d tool calls", len(toolCalls))
+
+	for i, tc := range toolCalls {
+		toolStart := time.Now()
+
+		// Stream thought/planning message (only if streaming enabled)
+		if streaming {
+			// Add contextual thinking based on tool type
+			switch tc.Function.Name {
+			case "list_repos":
+				c.streamThought(w, flusher, "I need to see what repositories are available...")
+			case "get_repo":
+				c.streamThought(w, flusher, "Let me get details about this repository...")
+			case "list_files":
+				c.streamThought(w, flusher, "I'll explore the file structure...")
+			case "read_file":
+				c.streamThought(w, flusher, "Let me examine this file...")
+			case "write_file":
+				c.streamThought(w, flusher, "I'm writing the file with the requested changes...")
+			case "edit_file":
+				c.streamThought(w, flusher, "I'm making the requested edits...")
+			case "run_command":
+				c.streamThought(w, flusher, "Running command...")
+			case "git_status":
+				c.streamThought(w, flusher, "Checking git status...")
+			case "git_history":
+				c.streamThought(w, flusher, "Looking at commit history...")
+			case "git_diff":
+				c.streamThought(w, flusher, "Examining changes...")
+			case "git_commit":
+				c.streamThought(w, flusher, "Creating commit...")
+			case "todo_update":
+				c.streamThought(w, flusher, "Updating task list...")
+			}
+		}
+
+		// Parse arguments from JSON
+		var params map[string]interface{}
+		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
+			log.Printf("AIController: Failed to parse tool arguments: %v", err)
+			result := fmt.Sprintf("❌ Tool %s failed: Invalid arguments", tc.Function.Name)
+			toolResults = append(toolResults, result)
+			continue
+		}
+
+		// Get the tool instance
+		tool, exists := c.toolRegistry.Get(tc.Function.Name)
+		if !exists {
+			log.Printf("AIController: Tool %s not found", tc.Function.Name)
+			result := fmt.Sprintf("❌ Tool %s not found", tc.Function.Name)
+			toolResults = append(toolResults, result)
+			continue
+		}
+
+		// Validate parameters
+		if err := tool.ValidateParams(params); err != nil {
+			log.Printf("AIController: Invalid parameters for tool %s: %v", tc.Function.Name, err)
+			result := fmt.Sprintf("❌ Tool %s: Invalid parameters - %v", tc.Function.Name, err)
+			toolResults = append(toolResults, result)
+			continue
+		}
+
+		// Execute the tool
+		log.Printf("AIController: Executing tool %s [%d/%d] with params: %v", tc.Function.Name, i+1, len(toolCalls), params)
+		
+		// Update status (only if streaming)
+		if streaming {
+			statusMsg := fmt.Sprintf("🔧 Using %s...", tc.Function.Name)
+			fmt.Fprintf(w, "event: status\ndata: %s\n\n", statusMsg)
+			flusher.Flush()
+		}
+
+		result, err := tool.Execute(params, userID)
+		
+		toolDuration := time.Since(toolStart)
+		if err != nil {
+			log.Printf("AIController: Tool %s failed after %.2fs: %v", tc.Function.Name, toolDuration.Seconds(), err)
+			result = fmt.Sprintf("❌ Tool %s failed: %v", tc.Function.Name, err)
+		} else {
+			log.Printf("AIController: Tool %s succeeded in %.2fs", tc.Function.Name, toolDuration.Seconds())
+			
+			// Compress output if too verbose
+			result = c.compressToolOutput(tc.Function.Name, result)
+		}
+		
+		toolResults = append(toolResults, result)
+	}
+
+	totalDuration := time.Since(startTime)
+	log.Printf("AIController: All %d tools executed in %.2fs", len(toolCalls), totalDuration.Seconds())
+	
+	return toolResults
 }
 
 // processNativeToolCalls processes tool calls from Ollama's native response format
@@ -1538,7 +1639,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
 			log.Printf("AIController: [Tool %d/%d] ERROR - Failed to parse arguments for '%s': %v",
 				i+1, len(toolCalls), tc.Function.Name, err)
-			errorResult := ai.FormatToolResult(tc.Function.Name, "", fmt.Errorf("invalid arguments: %v", err))
+			errorResult := agents.FormatToolResult(tc.Function.Name, "", fmt.Errorf("invalid arguments: %v", err))
 			toolResults = append(toolResults, errorResult)
 
 			// Stream error immediately (only if streaming enabled)
@@ -1582,7 +1683,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 				c.streamToolResult(w, flusher, tc.Function.Name, errorResult, i+1, len(toolCalls))
 			}
 		} else {
-			successResult := ai.FormatToolResult(tc.Function.Name, result, nil)
+			successResult := agents.FormatToolResult(tc.Function.Name, result, nil)
 			toolResults = append(toolResults, successResult)
 
 			// Better result preview for logging
@@ -1848,6 +1949,7 @@ func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{"status":"stopped"}`)
 }
+
 
 // compressToolOutput compresses verbose tool outputs to save context window space
 func (c *AIController) compressToolOutput(toolName string, output string) string {
@@ -2145,51 +2247,3 @@ Be curious and thorough. For "explore" requests, don't stop after just listing -
 	return basePrompt + autonomousInstructions
 }
 
-// parseTextToolCall attempts to parse a text-based tool call from Llama's response
-func (c *AIController) parseTextToolCall(content string) *services.OllamaToolCall {
-	// Check if content looks like a JSON tool call
-	trimmed := strings.TrimSpace(content)
-	if !strings.HasPrefix(trimmed, "{") || !strings.HasSuffix(trimmed, "}") {
-		return nil
-	}
-	
-	// Try to parse as a simple tool call format
-	var simpleCall struct {
-		Name       string                 `json:"name"`
-		Parameters map[string]interface{} `json:"parameters"`
-		Arguments  map[string]interface{} `json:"arguments"`
-	}
-	
-	if err := json.Unmarshal([]byte(trimmed), &simpleCall); err != nil {
-		return nil
-	}
-	
-	// Check if we have a valid tool name
-	if simpleCall.Name == "" {
-		return nil
-	}
-	
-	// Use parameters or arguments, whichever is provided
-	args := simpleCall.Parameters
-	if args == nil {
-		args = simpleCall.Arguments
-	}
-	if args == nil {
-		args = make(map[string]interface{})
-	}
-	
-	// Convert to JSON for the arguments field
-	argsJSON, err := json.Marshal(args)
-	if err != nil {
-		return nil
-	}
-	
-	// Create the tool call in Ollama format
-	return &services.OllamaToolCall{
-		Type: "function",
-		Function: services.OllamaFunctionCall{
-			Name:      simpleCall.Name,
-			Arguments: argsJSON,
-		},
-	}
-}

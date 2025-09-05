@@ -1,12 +1,12 @@
-package ai
+package agents
 
 import (
 	"encoding/json"
 	"fmt"
 )
 
-// Tool represents an AI tool that can be called
-type Tool interface {
+// ToolImplementation represents an AI tool that can be called
+type ToolImplementation interface {
 	// Name returns the tool's name (used in tool calls)
 	Name() string
 	
@@ -23,31 +23,31 @@ type Tool interface {
 	Schema() map[string]interface{}
 }
 
-// ToolCall represents a parsed tool call from the AI
-type ToolCall struct {
+// ToolCallRequest represents a parsed tool call from the AI
+type ToolCallRequest struct {
 	Tool   string                 `json:"tool"`
 	Params map[string]interface{} `json:"params,omitempty"`
 }
 
 // ToolRegistry manages available tools
 type ToolRegistry struct {
-	tools map[string]Tool
+	tools map[string]ToolImplementation
 }
 
 // NewToolRegistry creates a new tool registry
 func NewToolRegistry() *ToolRegistry {
 	return &ToolRegistry{
-		tools: make(map[string]Tool),
+		tools: make(map[string]ToolImplementation),
 	}
 }
 
 // Register adds a tool to the registry
-func (r *ToolRegistry) Register(tool Tool) {
+func (r *ToolRegistry) Register(tool ToolImplementation) {
 	r.tools[tool.Name()] = tool
 }
 
 // Get retrieves a tool by name
-func (r *ToolRegistry) Get(name string) (Tool, bool) {
+func (r *ToolRegistry) Get(name string) (ToolImplementation, bool) {
 	tool, exists := r.tools[name]
 	return tool, exists
 }
