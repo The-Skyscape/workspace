@@ -62,6 +62,11 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("POST /settings/account/password", app.ProtectFunc(s.updatePassword, auth.Required))
 	http.Handle("POST /settings/account/avatar", app.ProtectFunc(s.uploadAvatar, auth.Required))
 	
+	// SSH Key management (admin only for now)
+	http.Handle("GET /settings/ssh-keys", app.Serve("settings-ssh-keys.html", adminRequired))
+	http.Handle("POST /settings/ssh-keys", app.ProtectFunc(s.addSSHKey, adminRequired))
+	http.Handle("DELETE /settings/ssh-keys/{id}", app.ProtectFunc(s.deleteSSHKey, adminRequired))
+	
 	// Serve avatar images
 	http.HandleFunc("GET /avatar/{filename}", s.serveAvatar)
 	
@@ -243,8 +248,8 @@ func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Reques
 	models.LogActivity("account_updated", "Updated account settings",
 		"User updated their account settings", user.ID, "", "account", "")
 
-	// For HTMX requests, return success
-	w.WriteHeader(http.StatusNoContent)
+	// Refresh to show updated values
+	s.Refresh(w, r)
 }
 
 // updatePassword handles password change requests
@@ -455,7 +460,88 @@ func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Requ
 	models.LogActivity("workspace_updated", "Updated workspace profile", 
 		"Administrator updated workspace profile settings", user.ID, "", "workspace", "")
 
-	// For HTMX requests, just return success (204 No Content)
-	// This prevents unnecessary page refreshes
-	w.WriteHeader(http.StatusNoContent)
+	// Refresh to show updated values
+	s.Refresh(w, r)
+}
+
+// GetSSHKeys returns all SSH keys for the current user
+func (s *SettingsController) GetSSHKeys() ([]*models.SSHKey, error) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(s.Request)
+	if err != nil {
+		return nil, err
+	}
+	
+	return models.GetUserSSHKeys(user.ID)
+}
+
+// addSSHKey handles adding a new SSH key
+func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		s.RenderErrorMsg(w, r, "unauthorized")
+		return
+	}
+
+	// Parse form
+	name := strings.TrimSpace(r.FormValue("name"))
+	publicKey := strings.TrimSpace(r.FormValue("public_key"))
+
+	if publicKey == "" {
+		s.RenderErrorMsg(w, r, "SSH key is required")
+		return
+	}
+
+	// Check if user has reached the limit (10 keys)
+	count, _ := models.CountUserSSHKeys(user.ID)
+	if count >= 10 {
+		s.RenderErrorMsg(w, r, "Maximum of 10 SSH keys allowed per user")
+		return
+	}
+
+	// Create the SSH key
+	sshKey, err := models.CreateSSHKey(user.ID, name, publicKey)
+	if err != nil {
+		s.RenderErrorMsg(w, r, fmt.Sprintf("Failed to add SSH key: %v", err))
+		return
+	}
+
+	// Log activity
+	models.LogActivity("ssh_key_added", fmt.Sprintf("Added SSH key: %s", sshKey.Name),
+		fmt.Sprintf("User added SSH key with fingerprint %s", sshKey.Fingerprint),
+		user.ID, "", "ssh_key", sshKey.ID)
+
+	// Redirect back to SSH keys page
+	s.Redirect(w, r, "/settings/ssh-keys")
+}
+
+// deleteSSHKey handles removing an SSH key
+func (s *SettingsController) deleteSSHKey(w http.ResponseWriter, r *http.Request) {
+	auth := s.App.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		s.RenderErrorMsg(w, r, "unauthorized")
+		return
+	}
+
+	keyID := r.PathValue("id")
+	if keyID == "" {
+		s.RenderErrorMsg(w, r, "key ID required")
+		return
+	}
+
+	// Delete the key (function verifies ownership)
+	err = models.DeleteSSHKey(keyID, user.ID)
+	if err != nil {
+		s.RenderErrorMsg(w, r, fmt.Sprintf("Failed to delete SSH key: %v", err))
+		return
+	}
+
+	// Log activity
+	models.LogActivity("ssh_key_deleted", fmt.Sprintf("Deleted SSH key ID: %s", keyID),
+		"User deleted an SSH key", user.ID, "", "ssh_key", keyID)
+
+	// Refresh the page to update the SSH key list
+	s.Refresh(w, r)
 }

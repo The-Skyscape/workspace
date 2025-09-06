@@ -16,6 +16,7 @@ import (
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/database"
 	"github.com/sosedoff/gitkit"
+	"golang.org/x/crypto/ssh"
 )
 
 // RepoCommits returns recent commits for the current repository
@@ -243,32 +244,54 @@ func (c *ReposController) InitGitServer(auth *authentication.Controller) *gitkit
 	})
 
 	git.AuthFunc = func(creds gitkit.Credential, req *gitkit.Request) (bool, error) {
-		if creds.Username == "" || creds.Password == "" {
-			return false, nil
-		}
-
 		// First authenticate the user
 		var user *authentication.User
 
-		// Check if it's token-based auth (using token ID as username, token value as password)
-		token, err := models.AccessTokens.Get(creds.Username)
-		if err == nil && token != nil && token.Token == creds.Password {
-			// Token matches, get the user associated with the token
-			user, err = auth.Users.Get(token.UserID)
-			if err != nil {
-				return false, errors.New("invalid token user")
+		// Check if it's SSH key authentication (gitkit provides the public key in Password field for SSH)
+		if creds.Username == "git" && creds.Password != "" {
+			// Try to parse as SSH public key
+			publicKey, err := ssh.ParsePublicKey([]byte(creds.Password))
+			if err == nil {
+				// It's an SSH key, validate it
+				sshKey, err := models.ValidateSSHKey(publicKey)
+				if err != nil {
+					log.Printf("SSH key validation failed: %v", err)
+					return false, errors.New("SSH key not authorized")
+				}
+				
+				// Get the user who owns this key
+				user, err = auth.Users.Get(sshKey.UserID)
+				if err != nil {
+					return false, errors.New("invalid SSH key user")
+				}
+				log.Printf("SSH auth successful for user %s with key %s", user.Email, sshKey.Name)
+			} else {
+				// Not a valid SSH key, reject
+				return false, errors.New("invalid SSH key format")
 			}
-			log.Printf("Token auth successful - ID: %s", creds.Username)
+		} else if creds.Username != "" && creds.Password != "" {
+			// Check if it's token-based auth (using token ID as username, token value as password)
+			token, err := models.AccessTokens.Get(creds.Username)
+			if err == nil && token != nil && token.Token == creds.Password {
+				// Token matches, get the user associated with the token
+				user, err = auth.Users.Get(token.UserID)
+				if err != nil {
+					return false, errors.New("invalid token user")
+				}
+				log.Printf("Token auth successful - ID: %s", creds.Username)
+			} else {
+				// Fall back to username/password authentication
+				user, err = auth.GetUser(creds.Username)
+				if err != nil {
+					return false, errors.New("invalid username or password")
+				}
+				if !user.VerifyPassword(creds.Password) {
+					return false, errors.New("invalid username or password")
+				}
+				log.Printf("User auth successful for %s", creds.Username)
+			}
 		} else {
-			// Fall back to username/password authentication
-			user, err = auth.GetUser(creds.Username)
-			if err != nil {
-				return false, errors.New("invalid username or password")
-			}
-			if !user.VerifyPassword(creds.Password) {
-				return false, errors.New("invalid username or password")
-			}
-			log.Printf("User auth successful for %s", creds.Username)
+			return false, errors.New("authentication required")
 		}
 
 		// Now check repository access based on operation

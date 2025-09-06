@@ -32,6 +32,9 @@ var (
 	// User profiles
 	Profiles = database.Manage(DB, new(Profile))
 	
+	// SSH Keys for Git authentication
+	SSHKeys = database.Manage(DB, new(SSHKey))
+	
 	// GitHub integration
 	GitHubUsers = database.Manage(DB, new(UserGitHub))
 	
