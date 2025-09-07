@@ -16,9 +16,9 @@
       <span class="text-xs text-base-content/60">#{{.Number}}</span>
     </div>
     
-    {{if .Labels}}
+    {{if .Tags}}
     <div class="flex flex-wrap gap-1 mt-2">
-      {{range split .Labels ","}}
+      {{range split .Tags ","}}
       <span class="badge badge-sm">{{.}}</span>
       {{end}}
     </div>
@@ -26,7 +26,7 @@
     
     <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
       {{if eq .Status "closed"}}
-      <span>Closed {{.ClosedAt.Format "Jan 2"}}</span>
+      <span>Closed {{.UpdatedAt.Format "Jan 2"}}</span>
       {{else}}
       <span>{{.CreatedAt.Format "Jan 2"}}</span>
       {{end}}
