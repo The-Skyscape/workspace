@@ -599,8 +599,9 @@ func (c *IssuesController) moveIssue(w http.ResponseWriter, r *http.Request) {
 	models.LogActivity("issue_moved", fmt.Sprintf("Moved issue from %s to %s", oldStatus, newStatus),
 		fmt.Sprintf("Issue %s status changed", issue.Title), user.ID, repoID, "issue", issue.ID)
 
-	// Return the updated issue card for HTMX
-	c.Render(w, r, "partials/issue-kanban-card.html", issue)
+	// Use c.Refresh to properly handle HTMX response with HX-Refresh header
+	// Even with optimistic updates, this ensures proper HTMX integration
+	c.Refresh(w, r)
 }
 
 // GetIssuesByStatus returns issues grouped by status for Kanban view

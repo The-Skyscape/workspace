@@ -240,6 +240,32 @@ cd /home/coder/skyscape
 ssh root@SERVER_IP "docker logs sky-app --tail 50"
 ```
 
+## Critical Anti-Patterns to Avoid
+
+### NEVER Use Raw HTTP Response Methods
+**❌ WRONG:**
+```go
+w.WriteHeader(http.StatusOK)     // NEVER do this
+w.Write([]byte("response"))      // NEVER do this
+http.Redirect(w, r, "/path", 302) // NEVER do this
+```
+
+**✅ CORRECT:**
+```go
+c.Refresh(w, r)              // For success responses (uses HX-Refresh header)
+c.Redirect(w, r, "/path")    // For redirects (HTMX-aware)
+c.Render(w, r, "template.html", data) // For HTML responses
+c.RenderError(w, r, err)     // For error responses
+c.RenderErrorMsg(w, r, "msg") // For error messages
+```
+
+**Exceptions:**
+- Binary file downloads (e.g., serving artifacts)
+- Health check endpoints (need specific HTTP status codes)
+- Non-HTMX API endpoints (rare in this codebase)
+
+The `c.Refresh()` and `c.Redirect()` methods properly set HTMX headers (HX-Refresh, HX-Redirect) that work with the HTMX client-side library. Using raw `w.WriteHeader()` or `w.Write()` breaks HTMX integration.
+
 ## Common Gotchas & Solutions
 
 | Issue | Solution |
@@ -252,6 +278,7 @@ ssh root@SERVER_IP "docker logs sky-app --tail 50"
 | Permission denied | Add `models.CheckRepoAccess()` |
 | Action output missing | Wrap command in `bash -c` |
 | Duplicate containers | Always mutex lock and check existence |
+| Response not working | Use `c.Refresh()` not `w.WriteHeader()` |
 
 ## Security Checklist
 

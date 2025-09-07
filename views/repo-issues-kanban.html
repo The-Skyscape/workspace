@@ -52,13 +52,11 @@
           </svg>
           To Do
         </h3>
-        <span class="badge badge-ghost">{{len $issues.todo}}</span>
+        <span class="badge badge-ghost" id="todo-count">{{len $issues.todo}}</span>
       </div>
       
       <div class="space-y-3 min-h-[400px]" 
            id="todo-column"
-           hx-post="{{host}}/repos/{{$repo.ID}}/issues/reorder"
-           hx-trigger="drop"
            _="on dragover halt the event
               on drop call handleDrop(event, 'todo')">
         {{range $issues.todo}}
@@ -112,13 +110,11 @@
           </svg>
           In Progress
         </h3>
-        <span class="badge badge-ghost">{{len $issues.in_progress}}</span>
+        <span class="badge badge-ghost" id="in_progress-count">{{len $issues.in_progress}}</span>
       </div>
       
       <div class="space-y-3 min-h-[400px]"
-           id="in-progress-column"
-           hx-post="{{host}}/repos/{{$repo.ID}}/issues/reorder"
-           hx-trigger="drop"
+           id="in_progress-column"
            _="on dragover halt the event
               on drop call handleDrop(event, 'in_progress')">
         {{range $issues.in_progress}}
@@ -172,13 +168,11 @@
           </svg>
           Done
         </h3>
-        <span class="badge badge-ghost">{{len $issues.done}}</span>
+        <span class="badge badge-ghost" id="done-count">{{len $issues.done}}</span>
       </div>
       
       <div class="space-y-3 min-h-[400px]"
            id="done-column"
-           hx-post="{{host}}/repos/{{$repo.ID}}/issues/reorder"
-           hx-trigger="drop"
            _="on dragover halt the event
               on drop call handleDrop(event, 'done')">
         {{range $issues.done}}
@@ -285,17 +279,47 @@ function handleDrop(event, newStatus) {
   
   if (!draggedIssueId) return;
   
-  // Send HTMX request to move the issue
-  htmx.ajax('POST', `{{host}}/repos/{{$repo.ID}}/issues/${draggedIssueId}/move`, {
-    values: { status: newStatus },
-    target: `[data-issue-id="${draggedIssueId}"]`,
-    swap: 'outerHTML'
-  }).then(() => {
-    // Refresh the page to update counts
-    window.location.reload();
-  });
+  // Get the dragged element
+  const draggedElement = document.querySelector(`[data-issue-id="${draggedIssueId}"]`);
+  if (!draggedElement) return;
+  
+  // Move the element to the new column immediately (optimistic update)
+  const targetColumn = document.getElementById(newStatus + '-column');
+  if (targetColumn) {
+    targetColumn.appendChild(draggedElement);
+  }
+  
+  // Send HTMX request to persist the change
+  // Create a form dynamically to trigger HTMX
+  const form = document.createElement('form');
+  form.setAttribute('hx-post', `{{host}}/repos/{{$repo.ID}}/issues/${draggedIssueId}/move`);
+  form.setAttribute('hx-trigger', 'submit');
+  form.setAttribute('hx-swap', 'none');
+  form.innerHTML = `<input type="hidden" name="status" value="${newStatus}">`;
+  
+  // Trigger HTMX
+  document.body.appendChild(form);
+  htmx.process(form);
+  htmx.trigger(form, 'submit');
+  document.body.removeChild(form);
+  
+  // Update counts manually
+  updateColumnCounts();
   
   draggedIssueId = null;
+}
+
+function updateColumnCounts() {
+  // Update the count badges for each column
+  const columns = ['todo', 'in_progress', 'done'];
+  columns.forEach(status => {
+    const column = document.getElementById(status + '-column');
+    const badge = document.querySelector(`#${status}-count`);
+    if (column && badge) {
+      const count = column.querySelectorAll('[data-issue-id]').length;
+      badge.textContent = count;
+    }
+  });
 }
 </script>
 

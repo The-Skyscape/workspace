@@ -1944,10 +1944,9 @@ func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
 	// This endpoint just acknowledges the request
 	log.Printf("AIController: Stop execution requested for conversation %s", conversationID)
 	
-	// Send success response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"stopped"}`)
+	// For HTMX requests, use c.Refresh to properly handle the response
+	// This will trigger the appropriate HTMX behavior
+	c.Refresh(w, r)
 }
 
 
