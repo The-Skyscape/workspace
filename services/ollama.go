@@ -118,10 +118,15 @@ func NewOllamaService() *OllamaService {
 		aiModel = "llama3.2:1b" // Default to small efficient model
 	}
 	
-	// Enable GPU for larger models
-	gpuEnabled := false
-	if strings.Contains(aiModel, "gpt-oss") || strings.Contains(aiModel, "llama2") {
-		gpuEnabled = true
+	// Check GPU_ENABLED flag explicitly
+	gpuEnabled := os.Getenv("GPU_ENABLED") == "true"
+	
+	// Auto-enable GPU for certain models if not explicitly set
+	if !gpuEnabled && os.Getenv("GPU_ENABLED") == "" {
+		if strings.Contains(aiModel, "gpt-oss") || strings.Contains(aiModel, "llama2") {
+			gpuEnabled = true
+			log.Printf("OllamaService: Auto-enabling GPU for model %s", aiModel)
+		}
 	}
 	
 	return &OllamaService{
@@ -397,7 +402,7 @@ func (o *OllamaService) createServiceConfig() *containers.Service {
 		o.config.DataDir = fmt.Sprintf("%s/ollama", database.DataDir())
 	}
 
-	return &containers.Service{
+	service := &containers.Service{
 		Host:          containers.Local(),
 		Name:          o.config.ContainerName,
 		Image:         "ollama/ollama:latest",
@@ -409,9 +414,22 @@ func (o *OllamaService) createServiceConfig() *containers.Service {
 		Env: map[string]string{
 			"OLLAMA_HOST": fmt.Sprintf("0.0.0.0:%d", o.config.Port),
 		},
-		// Note: GPU support would need to be added via Docker runtime flags
-		// For now, CPU-only mode is sufficient for development
 	}
+	
+	// Add GPU support if enabled
+	if o.config.GPUEnabled {
+		log.Printf("OllamaService: GPU support enabled for %s", o.config.DefaultModel)
+		// Note: GPU support would require Docker runtime configuration
+		// For now, we'll set environment variables that Ollama can use
+		service.Env["CUDA_VISIBLE_DEVICES"] = "0"
+		service.Env["NVIDIA_VISIBLE_DEVICES"] = "all"
+		service.Env["NVIDIA_DRIVER_CAPABILITIES"] = "compute,utility"
+		// TODO: Add proper GPU runtime support when containers package supports it
+	} else {
+		log.Printf("OllamaService: Running in CPU-only mode")
+	}
+	
+	return service
 }
 
 // healthCheck performs a health check on the service
@@ -859,4 +877,12 @@ func (o *OllamaService) GetServiceInfo() map[string]interface{} {
 	}
 
 	return info
+}
+
+// IsGPUEnabled checks if GPU support is enabled
+func (o *OllamaService) IsGPUEnabled() bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	
+	return o.config.GPUEnabled
 }

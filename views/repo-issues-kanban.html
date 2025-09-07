@@ -1,0 +1,302 @@
+{{template "layout/start"}}
+{{$repo := repos.CurrentRepo}}
+
+<!-- Repository Header -->
+{{template "partials/repo-header.html" .}}
+
+<!-- Repository Tabs -->
+{{template "partials/repo-tabs.html" .}}
+
+<!-- Issues Container -->
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+  <!-- Issues Header with View Toggle -->
+  <div class="flex justify-between items-center mb-6">
+    <div class="flex items-center gap-4">
+      <h2 class="text-2xl font-bold">Issues</h2>
+      <div class="tabs tabs-boxed">
+        <a href="{{host}}/repos/{{$repo.ID}}/issues" class="tab">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          List
+        </a>
+        <a href="{{host}}/repos/{{$repo.ID}}/issues/kanban" class="tab tab-active">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          Kanban
+        </a>
+      </div>
+    </div>
+    
+    {{if auth.CurrentUser.IsAdmin}}
+    <button class="btn btn-primary btn-sm" _="on click call create_issue_modal.showModal()">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      New Issue
+    </button>
+    {{end}}
+  </div>
+
+  <!-- Kanban Board -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {{$issues := issues.GetIssuesByStatus}}
+    
+    <!-- Todo Column -->
+    <div class="bg-base-200 rounded-lg p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          To Do
+        </h3>
+        <span class="badge badge-ghost">{{len $issues.todo}}</span>
+      </div>
+      
+      <div class="space-y-3 min-h-[400px]" 
+           id="todo-column"
+           hx-post="{{host}}/repos/{{$repo.ID}}/issues/reorder"
+           hx-trigger="drop"
+           _="on dragover halt the event
+              on drop call handleDrop(event, 'todo')">
+        {{range $issues.todo}}
+        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow"
+             draggable="true"
+             data-issue-id="{{.ID}}"
+             _="on dragstart call handleDragStart(event, '{{.ID}}')
+                on dragend call handleDragEnd(event)">
+          <div class="card-body p-3">
+            <div class="flex justify-between items-start gap-2">
+              <h4 class="text-sm font-medium line-clamp-2">
+                <a href="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}" 
+                   class="link link-hover"
+                   hx-boost="true">
+                  {{.Title}}
+                </a>
+              </h4>
+              <span class="text-xs text-base-content/60">#{{.Number}}</span>
+            </div>
+            
+            {{if .Tags}}
+            <div class="flex flex-wrap gap-1 mt-2">
+              {{range split .Tags ","}}
+              <span class="badge badge-sm">{{.}}</span>
+              {{end}}
+            </div>
+            {{end}}
+            
+            <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
+              <span>{{.CreatedAt.Format "Jan 2"}}</span>
+              {{if .AssigneeID}}
+              <div class="avatar placeholder">
+                <div class="bg-neutral-focus text-neutral-content rounded-full w-5 h-5">
+                  <span class="text-xs">{{slice .AssigneeID 0 1}}</span>
+                </div>
+              </div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
+    <!-- In Progress Column -->
+    <div class="bg-base-200 rounded-lg p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          In Progress
+        </h3>
+        <span class="badge badge-ghost">{{len $issues.in_progress}}</span>
+      </div>
+      
+      <div class="space-y-3 min-h-[400px]"
+           id="in-progress-column"
+           hx-post="{{host}}/repos/{{$repo.ID}}/issues/reorder"
+           hx-trigger="drop"
+           _="on dragover halt the event
+              on drop call handleDrop(event, 'in_progress')">
+        {{range $issues.in_progress}}
+        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow"
+             draggable="true"
+             data-issue-id="{{.ID}}"
+             _="on dragstart call handleDragStart(event, '{{.ID}}')
+                on dragend call handleDragEnd(event)">
+          <div class="card-body p-3">
+            <div class="flex justify-between items-start gap-2">
+              <h4 class="text-sm font-medium line-clamp-2">
+                <a href="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}" 
+                   class="link link-hover"
+                   hx-boost="true">
+                  {{.Title}}
+                </a>
+              </h4>
+              <span class="text-xs text-base-content/60">#{{.Number}}</span>
+            </div>
+            
+            {{if .Tags}}
+            <div class="flex flex-wrap gap-1 mt-2">
+              {{range split .Tags ","}}
+              <span class="badge badge-sm">{{.}}</span>
+              {{end}}
+            </div>
+            {{end}}
+            
+            <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
+              <span>{{.CreatedAt.Format "Jan 2"}}</span>
+              {{if .AssigneeID}}
+              <div class="avatar placeholder">
+                <div class="bg-neutral-focus text-neutral-content rounded-full w-5 h-5">
+                  <span class="text-xs">{{slice .AssigneeID 0 1}}</span>
+                </div>
+              </div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+        {{end}}
+      </div>
+    </div>
+
+    <!-- Done Column -->
+    <div class="bg-base-200 rounded-lg p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Done
+        </h3>
+        <span class="badge badge-ghost">{{len $issues.done}}</span>
+      </div>
+      
+      <div class="space-y-3 min-h-[400px]"
+           id="done-column"
+           hx-post="{{host}}/repos/{{$repo.ID}}/issues/reorder"
+           hx-trigger="drop"
+           _="on dragover halt the event
+              on drop call handleDrop(event, 'done')">
+        {{range $issues.done}}
+        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow opacity-60"
+             draggable="true"
+             data-issue-id="{{.ID}}"
+             _="on dragstart call handleDragStart(event, '{{.ID}}')
+                on dragend call handleDragEnd(event)">
+          <div class="card-body p-3">
+            <div class="flex justify-between items-start gap-2">
+              <h4 class="text-sm font-medium line-clamp-2 line-through">
+                <a href="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}" 
+                   class="link link-hover"
+                   hx-boost="true">
+                  {{.Title}}
+                </a>
+              </h4>
+              <span class="text-xs text-base-content/60">#{{.Number}}</span>
+            </div>
+            
+            {{if .Tags}}
+            <div class="flex flex-wrap gap-1 mt-2">
+              {{range split .Tags ","}}
+              <span class="badge badge-sm">{{.}}</span>
+              {{end}}
+            </div>
+            {{end}}
+            
+            <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
+              <span>Closed {{.UpdatedAt.Format "Jan 2"}}</span>
+              {{if .AssigneeID}}
+              <div class="avatar placeholder">
+                <div class="bg-neutral-focus text-neutral-content rounded-full w-5 h-5">
+                  <span class="text-xs">{{slice .AssigneeID 0 1}}</span>
+                </div>
+              </div>
+              {{end}}
+            </div>
+          </div>
+        </div>
+        {{end}}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Issue Modal -->
+{{if auth.CurrentUser.IsAdmin}}
+<dialog id="create_issue_modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Create New Issue</h3>
+    <form hx-post="{{host}}/repos/{{$repo.ID}}/issues/create" 
+          hx-target=".error-message" 
+          hx-swap="innerHTML"
+          hx-on::after-request="if(event.detail.successful) create_issue_modal.close()">
+      <div class="error-message"></div>
+      <div class="flex flex-col gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Title</span>
+          </label>
+          <input type="text" name="title" class="input input-bordered" required />
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Description</span>
+          </label>
+          <textarea name="body" class="textarea textarea-bordered" rows="4"></textarea>
+        </div>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Tags (comma-separated)</span>
+          </label>
+          <input type="text" name="tags" class="input input-bordered" placeholder="bug, enhancement, help wanted" />
+        </div>
+      </div>
+      <div class="modal-action">
+        <button type="button" class="btn" onclick="create_issue_modal.close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Issue</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+{{end}}
+
+<script>
+let draggedIssueId = null;
+
+function handleDragStart(event, issueId) {
+  draggedIssueId = issueId;
+  event.dataTransfer.effectAllowed = 'move';
+  event.target.classList.add('opacity-50');
+}
+
+function handleDragEnd(event) {
+  event.target.classList.remove('opacity-50');
+}
+
+function handleDrop(event, newStatus) {
+  event.preventDefault();
+  
+  if (!draggedIssueId) return;
+  
+  // Send HTMX request to move the issue
+  htmx.ajax('POST', `{{host}}/repos/{{$repo.ID}}/issues/${draggedIssueId}/move`, {
+    values: { status: newStatus },
+    target: `[data-issue-id="${draggedIssueId}"]`,
+    swap: 'outerHTML'
+  }).then(() => {
+    // Refresh the page to update counts
+    window.location.reload();
+  });
+  
+  draggedIssueId = null;
+}
+</script>
+
+{{template "layout/end"}}

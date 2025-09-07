@@ -9,6 +9,25 @@
 <!-- Issues Container -->
 <div class="container mx-auto px-4 py-6 max-w-5xl">
   
+  <!-- View Toggle -->
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-2xl font-bold">Issues</h2>
+    <div class="tabs tabs-boxed">
+      <a href="{{host}}/repos/{{$repo.ID}}/issues" class="tab tab-active">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        List
+      </a>
+      <a href="{{host}}/repos/{{$repo.ID}}/issues/kanban" class="tab">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+        </svg>
+        Kanban
+      </a>
+    </div>
+  </div>
+  
   <!-- Search Bar and Controls -->
   <div class="flex items-center gap-4 mb-6">
     <div class="flex-1 relative">

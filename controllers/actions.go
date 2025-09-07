@@ -186,8 +186,11 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Execute asynchronously
-	go c.executeAction(action, user.ID)
+	// Execute using the Actions service for parallel execution
+	if err := services.Actions.ExecuteAction(action, "manual"); err != nil {
+		c.RenderErrorMsg(w, r, fmt.Sprintf("Failed to queue action: %v", err))
+		return
+	}
 
 	// Log activity
 	models.LogActivity("action_run", "Manually ran action: "+action.Title,

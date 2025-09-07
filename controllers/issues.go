@@ -36,6 +36,7 @@ func (c *IssuesController) Setup(app *application.App) {
 
 	// Issues - view on public repos or as admin
 	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", PublicOrAdmin()))
+	http.Handle("GET /repos/{id}/issues/kanban", app.Serve("repo-issues-kanban.html", PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/issues/search", app.ProtectFunc(c.searchIssues, PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/issues/more", app.Serve("issues-more.html", PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/issues/{issueID}", app.Serve("repo-issue-view.html", PublicOrAdmin()))
@@ -48,6 +49,7 @@ func (c *IssuesController) Setup(app *application.App) {
 	http.Handle("POST /repos/{id}/issues/{issueID}/close", app.ProtectFunc(c.closeIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/reopen", app.ProtectFunc(c.reopenIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/edit", app.ProtectFunc(c.editIssue, auth.Required))
+	http.Handle("POST /repos/{id}/issues/{issueID}/move", app.ProtectFunc(c.moveIssue, auth.Required))
 	
 	// Issue deletion - admin only
 	http.Handle("POST /repos/{id}/issues/{issueID}/delete", app.ProtectFunc(c.deleteIssue, AdminOnly()))
@@ -528,5 +530,122 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 		"New comment added", user.ID, repoID, "issue_comment", issueID)
 
 	c.Refresh(w, r)
+}
+
+// moveIssue handles moving an issue between Kanban columns
+func (c *IssuesController) moveIssue(w http.ResponseWriter, r *http.Request) {
+	auth := c.Use("auth").(*authentication.Controller)
+	user, _, err := auth.Authenticate(r)
+	if err != nil {
+		c.RenderErrorMsg(w, r, "authentication required")
+		return
+	}
+
+	repoID := r.PathValue("id")
+	issueID := r.PathValue("issueID")
+	newStatus := r.FormValue("status")
+
+	if repoID == "" || issueID == "" || newStatus == "" {
+		c.RenderErrorMsg(w, r, "repository ID, issue ID, and status required")
+		return
+	}
+
+	// Validate status
+	validStatuses := []string{"todo", "in_progress", "done", "open", "closed"}
+	isValid := false
+	for _, s := range validStatuses {
+		if newStatus == s {
+			isValid = true
+			break
+		}
+	}
+	if !isValid {
+		c.RenderErrorMsg(w, r, "invalid status")
+		return
+	}
+
+	// Get issue
+	issue, err := models.Issues.Get(issueID)
+	if err != nil {
+		c.RenderErrorMsg(w, r, "issue not found")
+		return
+	}
+
+	// Check if user can modify (author or admin)
+	if issue.AuthorID != user.ID && !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "unauthorized")
+		return
+	}
+
+	// Update status
+	oldStatus := issue.Status
+	issue.Status = newStatus
+	
+	// If moving to done, mark as closed
+	if newStatus == "done" {
+		issue.Status = "closed"
+	} else if newStatus == "todo" || newStatus == "in_progress" {
+		// If moving back from done, reopen
+		issue.Status = "open"
+	}
+
+	err = models.Issues.Update(issue)
+	if err != nil {
+		c.RenderErrorMsg(w, r, "failed to update issue")
+		return
+	}
+
+	// Log activity
+	models.LogActivity("issue_moved", fmt.Sprintf("Moved issue from %s to %s", oldStatus, newStatus),
+		fmt.Sprintf("Issue %s status changed", issue.Title), user.ID, repoID, "issue", issue.ID)
+
+	// Return the updated issue card for HTMX
+	c.Render(w, r, "partials/issue-kanban-card.html", issue)
+}
+
+// GetIssuesByStatus returns issues grouped by status for Kanban view
+func (c *IssuesController) GetIssuesByStatus() map[string][]*models.Issue {
+	repo, err := c.CurrentRepo()
+	if err != nil {
+		return map[string][]*models.Issue{
+			"todo":        {},
+			"in_progress": {},
+			"done":        {},
+		}
+	}
+
+	// Get all issues for the repository
+	allIssues, err := models.Issues.Search("WHERE RepoID = ? ORDER BY CreatedAt DESC", repo.ID)
+	if err != nil {
+		return map[string][]*models.Issue{
+			"todo":        {},
+			"in_progress": {},
+			"done":        {},
+		}
+	}
+
+	// Group by status
+	grouped := map[string][]*models.Issue{
+		"todo":        {},
+		"in_progress": {},
+		"done":        {},
+	}
+
+	for _, issue := range allIssues {
+		// Map open issues to todo column by default
+		if issue.Status == "open" {
+			// Check if it has tags that indicate progress
+			if strings.Contains(strings.ToLower(issue.Tags), "in progress") || 
+			   strings.Contains(strings.ToLower(issue.Tags), "working") {
+				grouped["in_progress"] = append(grouped["in_progress"], issue)
+			} else {
+				grouped["todo"] = append(grouped["todo"], issue)
+			}
+		} else if issue.Status == "closed" {
+			grouped["done"] = append(grouped["done"], issue)
+		}
+	}
+
+	return grouped
 }
 
