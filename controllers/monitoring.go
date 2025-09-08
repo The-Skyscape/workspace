@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/monitoring"
 )
 
@@ -20,12 +19,12 @@ import (
 type MonitoringController struct {
 	application.BaseController
 	collector *monitoring.Collector
-	
+
 	// Container monitoring state
-	containers             []monitoring.ContainerStats
-	containersMu           *sync.RWMutex
+	containers              []monitoring.ContainerStats
+	containersMu            *sync.RWMutex
 	containerUpdateInterval time.Duration
-	stopContainerMonitor   chan struct{}
+	stopContainerMonitor    chan struct{}
 }
 
 // Monitoring is the factory function for the monitoring controller
@@ -41,11 +40,11 @@ func Monitoring() (string, *MonitoringController) {
 // Setup registers monitoring routes
 func (m *MonitoringController) Setup(app *application.App) {
 	m.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
+	auth := app.Use("auth").(*AuthController)
 
 	// Start collecting statistics on startup
 	m.collector.Start()
-	
+
 	// Start background container monitoring
 	m.startContainerMonitor()
 
@@ -67,14 +66,14 @@ func (m *MonitoringController) Setup(app *application.App) {
 
 	// Live monitoring dashboard (now part of settings, admin only)
 	http.Handle("GET /settings/monitoring", app.Serve("settings-monitoring.html", adminRequired))
-	
+
 	// API endpoints for live updates
 	http.Handle("GET /monitoring/stats", app.ProtectFunc(m.getCurrentStats, auth.Required))
 	http.Handle("GET /monitoring/stats/live", app.ProtectFunc(m.getLiveStats, auth.Required))
 	http.Handle("GET /monitoring/history", app.ProtectFunc(m.getHistory, auth.Required))
 	http.Handle("GET /monitoring/alerts", app.ProtectFunc(m.getAlerts, auth.Required))
 	http.Handle("GET /monitoring/processes", app.ProtectFunc(m.getTopProcesses, auth.Required))
-	
+
 	// HTMX partial updates
 	http.Handle("GET /monitoring/partial/cpu", app.ProtectFunc(m.getCPUPartial, auth.Required))
 	http.Handle("GET /monitoring/partial/memory", app.ProtectFunc(m.getMemoryPartial, auth.Required))
@@ -124,7 +123,7 @@ func (m *MonitoringController) getLiveStats(w http.ResponseWriter, r *http.Reque
 
 	// Return HTML partial for HTMX
 	m.Render(w, r, "monitoring-stats.html", map[string]interface{}{
-		"Stats": stats,
+		"Stats":  stats,
 		"Alerts": m.collector.CheckAlerts(),
 	})
 }
@@ -134,7 +133,7 @@ func (m *MonitoringController) getHistory(w http.ResponseWriter, r *http.Request
 	// Parse duration parameter
 	durationStr := r.URL.Query().Get("duration")
 	duration := 1 * time.Hour // Default to 1 hour
-	
+
 	if durationStr != "" {
 		if d, err := time.ParseDuration(durationStr); err == nil {
 			duration = d
@@ -142,7 +141,7 @@ func (m *MonitoringController) getHistory(w http.ResponseWriter, r *http.Request
 	}
 
 	history := m.collector.GetHistorySince(time.Now().Add(-duration))
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(history)
 }
@@ -150,7 +149,7 @@ func (m *MonitoringController) getHistory(w http.ResponseWriter, r *http.Request
 // getAlerts returns current resource alerts
 func (m *MonitoringController) getAlerts(w http.ResponseWriter, r *http.Request) {
 	alerts := m.collector.CheckAlerts()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(alerts)
 }
@@ -161,7 +160,7 @@ func (m *MonitoringController) getTopProcesses(w http.ResponseWriter, r *http.Re
 	if sortBy == "" {
 		sortBy = "cpu"
 	}
-	
+
 	countStr := r.URL.Query().Get("count")
 	count := 10
 	if c, err := strconv.Atoi(countStr); err == nil && c > 0 {
@@ -188,7 +187,7 @@ func (m *MonitoringController) getCPUPartial(w http.ResponseWriter, r *http.Requ
 	}
 
 	m.Render(w, r, "monitoring-cpu.html", map[string]interface{}{
-		"CPU": stats.CPU,
+		"CPU":  stats.CPU,
 		"Load": stats.LoadAverage,
 	})
 }
@@ -223,14 +222,14 @@ func (m *MonitoringController) getDiskPartial(w http.ResponseWriter, r *http.Req
 func (m *MonitoringController) getContainersPartial(w http.ResponseWriter, r *http.Request) {
 	// Use cached container data for instant response
 	containers := m.GetContainers()
-	
+
 	m.Render(w, r, "monitoring-containers.html", containers)
 }
 
 // getAlertsPartial returns alerts as HTML partial
 func (m *MonitoringController) getAlertsPartial(w http.ResponseWriter, r *http.Request) {
 	alerts := m.collector.CheckAlerts()
-	
+
 	m.Render(w, r, "monitoring-alerts.html", map[string]interface{}{
 		"Alerts": alerts,
 	})
@@ -250,7 +249,7 @@ func (m *MonitoringController) FormatPercent(percent float64) string {
 func (m *MonitoringController) GetContainers() []monitoring.ContainerStats {
 	m.containersMu.RLock()
 	defer m.containersMu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	result := make([]monitoring.ContainerStats, len(m.containers))
 	copy(result, m.containers)
@@ -262,10 +261,10 @@ func (m *MonitoringController) startContainerMonitor() {
 	go func() {
 		// Initial update
 		m.updateContainers()
-		
+
 		ticker := time.NewTicker(m.containerUpdateInterval)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -284,53 +283,53 @@ func (m *MonitoringController) updateContainers() {
 		log.Println("Docker not found, skipping container monitoring")
 		return
 	}
-	
+
 	// Use longer timeout for Docker operations
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// Get container stats using docker stats
 	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream", "--format",
 		"{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}")
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to get Docker stats: %v", err)
 		return
 	}
-	
+
 	var containers []monitoring.ContainerStats
 	lines := strings.Split(string(output), "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		parts := strings.Split(line, "|")
 		if len(parts) < 7 {
 			continue
 		}
-		
+
 		// Parse CPU percentage
 		cpuStr := strings.TrimSuffix(parts[2], "%")
 		cpuPercent, _ := strconv.ParseFloat(cpuStr, 64)
-		
+
 		// Parse memory percentage
 		memStr := strings.TrimSuffix(parts[4], "%")
 		memPercent, _ := strconv.ParseFloat(memStr, 64)
-		
+
 		// Parse memory usage (extract bytes from string like "1.5GiB / 2GiB")
 		memUsageParts := strings.Split(parts[3], " / ")
 		memUsage := uint64(0)
 		if len(memUsageParts) > 0 {
 			memUsage = parseMemoryString(memUsageParts[0])
 		}
-		
+
 		// Determine status (simplified - in real implementation would use docker ps)
 		status := "running"
-		
+
 		container := monitoring.ContainerStats{
 			ID:         parts[0][:12], // First 12 chars of container ID
 			Name:       parts[1],
@@ -341,15 +340,15 @@ func (m *MonitoringController) updateContainers() {
 			NetIO:      parts[5],
 			BlockIO:    parts[6],
 		}
-		
+
 		containers = append(containers, container)
 	}
-	
+
 	// Update cached state
 	m.containersMu.Lock()
 	m.containers = containers
 	m.containersMu.Unlock()
-	
+
 	log.Printf("Updated container stats: %d containers found", len(containers))
 }
 
@@ -359,11 +358,11 @@ func parseMemoryString(s string) uint64 {
 	if s == "" {
 		return 0
 	}
-	
+
 	// Remove unit and parse number
 	var value float64
 	var unit string
-	
+
 	for i, r := range s {
 		if (r < '0' || r > '9') && r != '.' {
 			value, _ = strconv.ParseFloat(s[:i], 64)
@@ -371,7 +370,7 @@ func parseMemoryString(s string) uint64 {
 			break
 		}
 	}
-	
+
 	// Convert to bytes based on unit
 	switch strings.ToLower(strings.TrimSpace(unit)) {
 	case "b":

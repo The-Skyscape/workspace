@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 	
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -10,8 +11,8 @@ type Issue struct {
 	application.Model
 	Title      string
 	Body       string
-	Tags       string // JSON array of tags
 	Status     string // "open", "closed"
+	Column     string // Kanban column: "" (default/todo), "in_progress", "done"
 	AuthorID   string // User who created the issue
 	AssigneeID string
 	RepoID     string
@@ -27,6 +28,25 @@ type Issue struct {
 }
 
 func (*Issue) Table() string { return "issues" }
+
+// Tags returns all IssueTag objects for this issue
+func (i *Issue) Tags() ([]*IssueTag, error) {
+	return IssueTags.Search("WHERE IssueID = ? ORDER BY Tag", i.ID)
+}
+
+// TagsString returns a comma-separated string of tags for form inputs
+func (i *Issue) TagsString() string {
+	tags, err := i.Tags()
+	if err != nil || len(tags) == 0 {
+		return ""
+	}
+	
+	tagStrings := make([]string, len(tags))
+	for idx, tag := range tags {
+		tagStrings[idx] = tag.Tag
+	}
+	return strings.Join(tagStrings, ", ")
+}
 
 func init() {
 	// Create indexes for issues table

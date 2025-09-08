@@ -7,6 +7,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sosedoff/gitkit v0.4.0
 	github.com/yuin/goldmark v1.7.8
+	golang.org/x/crypto v0.36.0
 )
 
 require (
@@ -18,8 +19,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v1.14.30 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 )
 
 replace github.com/The-Skyscape/devtools => ../devtools

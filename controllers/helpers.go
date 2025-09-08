@@ -9,7 +9,6 @@ import (
 
 	"workspace/models"
 
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 )
 
 // SearchParams represents common search parameters
@@ -100,7 +99,7 @@ func BuildSearchQuery(baseTable string, params SearchParams, repoID string) (str
 }
 
 // GetRepositoryWithAccess gets a repository and checks access in one operation
-func GetRepositoryWithAccess(r *http.Request, needsWrite bool, auth *authentication.Controller) (*models.Repository, error) {
+func GetRepositoryWithAccess(r *http.Request, needsWrite bool, auth *AuthController) (*models.Repository, error) {
 	repoID := r.PathValue("id")
 	if repoID == "" {
 		return nil, fmt.Errorf("repository ID required")
@@ -142,7 +141,7 @@ func FormatTimeAgo(t time.Time) string {
 	}
 
 	duration := time.Since(t)
-	
+
 	switch {
 	case duration < time.Minute:
 		return "just now"

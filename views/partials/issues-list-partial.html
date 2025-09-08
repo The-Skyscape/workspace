@@ -29,8 +29,8 @@
               {{end}}
               <div class="flex items-center gap-4 text-xs text-base-content/60 mt-2">
                 <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
-                {{if .Tags}}
-                <span class="badge badge-outline badge-xs">{{.Tags}}</span>
+                {{range .Tags}}
+                <span class="badge badge-outline badge-xs">{{.Tag}}</span>
                 {{end}}
               </div>
             </div>

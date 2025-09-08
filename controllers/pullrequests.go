@@ -12,7 +12,6 @@ import (
 	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 )
 
 // PullRequests controller prefix
@@ -34,21 +33,21 @@ func (c PullRequestsController) Handle(req *http.Request) application.Controller
 // Setup registers routes
 func (c *PullRequestsController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
+	auth := app.Use("auth").(*AuthController)
 
 	// Pull Requests - view on public repos or as admin
 	http.Handle("GET /repos/{id}/prs", app.Serve("repo-prs.html", PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/prs/search", app.ProtectFunc(c.searchPRs, PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/prs/more", app.Serve("prs-more.html", PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/prs/{prID}/diff", app.Serve("repo-pr-diff.html", PublicOrAdmin()))
-	
+
 	// PR operations - authenticated users on public repos, admins on any
 	http.Handle("POST /repos/{id}/prs/create", app.ProtectFunc(c.createPR, PublicRepoOnly()))
 	http.Handle("POST /repos/{id}/prs/{prID}/comment", app.ProtectFunc(c.createPRComment, PublicRepoOnly()))
-	
+
 	// PR merge - admin only
 	http.Handle("POST /repos/{id}/prs/{prID}/merge", app.ProtectFunc(c.mergePR, AdminOnly()))
-	
+
 	// PR close - author or admin
 	http.Handle("POST /repos/{id}/prs/{prID}/close", app.ProtectFunc(c.closePR, auth.Required))
 }
@@ -107,17 +106,17 @@ func (c *PullRequestsController) MorePRs() ([]*models.PullRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse offset from query params
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
 		fmt.Sscanf(offsetStr, "%d", &offset)
 	}
-	
+
 	// Get filter options
 	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
-	
+
 	// Get next batch of PRs
 	prs, _, err := models.GetRepoPRsPaginated(repo.ID, includeClosed, 20, offset)
 	return prs, err
@@ -130,19 +129,19 @@ func (c *PullRequestsController) HasMorePRs() bool {
 	if err != nil {
 		return false
 	}
-	
+
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
 		fmt.Sscanf(offsetStr, "%d", &offset)
 	}
-	
+
 	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
 	prs, total, err := models.GetRepoPRsPaginated(repo.ID, includeClosed, 20, offset)
 	if err != nil {
 		return false
 	}
-	
+
 	return (offset + len(prs)) < total
 }
 
@@ -226,7 +225,6 @@ func (c *PullRequestsController) IncludeClosed() bool {
 	return c.Request.URL.Query().Get("includeClosed") == "true"
 }
 
-
 // RepoBranches returns branches for the current repository via repos controller
 func (c *PullRequestsController) RepoBranches() ([]*models.Branch, error) {
 	reposController := c.Use("repos").(*ReposController)
@@ -259,7 +257,7 @@ func (c *PullRequestsController) searchPRs(w http.ResponseWriter, r *http.Reques
 func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request) {
 	// Access already verified by route middleware (PublicRepoOnly)
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -329,7 +327,7 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 
 // mergePR handles merging a pull request
 func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -428,7 +426,7 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 
 // closePR handles closing a pull request
 func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -449,7 +447,7 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 		c.RenderErrorMsg(w, r, "pull request not found")
 		return
 	}
-	
+
 	// Check if user is admin or PR author
 	if !user.IsAdmin && pr.AuthorID != user.ID {
 		c.RenderErrorMsg(w, r, "only the author or admin can close this pull request")
@@ -485,7 +483,7 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 func (c *PullRequestsController) createPRComment(w http.ResponseWriter, r *http.Request) {
 	// Access already verified by route middleware (PublicRepoOnly)
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -517,4 +515,3 @@ func (c *PullRequestsController) createPRComment(w http.ResponseWriter, r *http.
 
 	c.Refresh(w, r)
 }
-

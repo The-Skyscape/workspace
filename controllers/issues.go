@@ -32,7 +32,7 @@ func (c IssuesController) Handle(req *http.Request) application.Controller {
 // Setup registers routes
 func (c *IssuesController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
+	auth := app.Use("auth").(*AuthController)
 
 	// Issues - view on public repos or as admin
 	http.Handle("GET /repos/{id}/issues", app.Serve("repo-issues.html", PublicOrAdmin()))
@@ -40,17 +40,17 @@ func (c *IssuesController) Setup(app *application.App) {
 	http.Handle("GET /repos/{id}/issues/search", app.ProtectFunc(c.searchIssues, PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/issues/more", app.Serve("issues-more.html", PublicOrAdmin()))
 	http.Handle("GET /repos/{id}/issues/{issueID}", app.Serve("repo-issue-view.html", PublicOrAdmin()))
-	
+
 	// Issue operations - authenticated users on public repos, admins on any
 	http.Handle("POST /repos/{id}/issues/create", app.ProtectFunc(c.createIssue, PublicRepoOnly()))
 	http.Handle("POST /repos/{id}/issues/{issueID}/comment", app.ProtectFunc(c.createIssueComment, PublicRepoOnly()))
-	
+
 	// Issue modifications - author or admin only
 	http.Handle("POST /repos/{id}/issues/{issueID}/close", app.ProtectFunc(c.closeIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/reopen", app.ProtectFunc(c.reopenIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/edit", app.ProtectFunc(c.editIssue, auth.Required))
 	http.Handle("POST /repos/{id}/issues/{issueID}/move", app.ProtectFunc(c.moveIssue, auth.Required))
-	
+
 	// Issue deletion - admin only
 	http.Handle("POST /repos/{id}/issues/{issueID}/delete", app.ProtectFunc(c.deleteIssue, AdminOnly()))
 }
@@ -109,17 +109,17 @@ func (c *IssuesController) MoreIssues() ([]*models.Issue, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse offset from query params
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
 		fmt.Sscanf(offsetStr, "%d", &offset)
 	}
-	
+
 	// Get filter options
 	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
-	
+
 	// Get next batch of issues
 	issues, _, err := models.GetRepoIssuesPaginated(repo.ID, includeClosed, 20, offset)
 	return issues, err
@@ -132,19 +132,19 @@ func (c *IssuesController) HasMoreIssues() bool {
 	if err != nil {
 		return false
 	}
-	
+
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
 		fmt.Sscanf(offsetStr, "%d", &offset)
 	}
-	
+
 	includeClosed := c.Request.URL.Query().Get("includeClosed") == "true"
 	issues, total, err := models.GetRepoIssuesPaginated(repo.ID, includeClosed, 20, offset)
 	if err != nil {
 		return false
 	}
-	
+
 	return (offset + len(issues)) < total
 }
 
@@ -179,7 +179,7 @@ func (c *IssuesController) CurrentIssue() (*models.Issue, error) {
 
 // CurrentUser returns the currently authenticated user
 func (c *IssuesController) CurrentUser() *authentication.User {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return nil
@@ -200,12 +200,12 @@ func (c *IssuesController) CanCreateIssue() bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// Admins can always create issues
 	if c.IsAdmin() {
 		return true
 	}
-	
+
 	// Non-admins can create issues on public repos if authenticated
 	user := c.CurrentUser()
 	return user != nil && repo.Visibility == "public"
@@ -216,12 +216,12 @@ func (c *IssuesController) CanEditIssue(issue *models.Issue) bool {
 	if issue == nil {
 		return false
 	}
-	
+
 	// Admins can edit any issue
 	if c.IsAdmin() {
 		return true
 	}
-	
+
 	// Authors can edit their own issues
 	user := c.CurrentUser()
 	return user != nil && issue.AuthorID == user.ID
@@ -235,7 +235,6 @@ func (c *IssuesController) IssueComments() ([]*models.Comment, error) {
 	}
 	return models.GetIssueComments(issue.ID)
 }
-
 
 // searchIssues handles issue search requests with HTMX
 func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +252,7 @@ func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) 
 // createIssue handles issue creation
 func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	// Access already checked by route middleware (PublicRepoOnly)
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -265,7 +264,7 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	// Validate required fields
 	title := strings.TrimSpace(r.FormValue("title"))
 	body := strings.TrimSpace(r.FormValue("body"))
-	tags := strings.TrimSpace(r.FormValue("tags"))
+	column := strings.TrimSpace(r.FormValue("column"))
 
 	if title == "" {
 		c.RenderErrorMsg(w, r, "issue title is required")
@@ -276,11 +275,16 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	issue := &models.Issue{
 		Title:      title,
 		Body:       body,
-		Tags:       tags,
+		Column:     column, // Will be "" for todo, "in_progress", or "done"
 		Status:     "open",
 		RepoID:     repoID,
-		AuthorID:   user.ID,  // Set the author
-		AssigneeID: user.ID,  // Initially assign to creator
+		AuthorID:   user.ID, // Set the author
+		AssigneeID: user.ID, // Initially assign to creator
+	}
+
+	// If column is "done", set status to closed
+	if column == "done" {
+		issue.Status = "closed"
 	}
 
 	_, err := models.Issues.Insert(issue)
@@ -308,7 +312,7 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 
 // closeIssue handles closing an issue
 func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -352,7 +356,7 @@ func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
 
 // reopenIssue handles reopening an issue
 func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -396,7 +400,7 @@ func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
 
 // editIssue handles editing an issue
 func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -427,14 +431,12 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 	// Update fields
 	title := strings.TrimSpace(r.FormValue("title"))
 	body := strings.TrimSpace(r.FormValue("body"))
-	tags := strings.TrimSpace(r.FormValue("tags"))
 	assigneeID := strings.TrimSpace(r.FormValue("assignee_id"))
 
 	if title != "" {
 		issue.Title = title
 	}
 	issue.Body = body
-	issue.Tags = tags
 	issue.AssigneeID = assigneeID
 
 	// Save changes
@@ -453,7 +455,7 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 
 // deleteIssue handles deleting an issue
 func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -493,7 +495,7 @@ func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
 
 // createIssueComment handles adding a comment to an issue
 func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -534,7 +536,7 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 
 // moveIssue handles moving an issue between Kanban columns
 func (c *IssuesController) moveIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -577,16 +579,22 @@ func (c *IssuesController) moveIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update status
-	oldStatus := issue.Status
-	issue.Status = newStatus
-	
-	// If moving to done, mark as closed
-	if newStatus == "done" {
-		issue.Status = "closed"
-	} else if newStatus == "todo" || newStatus == "in_progress" {
-		// If moving back from done, reopen
+	// Update column and status based on kanban movement
+	oldColumn := issue.Column
+
+	// Update based on target column
+	switch newStatus {
+	case "todo":
+		issue.Column = "" // Empty string means todo column (default)
 		issue.Status = "open"
+
+	case "in_progress":
+		issue.Column = "in_progress"
+		issue.Status = "open"
+
+	case "done":
+		issue.Column = "done"
+		issue.Status = "closed"
 	}
 
 	err = models.Issues.Update(issue)
@@ -596,12 +604,15 @@ func (c *IssuesController) moveIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log activity
-	models.LogActivity("issue_moved", fmt.Sprintf("Moved issue from %s to %s", oldStatus, newStatus),
-		fmt.Sprintf("Issue %s status changed", issue.Title), user.ID, repoID, "issue", issue.ID)
+	oldColumnDisplay := oldColumn
+	if oldColumnDisplay == "" {
+		oldColumnDisplay = "todo"
+	}
+	models.LogActivity("issue_moved", fmt.Sprintf("Moved issue from %s to %s", oldColumnDisplay, newStatus),
+		fmt.Sprintf("Issue %s moved", issue.Title), user.ID, repoID, "issue", issue.ID)
 
-	// Use c.Refresh to properly handle HTMX response with HX-Refresh header
-	// Even with optimistic updates, this ensures proper HTMX integration
-	c.Refresh(w, r)
+	// Test with w.WriteHeader(200) as requested
+	w.WriteHeader(200)
 }
 
 // GetIssuesByStatus returns issues grouped by status for Kanban view
@@ -625,7 +636,7 @@ func (c *IssuesController) GetIssuesByStatus() map[string][]*models.Issue {
 		}
 	}
 
-	// Group by status
+	// Group by column
 	grouped := map[string][]*models.Issue{
 		"todo":        {},
 		"in_progress": {},
@@ -633,20 +644,17 @@ func (c *IssuesController) GetIssuesByStatus() map[string][]*models.Issue {
 	}
 
 	for _, issue := range allIssues {
-		// Map open issues to todo column by default
-		if issue.Status == "open" {
-			// Check if it has tags that indicate progress
-			if strings.Contains(strings.ToLower(issue.Tags), "in progress") || 
-			   strings.Contains(strings.ToLower(issue.Tags), "working") {
-				grouped["in_progress"] = append(grouped["in_progress"], issue)
-			} else {
-				grouped["todo"] = append(grouped["todo"], issue)
-			}
-		} else if issue.Status == "closed" {
+		// Use Column field to determine placement
+		switch issue.Column {
+		case "in_progress":
+			grouped["in_progress"] = append(grouped["in_progress"], issue)
+		case "done":
 			grouped["done"] = append(grouped["done"], issue)
+		default:
+			// Empty string or any other value goes to todo
+			grouped["todo"] = append(grouped["todo"], issue)
 		}
 	}
 
 	return grouped
 }
-

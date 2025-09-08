@@ -18,7 +18,7 @@ func NewProvider() (agents.Provider, error) {
 	
 	modelName := os.Getenv("AI_MODEL")
 	if modelName == "" {
-		modelName = "llama3.2:1b" // Default to small model
+		modelName = "gpt-oss" // Default to GPT-OSS for Pro workspaces
 		log.Printf("AI_MODEL not set, defaulting to %s", modelName)
 	}
 	
@@ -28,16 +28,18 @@ func NewProvider() (agents.Provider, error) {
 	}
 	
 	switch modelName {
-	case "llama3.2:1b":
-		log.Printf("Initializing Llama 3.2:1b provider for CPU environment")
+	case "llama3.2:1b", "llama32", "llama3.2":
+		log.Printf("Initializing Llama 3.2 provider for test environment")
 		return NewLlama32Provider(services.Ollama), nil
 		
-	case "gpt-oss":
-		log.Printf("Initializing GPT-OSS provider for GPU environment")
+	case "gpt-oss", "gpt_oss", "GPT-OSS":
+		log.Printf("Initializing GPT-OSS provider for GPU-accelerated environment")
 		return NewGPTOSSProvider(services.Ollama), nil
 		
 	default:
-		return nil, fmt.Errorf("unsupported model: %s (supported: llama3.2:1b, gpt-oss)", modelName)
+		// Default to GPT-OSS for any unrecognized model
+		log.Printf("Unknown model %s, defaulting to GPT-OSS provider", modelName)
+		return NewGPTOSSProvider(services.Ollama), nil
 	}
 }
 

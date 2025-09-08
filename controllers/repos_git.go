@@ -69,7 +69,7 @@ func (c *ReposController) RepoCommitDiff() (*models.Diff, error) {
 	// Get diff using git show
 	cmd := exec.Command("git", "show", commitHash)
 	cmd.Dir = repo.Path()
-	
+
 	_, err = cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get commit diff: %v", err)
@@ -98,7 +98,7 @@ func (c *ReposController) RepoCommitDiffContent() (string, error) {
 	// Get diff using git show
 	cmd := exec.Command("git", "show", commitHash)
 	cmd.Dir = repo.Path()
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get commit diff: %v", err)
@@ -140,7 +140,7 @@ func (c *ReposController) CurrentBranch() string {
 	// Get current branch from git
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = repo.Path()
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		// Try to determine default branch
@@ -199,7 +199,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get current user
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err == nil {
 		repo.UserID = user.ID
@@ -236,7 +236,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 
 // InitGitServer initializes the gitkit server with authentication
 // This handles git clone, push, pull operations via HTTP
-func (c *ReposController) InitGitServer(auth *authentication.Controller) *gitkit.Server {
+func (c *ReposController) InitGitServer(auth *AuthController) *gitkit.Server {
 	git := gitkit.New(gitkit.Config{
 		Dir:        filepath.Join(database.DataDir(), "repos"),
 		AutoCreate: true,
@@ -258,7 +258,7 @@ func (c *ReposController) InitGitServer(auth *authentication.Controller) *gitkit
 					log.Printf("SSH key validation failed: %v", err)
 					return false, errors.New("SSH key not authorized")
 				}
-				
+
 				// Get the user who owns this key
 				user, err = auth.Users.Get(sshKey.UserID)
 				if err != nil {

@@ -115,7 +115,7 @@ func NewOllamaService() *OllamaService {
 	// Get AI model from environment variable
 	aiModel := os.Getenv("AI_MODEL")
 	if aiModel == "" {
-		aiModel = "llama3.2:1b" // Default to small efficient model
+		aiModel = "gpt-oss" // Default to GPT-OSS for Pro workspaces
 	}
 	
 	// Check GPU_ENABLED flag explicitly

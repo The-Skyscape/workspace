@@ -11,7 +11,6 @@ import (
 	"workspace/models"
 )
 
-
 // RepoFiles returns the files in the current repository directory
 // Used by the file browser view to display repository contents
 func (c *ReposController) RepoFiles() ([]*models.FileNode, error) {
@@ -22,7 +21,7 @@ func (c *ReposController) RepoFiles() ([]*models.FileNode, error) {
 
 	// Get the current branch (default to repo's default branch)
 	branch := c.CurrentBranch()
-	
+
 	// Get the current path from query params (default to root)
 	currentPath := c.Request.URL.Query().Get("path")
 	if currentPath == "" {
@@ -67,13 +66,19 @@ func (c *ReposController) FileLines() ([]string, error) {
 
 // FileLinesWithNumbers returns the file lines with their line numbers (1-based)
 // Used by templates that need to display line numbers alongside content
-func (c *ReposController) FileLinesWithNumbers() ([]struct{Number int; Content string}, error) {
+func (c *ReposController) FileLinesWithNumbers() ([]struct {
+	Number  int
+	Content string
+}, error) {
 	lines, err := c.FileLines()
 	if err != nil {
 		return nil, err
 	}
-	
-	result := make([]struct{Number int; Content string}, len(lines))
+
+	result := make([]struct {
+		Number  int
+		Content string
+	}, len(lines))
 	for i, line := range lines {
 		result[i].Number = i + 1
 		result[i].Content = line
@@ -388,7 +393,6 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 // Helper functions
 
 // isSubPath checks if a path is within a parent directory
@@ -405,13 +409,13 @@ func isBinary(content []byte) bool {
 	if len(content) == 0 {
 		return false
 	}
-	
+
 	// Check for null bytes in first 8KB
 	checkLen := len(content)
 	if checkLen > 8192 {
 		checkLen = 8192
 	}
-	
+
 	for i := 0; i < checkLen; i++ {
 		if content[i] == 0 {
 			return true
@@ -423,37 +427,37 @@ func isBinary(content []byte) bool {
 // getLanguageFromExtension returns the programming language based on file extension
 func getLanguageFromExtension(ext string) string {
 	languages := map[string]string{
-		".go":     "go",
-		".js":     "javascript",
-		".ts":     "typescript",
-		".py":     "python",
-		".rb":     "ruby",
-		".java":   "java",
-		".c":      "c",
-		".cpp":    "cpp",
-		".h":      "c",
-		".hpp":    "cpp",
-		".cs":     "csharp",
-		".php":    "php",
-		".html":   "html",
-		".css":    "css",
-		".scss":   "scss",
-		".json":   "json",
-		".xml":    "xml",
-		".yaml":   "yaml",
-		".yml":    "yaml",
-		".md":     "markdown",
-		".sh":     "bash",
-		".sql":    "sql",
-		".rs":     "rust",
-		".swift":  "swift",
-		".kt":     "kotlin",
-		".r":      "r",
-		".m":      "objc",
-		".vue":    "vue",
-		".jsx":    "javascript",
-		".tsx":    "typescript",
-		".ipynb":  "jupyter",
+		".go":    "go",
+		".js":    "javascript",
+		".ts":    "typescript",
+		".py":    "python",
+		".rb":    "ruby",
+		".java":  "java",
+		".c":     "c",
+		".cpp":   "cpp",
+		".h":     "c",
+		".hpp":   "cpp",
+		".cs":    "csharp",
+		".php":   "php",
+		".html":  "html",
+		".css":   "css",
+		".scss":  "scss",
+		".json":  "json",
+		".xml":   "xml",
+		".yaml":  "yaml",
+		".yml":   "yaml",
+		".md":    "markdown",
+		".sh":    "bash",
+		".sql":   "sql",
+		".rs":    "rust",
+		".swift": "swift",
+		".kt":    "kotlin",
+		".r":     "r",
+		".m":     "objc",
+		".vue":   "vue",
+		".jsx":   "javascript",
+		".tsx":   "typescript",
+		".ipynb": "jupyter",
 	}
 
 	if lang, ok := languages[strings.ToLower(ext)]; ok {

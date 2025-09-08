@@ -31,11 +31,11 @@ func Repos() (string, *ReposController) {
 // Setup registers all repository-related routes
 func (c *ReposController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
+	auth := app.Use("auth").(*AuthController)
 
 	// Initialize Git server for HTTP clone/push/pull operations
 	gitServer := c.InitGitServer(auth)
-	
+
 	// Register Git HTTP endpoints
 	// These handle git clone, push, pull operations
 	http.Handle("/repo/", http.StripPrefix("/repo/", gitServer))
@@ -81,7 +81,7 @@ func (c *ReposController) CurrentRepo() (*models.Repository, error) {
 // UserRepos returns all repositories accessible to the current user
 // Admins see all repos, guests see only public repos
 func (c *ReposController) UserRepos() ([]*models.Repository, error) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		// Not authenticated - show only public repos
@@ -100,7 +100,7 @@ func (c *ReposController) UserRepos() ([]*models.Repository, error) {
 // CurrentUser returns the currently authenticated user
 // Returns nil if not authenticated
 func (c *ReposController) CurrentUser() *authentication.User {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return nil
@@ -136,13 +136,13 @@ func (c *ReposController) HostURL() string {
 	if c.Request == nil {
 		return "https://test.theskyscape.com"
 	}
-	
+
 	// Build the URL from the request
 	scheme := "http"
 	if c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
-	
+
 	return fmt.Sprintf("%s://%s", scheme, c.Request.Host)
 }
 
@@ -203,7 +203,7 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Re
 	}
 
 	// Private repos require admin
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		return nil, errors.New("authentication required")
@@ -218,7 +218,7 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Re
 
 // createRepository handles POST /repos/create
 func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -253,7 +253,6 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 		log.Printf("ERROR: Failed to clone repository %s to Code Server: %v", repo.ID, err)
 	}
 
-
 	// Activity is already logged in models.CreateRepository()
 
 	// Redirect to new repository
@@ -269,7 +268,7 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Admin already verified by route middleware
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -313,7 +312,6 @@ func (c *ReposController) IsMarkdown(filename string) bool {
 	return ext == ".md" || ext == ".markdown" || ext == ".mdown" || ext == ".mkd"
 }
 
-
 // deleteRepository handles POST /repos/{id}/delete
 func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Request) {
 	repo, err := c.getCurrentRepoFromRequest(r)
@@ -323,7 +321,7 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Admin already verified by route middleware
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -338,7 +336,6 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-
 	// Log activity
 	models.LogActivity("repo_deleted", fmt.Sprintf("Deleted repository %s", repo.Name),
 		fmt.Sprintf("Repository %s was deleted", repo.Name),
@@ -347,4 +344,3 @@ func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Reques
 	// Redirect to repos list
 	c.Redirect(w, r, "/repos")
 }
-

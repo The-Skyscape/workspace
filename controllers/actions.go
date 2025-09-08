@@ -14,7 +14,6 @@ import (
 	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 )
 
 // Actions controller prefix
@@ -104,7 +103,7 @@ func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Reques
 func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request) {
 	// Admin access already verified by route middleware
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -157,7 +156,7 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 	// Admin access already verified by route middleware
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -180,12 +179,12 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 		c.RenderErrorMsg(w, r, "only manual actions can be executed directly")
 		return
 	}
-	
+
 	if !action.CanExecute() {
 		c.RenderErrorMsg(w, r, "action cannot be executed at this time")
 		return
 	}
-	
+
 	// Execute using the Actions service for parallel execution
 	if err := services.Actions.ExecuteAction(action, "manual"); err != nil {
 		c.RenderErrorMsg(w, r, fmt.Sprintf("Failed to queue action: %v", err))
@@ -204,7 +203,7 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request) {
 	// Admin access already verified by route middleware
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -240,7 +239,7 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request) {
 	// Admin access already verified by route middleware
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -276,7 +275,7 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Request) {
 	// Access already verified by route middleware (PublicOrAdmin)
 
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -518,21 +517,21 @@ func (c *ActionsController) executeAction(action *models.Action, userID string) 
 // monitorExecution monitors the sandbox and updates action status
 func (c *ActionsController) monitorExecution(action *models.Action, run *models.ActionRun, sandbox *services.Sandbox) {
 	startTime := time.Now()
-	
+
 	// Wait for completion
 	sandbox.WaitForCompletion()
-	
+
 	// Get final output
 	output, err := sandbox.GetOutput()
 	if err != nil {
 		log.Printf("Failed to get output for sandbox %s: %v", sandbox.Name, err)
 	}
-	
+
 	// Get exit code
 	run.ExitCode = sandbox.GetExitCode()
 	run.Output = output
 	run.Duration = int(time.Since(startTime).Seconds())
-	
+
 	// Update status based on exit code
 	if run.ExitCode == 0 {
 		run.Status = "success"
@@ -542,16 +541,16 @@ func (c *ActionsController) monitorExecution(action *models.Action, run *models.
 		run.Status = "failed"
 		action.Status = "failed"
 	}
-	
+
 	// Update records
 	models.ActionRuns.Update(run)
 	models.Actions.Update(action)
-	
+
 	// Collect artifacts if configured
 	if action.ArtifactPaths != "" && run.Status == "success" {
 		c.collectArtifacts(action, run, sandbox)
 	}
-	
+
 	// Schedule cleanup after delay
 	go func() {
 		time.Sleep(5 * time.Minute)
@@ -559,13 +558,13 @@ func (c *ActionsController) monitorExecution(action *models.Action, run *models.
 			log.Printf("Failed to cleanup sandbox %s: %v", sandbox.Name, err)
 		}
 	}()
-	
+
 	// Log activity
 	status := "completed"
 	if run.Status == "failed" {
 		status = "failed"
 	}
-	models.LogActivity("action_run", 
+	models.LogActivity("action_run",
 		fmt.Sprintf("Action '%s' %s", action.Title, status),
 		fmt.Sprintf("Action execution %s with exit code %d", status, run.ExitCode),
 		action.LastTriggeredBy, action.RepoID, "action", run.ID)

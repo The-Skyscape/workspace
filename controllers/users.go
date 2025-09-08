@@ -19,7 +19,7 @@ func Users() (string, *UsersController) {
 
 func (c *UsersController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
+	auth := app.Use("auth").(*AuthController)
 
 	// Admin-only access check
 	adminRequired := func(app *application.App, w http.ResponseWriter, r *http.Request) bool {
@@ -50,7 +50,7 @@ func (c UsersController) Handle(req *http.Request) application.Controller {
 
 // GetAllUsers returns all users for the users list
 func (c *UsersController) GetAllUsers() ([]*authentication.User, error) {
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	return auth.Users.Search("")
 }
 
@@ -60,7 +60,7 @@ func (c *UsersController) GetAdminCount() int {
 	if err != nil {
 		return 0
 	}
-	
+
 	count := 0
 	for _, user := range users {
 		if user.IsAdmin {
@@ -82,7 +82,7 @@ func (c *UsersController) GetGuestCount() int {
 	if err != nil {
 		return 0
 	}
-	
+
 	count := 0
 	for _, user := range users {
 		// All non-admin users are guests
@@ -93,18 +93,16 @@ func (c *UsersController) GetGuestCount() int {
 	return count
 }
 
-
 // GetUser returns a specific user by ID
 func (c *UsersController) GetUser() (*authentication.User, error) {
 	userID := c.Request.PathValue("id")
 	if userID == "" {
 		return nil, errors.New("user ID required")
 	}
-	
-	auth := c.App.Use("auth").(*authentication.Controller)
+
+	auth := c.App.Use("auth").(*AuthController)
 	return auth.Users.Get(userID)
 }
-
 
 // GetUserRepositories returns repositories a user has access to
 func (c *UsersController) GetUserRepositories() ([]*models.Repository, error) {
@@ -112,7 +110,7 @@ func (c *UsersController) GetUserRepositories() ([]*models.Repository, error) {
 	if userID == "" {
 		return nil, errors.New("user ID required")
 	}
-	
+
 	// Get owned repositories
 	return models.Repositories.Search("WHERE UserID = ?", userID)
 }
@@ -127,7 +125,7 @@ func (c *UsersController) GetByID(id string) (*authentication.User, error) {
 
 // updateUserRole handles changing a user's role
 func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -174,11 +172,10 @@ func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request)
 	c.Refresh(w, r)
 }
 
-
 // disableUser handles disabling a user account
 func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 	// For now, we'll just change their role to "guest"
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -220,7 +217,7 @@ func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 
 // enableUser handles enabling a user account
 func (c *UsersController) enableUser(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")

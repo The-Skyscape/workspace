@@ -1,25 +1,24 @@
 {{$repo := repos.CurrentRepo}}
-<div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow {{if eq .Status "closed"}}opacity-60{{end}}"
-     draggable="true"
-     data-issue-id="{{.ID}}"
-     _="on dragstart call handleDragStart(event, '{{.ID}}')
-        on dragend call handleDragEnd(event)">
+<a href="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}" 
+   class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow block no-underline {{if eq .Status "closed"}}opacity-60{{end}}"
+   draggable="true"
+   data-issue-id="{{.ID}}"
+   hx-boost="true"
+   _="on dragstart call handleDragStart(event, '{{.ID}}')
+      on dragend call handleDragEnd(event)
+      on click if event.defaultPrevented then halt">
   <div class="card-body p-3">
     <div class="flex justify-between items-start gap-2">
       <h4 class="text-sm font-medium line-clamp-2 {{if eq .Status "closed"}}line-through{{end}}">
-        <a href="{{host}}/repos/{{$repo.ID}}/issues/{{.ID}}" 
-           class="link link-hover"
-           hx-boost="true">
-          {{.Title}}
-        </a>
+        {{.Title}}
       </h4>
-      <span class="text-xs text-base-content/60">#{{.Number}}</span>
+      <span class="text-xs text-base-content/60">#{{.ID}}</span>
     </div>
     
     {{if .Tags}}
     <div class="flex flex-wrap gap-1 mt-2">
-      {{range split .Tags ","}}
-      <span class="badge badge-sm">{{.}}</span>
+      {{range .Tags}}
+      <span class="badge badge-sm">{{.Tag}}</span>
       {{end}}
     </div>
     {{end}}
@@ -39,4 +38,4 @@
       {{end}}
     </div>
   </div>
-</div>
+</a>

@@ -93,8 +93,10 @@
               </svg>
               <span>{{.CreatedAt.Format "Jan 2, 2006"}}</span>
             </div>
-            {{if eq .Tags "public-submission"}}
+            {{range .Tags}}
+            {{if eq .Tag "public-submission"}}
             <div class="badge badge-ghost badge-sm">Public Submission</div>
+            {{end}}
             {{end}}
           </div>
         </div>

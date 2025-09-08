@@ -7,7 +7,6 @@ import (
 	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/containers"
 )
 
@@ -25,10 +24,10 @@ type WorkspacesController struct {
 func (w *WorkspacesController) Setup(app *application.App) {
 	w.BaseController.Setup(app)
 
-	auth := app.Use("auth").(*authentication.Controller)
-	
+	auth := app.Use("auth").(*AuthController)
+
 	// Register coder proxy handler for Code IDE (admin only)
-	http.Handle("/coder/", http.StripPrefix("/coder/", 
+	http.Handle("/coder/", http.StripPrefix("/coder/",
 		auth.ProtectFunc(w.proxyToCodeServer, true)))
 
 	// Initialize the coder service on startup in background
@@ -60,7 +59,7 @@ func (w *WorkspacesController) proxyToCodeServer(wr http.ResponseWriter, r *http
 		Host: containers.Local(),
 		Name: "skyscape-coder",
 	}
-	
+
 	proxy := service.Proxy(services.Coder.GetPort())
 	proxy.ServeHTTP(wr, r)
 }
@@ -84,4 +83,3 @@ func (w *WorkspacesController) GetCoderWorkspace(repoID string) error {
 	}
 	return nil
 }
-

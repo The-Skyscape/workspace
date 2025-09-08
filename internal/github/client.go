@@ -97,6 +97,42 @@ func NewGitHubClientWithToken(token string) *GitHubClient {
 	}
 }
 
+// ListUserRepos lists repositories for the authenticated user
+func (c *GitHubClient) ListUserRepos(opts *ListUserReposOptions) ([]*GitHubRepository, error) {
+	// Set defaults
+	if opts == nil {
+		opts = &ListUserReposOptions{
+			Type:      "all",
+			Sort:      "updated",
+			Direction: "desc",
+			PerPage:   30,
+			Page:      1,
+		}
+	}
+	
+	// Build URL with query parameters
+	url := fmt.Sprintf("https://api.github.com/user/repos?type=%s&sort=%s&direction=%s&per_page=%d&page=%d",
+		opts.Type, opts.Sort, opts.Direction, opts.PerPage, opts.Page)
+	
+	resp, err := c.doRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list repositories: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GitHub API error (status %d): %s", resp.StatusCode, string(body))
+	}
+	
+	var repos []*GitHubRepository
+	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+		return nil, fmt.Errorf("failed to decode repositories: %w", err)
+	}
+	
+	return repos, nil
+}
+
 // doRequest performs an authenticated GitHub API request
 func (c *GitHubClient) doRequest(method, url string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, body)

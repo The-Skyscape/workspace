@@ -49,7 +49,7 @@ func (c *ReposController) searchInRepository(repoID, query string) ([]*SearchRes
 	if err != nil {
 		return nil, errors.New("repository not found")
 	}
-	
+
 	repoPath := repo.Path()
 	var results []*SearchResult
 
@@ -148,7 +148,7 @@ func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Requ
 	filter := r.URL.Query().Get("filter") // "all", "public", "private"
 
 	// Get current user
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -193,7 +193,7 @@ func (c *ReposController) searchUserRepositories(user *authentication.User, quer
 		conditions = append(conditions, "Visibility = 'public'")
 	case "private":
 		conditions = append(conditions, "Visibility = 'private'")
-	// "all" or default: no additional filter
+		// "all" or default: no additional filter
 	}
 
 	// Build query

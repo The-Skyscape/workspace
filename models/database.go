@@ -19,6 +19,7 @@ var (
 
 	// Application-specific collections
 	Issues          = database.Manage(DB, new(Issue))
+	IssueTags       = database.Manage(DB, new(IssueTag))
 	PullRequests    = database.Manage(DB, new(PullRequest))
 	Comments        = database.Manage(DB, new(Comment))
 	Actions         = database.Manage(DB, new(Action))

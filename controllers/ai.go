@@ -18,7 +18,6 @@ import (
 	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
@@ -61,8 +60,8 @@ func AI() (string, *AIController) {
 // Setup initializes the AI controller
 func (c *AIController) Setup(app *application.App) {
 	c.App = app
-	auth := app.Use("auth").(*authentication.Controller)
-	
+	auth := app.Use("auth").(*AuthController)
+
 	// Initialize provider based on AI_MODEL environment variable
 	provider, err := providers.NewProvider()
 	if err != nil {
@@ -71,7 +70,7 @@ func (c *AIController) Setup(app *application.App) {
 	} else {
 		c.provider = provider
 		log.Printf("AIController: Initialized %s with model %s", provider.Name(), provider.Model())
-		
+
 		// Register only the tools supported by this provider
 		c.registerSupportedTools(provider)
 	}
@@ -91,7 +90,7 @@ func (c *AIController) Setup(app *application.App) {
 	http.Handle("GET /ai/chat/{id}/todos/panel", app.ProtectFunc(c.getTodoPanel, auth.AdminOnly))
 	http.Handle("GET /ai/chat/{id}/todos", app.ProtectFunc(c.getTodos, auth.AdminOnly))
 	http.Handle("GET /ai/chat/{id}/todos/stream", app.ProtectFunc(c.streamTodos, auth.AdminOnly))
-	
+
 	// Control routes - Admin only
 	http.Handle("POST /ai/chat/{id}/stop", app.ProtectFunc(c.stopExecution, auth.AdminOnly))
 
@@ -117,12 +116,12 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 	// Map of all available tools
 	allTools := map[string]agents.ToolImplementation{
 		// Repository tools
-		"list_repos":   &tools.ListReposTool{},
-		"get_repo":     &tools.GetRepoTool{},
-		"create_repo":  &tools.CreateRepoTool{},
+		"list_repos":  &tools.ListReposTool{},
+		"get_repo":    &tools.GetRepoTool{},
+		"create_repo": &tools.CreateRepoTool{},
 		// "delete_repo":  &tools.DeleteRepoTool{}, // Not implemented yet
 		"get_repo_link": &tools.GetRepoLinkTool{},
-		
+
 		// File tools
 		"list_files":   &tools.ListFilesTool{},
 		"read_file":    &tools.ReadFileTool{},
@@ -131,35 +130,35 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 		"delete_file":  &tools.DeleteFileTool{},
 		"move_file":    &tools.MoveFileTool{},
 		"search_files": &tools.SearchFilesTool{},
-		
+
 		// Git tools
 		"git_status":  &tools.GitStatusTool{},
 		"git_history": &tools.GitLogTool{}, // Use GitLogTool
 		"git_diff":    &tools.GitDiffTool{},
 		"git_commit":  &tools.GitCommitTool{},
 		// "git_push":    &tools.GitPushTool{}, // Not implemented
-		
+
 		// Issue tools
 		"create_issue": &tools.CreateIssueTool{},
 		"get_issue":    &tools.ListIssuesTool{}, // Use ListIssuesTool
-		
+
 		// Project tools
 		// "create_milestone":     &tools.CreateMilestoneTool{}, // Not implemented
 		// "create_project_card":  &tools.CreateProjectCardTool{}, // Not implemented
-		
+
 		// Terminal tool
 		"terminal_execute": &tools.RunCommandTool{},
-		
+
 		// Todo tools
 		// "create_todo": &tools.TodoCreateTool{}, // Not implemented
 		"list_todos":  &tools.TodoListTool{},
 		"update_todo": &tools.TodoUpdateTool{},
 	}
-	
+
 	// Register only the tools this provider supports
 	supportedTools := provider.SupportedTools()
 	registeredCount := 0
-	
+
 	for _, toolName := range supportedTools {
 		if tool, exists := allTools[toolName]; exists {
 			c.toolRegistry.Register(tool)
@@ -168,7 +167,7 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 			log.Printf("AIController: Warning - provider claims support for unknown tool: %s", toolName)
 		}
 	}
-	
+
 	log.Printf("AIController: Registered %d/%d tools for %s", registeredCount, len(supportedTools), provider.Name())
 }
 
@@ -185,7 +184,7 @@ func (c *AIController) GetConversations() []*models.Conversation {
 		return nil
 	}
 
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(c.Request)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(c.Request)
 	if err != nil || !user.IsAdmin {
 		return nil
 	}
@@ -200,7 +199,7 @@ func (c *AIController) IsOllamaReady() bool {
 		return false
 	}
 
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(c.Request)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(c.Request)
 	if err != nil || !user.IsAdmin {
 		return false
 	}
@@ -212,7 +211,7 @@ func (c *AIController) IsOllamaReady() bool {
 
 // panel renders the main AI panel with conversation list (admin only)
 func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
 		return
@@ -252,7 +251,7 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 
 // createConversation creates a new conversation (admin only)
 func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request) {
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
 		return
@@ -278,7 +277,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 // deleteConversation deletes a conversation and its messages (admin only)
 func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
 		return
@@ -311,7 +310,7 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 // loadChat loads the chat interface for a conversation (admin only)
 func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
 		return
@@ -330,7 +329,7 @@ func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 // getMessages returns messages for a conversation (admin only)
 func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
 		return
@@ -357,7 +356,7 @@ func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
 	content := strings.TrimSpace(r.FormValue("message"))
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
 		return
@@ -833,18 +832,18 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 	// PROGRESSIVE TOOL AVAILABILITY - Start with minimal tools to prevent batching
 	if isFirstMessage {
 		// For exploration requests, start with ONLY list_repos
-		if strings.Contains(messageLower, "explore") || 
-		   strings.Contains(messageLower, "repo") ||
-		   strings.Contains(messageLower, "skycastle") ||
-		   strings.Contains(messageLower, "sky-castle") {
+		if strings.Contains(messageLower, "explore") ||
+			strings.Contains(messageLower, "repo") ||
+			strings.Contains(messageLower, "skycastle") ||
+			strings.Contains(messageLower, "sky-castle") {
 			// Start with just list_repos - this forces step-by-step exploration
 			log.Printf("AIController: First exploration message - providing only list_repos tool")
 			return []string{"list_repos"}
 		}
 		// For other queries, also start minimal
 		if strings.Contains(messageLower, "show") ||
-		   strings.Contains(messageLower, "what") ||
-		   strings.Contains(messageLower, "list") {
+			strings.Contains(messageLower, "what") ||
+			strings.Contains(messageLower, "list") {
 			return []string{"list_repos"}
 		}
 		// For task planning
@@ -861,27 +860,27 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 		// After listing repos, allow getting details
 		log.Printf("AIController: After list_repos - providing get_repo tool")
 		return []string{"get_repo"}
-		
+
 	case "get_repo":
 		// After getting repo details, allow exploring files
 		log.Printf("AIController: After get_repo - providing list_files and read_file")
 		return []string{"list_files", "read_file"}
-		
+
 	case "list_files":
 		// After listing files, allow reading them or listing more directories
 		log.Printf("AIController: After list_files - providing read_file and list_files")
 		return []string{"read_file", "list_files"}
-		
+
 	case "read_file":
 		// After reading a file, allow reading more or exploring directories
 		log.Printf("AIController: After read_file - providing read_file and list_files")
 		return []string{"read_file", "list_files"}
-		
+
 	case "todo_update":
 		// After updating todos, provide more general tools
 		log.Printf("AIController: After todo_update - providing general tools")
 		return []string{"list_repos", "todo_update"}
-		
+
 	default:
 		// If we don't know the last tool, provide a safe default set
 		log.Printf("AIController: Unknown last tool '%s' - providing default exploration tools", lastToolUsed)
@@ -892,7 +891,7 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 // streamResponse handles SSE streaming of AI responses
 func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		http.Error(w, "Admin access required", http.StatusForbidden)
 		return
@@ -935,7 +934,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	// Get working context and settings
 	workingContext := conversation.GetWorkingContext()
 	settings := conversation.GetSettings()
-	
+
 	// Enhance user message with context if needed
 	if len(messages) > 0 {
 		lastMsg := messages[len(messages)-1]
@@ -947,7 +946,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	
+
 	// Build optimized context window
 	ollamaMessages := c.buildContextWindow(conversation, 30)
 
@@ -1023,7 +1022,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> %s\n\n", initialStatus)
 	flusher.Flush()
-	
+
 	// Send initial thinking thoughts
 	messageLower := strings.ToLower(lastUserMessage)
 	if strings.Contains(messageLower, "explore") {
@@ -1092,7 +1091,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	iteration := 0
 	maxIterations := 10 // Allow more iterations for complex tasks
 	taskComplete := false
-	
+
 	// Check settings for max iterations
 	if maxIter, ok := settings["maxIterations"].(float64); ok {
 		maxIterations = int(maxIter)
@@ -1107,7 +1106,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("AIController: Entering autonomous execution mode")
-	
+
 	// Send initial thinking message
 	c.streamThought(w, flusher, "Analyzing the task and planning approach...")
 
@@ -1131,7 +1130,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			for _, tc := range initialResponse.ToolCalls {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
-			
+
 			// ENFORCE SINGLE TOOL EXECUTION
 			if len(initialResponse.ToolCalls) > 1 {
 				log.Printf("AIController: WARNING - Model attempted to call %d tools at once: %v. Taking only the first one.", len(toolNames), toolNames)
@@ -1149,7 +1148,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			// Process native tool calls with streaming
 			log.Printf("AIController: Processing %d tool call (iteration %d): %v", len(initialResponse.ToolCalls), iteration+1, toolNames)
 			toolResults = c.processNativeAgentToolCalls(initialResponse.ToolCalls, conversationID, user.ID, w, flusher)
-			
+
 			// Extract and update working context from tool calls
 			for i, tc := range initialResponse.ToolCalls {
 				var params map[string]interface{}
@@ -1205,15 +1204,15 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		} else {
 			c.streamThought(w, flusher, "Analyzing results and planning next step...")
 		}
-		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Processing...\n\n", )
+		fmt.Fprintf(w, "event: status\ndata: <span class='loading loading-spinner loading-xs'></span> Processing...\n\n")
 		flusher.Flush()
-		
+
 		// Track the last tool used for context
 		var lastToolUsed string
 		if len(initialResponse.ToolCalls) > 0 {
 			lastToolUsed = initialResponse.ToolCalls[len(initialResponse.ToolCalls)-1].Function.Name
 		}
-		
+
 		// Add thinking about what we found
 		if len(toolResults) > 0 && lastToolUsed != "" {
 			switch lastToolUsed {
@@ -1238,16 +1237,16 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-		
+
 		// Update available tools based on what was just used
 		if lastToolUsed != "" {
 			// Re-categorize tools based on the last tool used
 			relevantToolNames := c.categorizeTools("", false, lastToolUsed)
 			log.Printf("AIController: Updating tool availability after %s - providing: %v", lastToolUsed, relevantToolNames)
-			
+
 			// Tools are dynamically filtered by the provider
 		}
-		
+
 		if hasFailure {
 			// Prompt to retry or work around the failure
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
@@ -1271,7 +1270,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			default:
 				contextPrompt = "Analyze the tool results above. Explain what you discovered and continue with the next tool to explore further. Remember you're exploring autonomously - keep going until you have a good understanding."
 			}
-			
+
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
 				Role:    "system",
 				Content: contextPrompt + " Remember: Never give generic responses like 'I successfully executed the action'. Always provide insights and be conversational.",
@@ -1296,7 +1295,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Role:    "system",
 				Content: "You must provide a response analyzing the tool results above. Look at what was discovered and provide insights. What's interesting about these results? What should we explore next? Be specific and helpful, not generic.",
 			})
-			
+
 			retryAgentMessages := agents.ConvertOllamaToAgentMessages(retryMessages)
 			retryResponse, retryErr := c.provider.ChatWithTools(retryAgentMessages, tools, agents.ChatOptions{})
 			if retryErr == nil && retryResponse.Content != "" {
@@ -1324,21 +1323,21 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 		finalResponse = response.Content
 		initialResponse = response // Update for next iteration
-		
+
 		// Check if task is complete based on response content and tool calls
 		lowerResponse := strings.ToLower(finalResponse)
 		noMoreTools := len(response.ToolCalls) == 0
-		
+
 		// Only mark complete if:
 		// 1. Model explicitly says task is complete, OR
 		// 2. No more tools AND we've done at least 2 iterations, OR
 		// 3. User's original request appears satisfied (for simple queries)
 		if strings.Contains(lowerResponse, "task complete") ||
-		   strings.Contains(lowerResponse, "all done") ||
-		   strings.Contains(lowerResponse, "finished successfully") ||
-		   strings.Contains(lowerResponse, "completed successfully") ||
-		   (noMoreTools && iteration >= 2) ||
-		   (noMoreTools && strings.Contains(lowerResponse, "would you like") && iteration > 0) {
+			strings.Contains(lowerResponse, "all done") ||
+			strings.Contains(lowerResponse, "finished successfully") ||
+			strings.Contains(lowerResponse, "completed successfully") ||
+			(noMoreTools && iteration >= 2) ||
+			(noMoreTools && strings.Contains(lowerResponse, "would you like") && iteration > 0) {
 			taskComplete = true
 			log.Printf("AIController: Task marked as complete after %d iterations", iteration+1)
 		} else if noMoreTools && iteration == 0 && strings.Contains(strings.ToLower(lastUserMessage), "explore") {
@@ -1350,10 +1349,10 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				Content: finalResponse,
 			})
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
-				Role:    "system", 
+				Role:    "system",
 				Content: "The user asked you to explore. Continue exploring by using more tools to discover interesting aspects of the repository. Don't stop after just listing - dive deeper into the structure and code.",
 			})
-			
+
 			// Request continuation with updated tools for exploration
 			// Update tools for exploration continuation
 			if lastToolUsed != "" {
@@ -1371,7 +1370,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 				taskComplete = true
 			}
 		}
-		
+
 		iteration++
 		log.Printf("AIController: Autonomous iteration %d complete", iteration)
 	}
@@ -1383,7 +1382,7 @@ streamResponse:
 	} else {
 		c.streamThought(w, flusher, "Preparing my response...")
 	}
-	
+
 	// Clear status and prepare for response streaming
 	fmt.Fprintf(w, "event: status\ndata: \n\n")
 	flusher.Flush()
@@ -1481,7 +1480,6 @@ streamResponse:
 	}
 }
 
-
 // processNativeAgentToolCalls processes native tool calls from agent provider
 func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
 	if c.toolRegistry == nil {
@@ -1557,7 +1555,7 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 
 		// Execute the tool
 		log.Printf("AIController: Executing tool %s [%d/%d] with params: %v", tc.Function.Name, i+1, len(toolCalls), params)
-		
+
 		// Update status (only if streaming)
 		if streaming {
 			statusMsg := fmt.Sprintf("🔧 Using %s...", tc.Function.Name)
@@ -1566,24 +1564,24 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 		}
 
 		result, err := tool.Execute(params, userID)
-		
+
 		toolDuration := time.Since(toolStart)
 		if err != nil {
 			log.Printf("AIController: Tool %s failed after %.2fs: %v", tc.Function.Name, toolDuration.Seconds(), err)
 			result = fmt.Sprintf("❌ Tool %s failed: %v", tc.Function.Name, err)
 		} else {
 			log.Printf("AIController: Tool %s succeeded in %.2fs", tc.Function.Name, toolDuration.Seconds())
-			
+
 			// Compress output if too verbose
 			result = c.compressToolOutput(tc.Function.Name, result)
 		}
-		
+
 		toolResults = append(toolResults, result)
 	}
 
 	totalDuration := time.Since(startTime)
 	log.Printf("AIController: All %d tools executed in %.2fs", len(toolCalls), totalDuration.Seconds())
-	
+
 	return toolResults
 }
 
@@ -1622,7 +1620,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 			default:
 				c.streamThought(w, flusher, fmt.Sprintf("I'll use %s to help with this...", tc.Function.Name))
 			}
-			
+
 			// Also send planning thought
 			if len(toolCalls) > 1 {
 				c.streamThought(w, flusher, fmt.Sprintf("Planning tool %d of %d: %s", i+1, len(toolCalls), tc.Function.Name))
@@ -1724,16 +1722,16 @@ func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher
 		log.Printf("AIController: streamThought - Skipping, w or flusher is nil")
 		return // Skip if not streaming
 	}
-	
+
 	log.Printf("AIController: streamThought - Sending: %s", thought)
-	
+
 	// Format thinking as HTML for HTMX to insert
 	thinkingHTML := fmt.Sprintf(`<div class="text-xs italic text-base-content/50 pl-4 border-l-2 border-base-300">%s</div>`, template.HTMLEscapeString(thought))
-	
+
 	// Send as dedicated thinking event
 	fmt.Fprintf(w, "event: thinking\ndata: %s\n\n", thinkingHTML)
 	flusher.Flush()
-	
+
 	// Small pause for readability
 	time.Sleep(100 * time.Millisecond)
 }
@@ -1789,7 +1787,7 @@ func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check ownership
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || conversation.UserID != user.ID {
 		c.RenderErrorMsg(w, r, "Unauthorized")
 		return
@@ -1838,7 +1836,7 @@ func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check ownership
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || conversation.UserID != user.ID {
 		c.RenderErrorMsg(w, r, "Unauthorized")
 		return
@@ -1886,7 +1884,7 @@ func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check ownership
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || conversation.UserID != user.ID {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -1927,33 +1925,32 @@ func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 // stopExecution handles cancellation of AI execution
 func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
-	user, _, err := c.App.Use("auth").(*authentication.Controller).Authenticate(r)
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		http.Error(w, "Admin access required", http.StatusForbidden)
 		return
 	}
-	
+
 	// Verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil || conversation.UserID != user.ID {
 		http.Error(w, "Conversation not found", http.StatusNotFound)
 		return
 	}
-	
+
 	// The actual cancellation is handled by context.Done() in streamResponse
 	// This endpoint just acknowledges the request
 	log.Printf("AIController: Stop execution requested for conversation %s", conversationID)
-	
+
 	// For HTMX requests, use c.Refresh to properly handle the response
 	// This will trigger the appropriate HTMX behavior
 	c.Refresh(w, r)
 }
 
-
 // compressToolOutput compresses verbose tool outputs to save context window space
 func (c *AIController) compressToolOutput(toolName string, output string) string {
 	lines := strings.Split(output, "\n")
-	
+
 	switch toolName {
 	case "list_repos":
 		// Extract just repo names and IDs
@@ -1983,7 +1980,7 @@ func (c *AIController) compressToolOutput(toolName string, output string) string
 			}
 			return summary
 		}
-		
+
 	case "list_files":
 		fileCount := len(lines)
 		dirCount := 0
@@ -1993,15 +1990,15 @@ func (c *AIController) compressToolOutput(toolName string, output string) string
 			}
 		}
 		summary := fmt.Sprintf("Found %d files in %d directories", fileCount-dirCount, dirCount)
-		
+
 		// Show first few important files
 		var importantFiles []string
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
-			if strings.HasSuffix(line, "README.md") || 
-			   strings.HasSuffix(line, "main.go") ||
-			   strings.HasSuffix(line, "Makefile") ||
-			   strings.HasSuffix(line, "package.json") {
+			if strings.HasSuffix(line, "README.md") ||
+				strings.HasSuffix(line, "main.go") ||
+				strings.HasSuffix(line, "Makefile") ||
+				strings.HasSuffix(line, "package.json") {
 				importantFiles = append(importantFiles, line)
 			}
 		}
@@ -2009,13 +2006,13 @@ func (c *AIController) compressToolOutput(toolName string, output string) string
 			summary += ". Key files: " + strings.Join(importantFiles, ", ")
 		}
 		return summary
-		
+
 	case "read_file":
 		if len(lines) > 50 {
 			// For long files, show summary
 			return fmt.Sprintf("Read %d lines. Shows file structure and implementation details.", len(lines))
 		}
-		
+
 	case "run_command":
 		if len(output) > 500 {
 			// Compress long command outputs
@@ -2026,12 +2023,12 @@ func (c *AIController) compressToolOutput(toolName string, output string) string
 			return fmt.Sprintf("Command output (%d chars): %s", len(output), preview)
 		}
 	}
-	
+
 	// For short outputs or unrecognized tools, return as-is
 	if len(output) < 200 {
 		return output
 	}
-	
+
 	// Default compression for long outputs
 	return fmt.Sprintf("Output (%d lines, %d chars) - content available in full context", len(lines), len(output))
 }
@@ -2043,7 +2040,7 @@ func (c *AIController) updateWorkingContext(conversationID string, updates map[s
 		log.Printf("AIController: Failed to get conversation for context update: %v", err)
 		return
 	}
-	
+
 	for key, value := range updates {
 		if err := conversation.UpdateWorkingContext(key, value); err != nil {
 			log.Printf("AIController: Failed to update working context: %v", err)
@@ -2054,7 +2051,7 @@ func (c *AIController) updateWorkingContext(conversationID string, updates map[s
 // extractContextFromToolCall extracts contextual information from tool calls
 func (c *AIController) extractContextFromToolCall(toolName string, params map[string]interface{}, result string) map[string]interface{} {
 	context := make(map[string]interface{})
-	
+
 	switch toolName {
 	case "get_repo", "list_repos":
 		// Extract repo information
@@ -2073,7 +2070,7 @@ func (c *AIController) extractContextFromToolCall(toolName string, params map[st
 				}
 			}
 		}
-		
+
 	case "read_file", "write_file", "edit_file":
 		// Track current file
 		if filePath, ok := params["file_path"]; ok {
@@ -2086,14 +2083,14 @@ func (c *AIController) extractContextFromToolCall(toolName string, params map[st
 				}
 			}
 		}
-		
+
 	case "list_files":
 		// Track current directory
 		if path, ok := params["path"]; ok {
 			context["current_directory"] = path
 		}
 	}
-	
+
 	return context
 }
 
@@ -2101,11 +2098,11 @@ func (c *AIController) extractContextFromToolCall(toolName string, params map[st
 func (c *AIController) resolveContextualReferences(message string, workingContext map[string]interface{}) string {
 	lowerMessage := strings.ToLower(message)
 	contextHints := []string{}
-	
+
 	// Check for contextual references
-	if strings.Contains(lowerMessage, "that repo") || 
-	   strings.Contains(lowerMessage, "the repo") ||
-	   strings.Contains(lowerMessage, "this repo") {
+	if strings.Contains(lowerMessage, "that repo") ||
+		strings.Contains(lowerMessage, "the repo") ||
+		strings.Contains(lowerMessage, "this repo") {
 		if repoName, ok := workingContext["current_repo_name"]; ok {
 			contextHints = append(contextHints, fmt.Sprintf("Repository context: %v", repoName))
 		}
@@ -2113,29 +2110,29 @@ func (c *AIController) resolveContextualReferences(message string, workingContex
 			contextHints = append(contextHints, fmt.Sprintf("Repository ID: %v", repoID))
 		}
 	}
-	
+
 	if strings.Contains(lowerMessage, "that file") ||
-	   strings.Contains(lowerMessage, "the file") ||
-	   strings.Contains(lowerMessage, "this file") {
+		strings.Contains(lowerMessage, "the file") ||
+		strings.Contains(lowerMessage, "this file") {
 		if filePath, ok := workingContext["current_file_path"]; ok {
 			contextHints = append(contextHints, fmt.Sprintf("Current file: %v", filePath))
 		}
 	}
-	
+
 	if strings.Contains(lowerMessage, "that directory") ||
-	   strings.Contains(lowerMessage, "this directory") ||
-	   strings.Contains(lowerMessage, "the directory") ||
-	   strings.Contains(lowerMessage, "current directory") {
+		strings.Contains(lowerMessage, "this directory") ||
+		strings.Contains(lowerMessage, "the directory") ||
+		strings.Contains(lowerMessage, "current directory") {
 		if dir, ok := workingContext["current_directory"]; ok {
 			contextHints = append(contextHints, fmt.Sprintf("Current directory: %v", dir))
 		}
 	}
-	
+
 	// Add context hints to message if any were found
 	if len(contextHints) > 0 {
 		return message + "\n\n[Context: " + strings.Join(contextHints, ", ") + "]"
 	}
-	
+
 	return message
 }
 
@@ -2148,42 +2145,42 @@ func (c *AIController) buildContextWindow(conversation *models.Conversation, max
 			Content: c.buildSystemPromptWithAutonomy(conversation.ID),
 		},
 	}
-	
+
 	// Add working context as system message if it exists
 	workingContext := conversation.GetWorkingContext()
 	if len(workingContext) > 0 {
 		contextJSON, _ := json.Marshal(workingContext)
 		context = append(context, services.OllamaMessage{
-			Role:    "system", 
+			Role:    "system",
 			Content: fmt.Sprintf("Working Context: %s", contextJSON),
 		})
 	}
-	
+
 	// Smart message selection - prioritize recent and important messages
 	startIdx := 0
 	if len(messages) > maxMessages {
 		startIdx = len(messages) - maxMessages
 	}
-	
+
 	for i := startIdx; i < len(messages); i++ {
 		msg := messages[i]
-		
+
 		// Skip old thinking messages
 		if msg.Role == models.MessageRoleThinking && i < len(messages)-5 {
 			continue
 		}
-		
+
 		// Skip old status messages
 		if msg.Role == models.MessageRoleStatus && i < len(messages)-10 {
 			continue
 		}
-		
+
 		// Compress tool outputs
 		content := msg.Content
 		if msg.Role == models.MessageRoleTool && msg.ToolName != "" {
 			content = c.compressToolOutput(msg.ToolName, content)
 		}
-		
+
 		role := msg.Role
 		// Map custom roles to standard Ollama roles
 		switch msg.Role {
@@ -2192,20 +2189,20 @@ func (c *AIController) buildContextWindow(conversation *models.Conversation, max
 		case models.MessageRoleTool:
 			role = "tool"
 		}
-		
+
 		context = append(context, services.OllamaMessage{
 			Role:    role,
 			Content: content,
 		})
 	}
-	
+
 	return context
 }
 
 // buildSystemPromptWithAutonomy creates an enhanced system prompt for autonomous execution
 func (c *AIController) buildSystemPromptWithAutonomy(conversationID string) string {
 	basePrompt := c.buildSystemPrompt(conversationID)
-	
+
 	autonomousInstructions := `
 
 **AUTONOMOUS EXECUTION MODE:**
@@ -2245,4 +2242,3 @@ Be curious and thorough. For "explore" requests, don't stop after just listing -
 
 	return basePrompt + autonomousInstructions
 }
-

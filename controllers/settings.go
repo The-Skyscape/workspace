@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/database"
 	"workspace/models"
 )
@@ -26,7 +25,7 @@ func Settings() (string, *SettingsController) {
 
 func (s *SettingsController) Setup(app *application.App) {
 	s.BaseController.Setup(app)
-	auth := app.Use("auth").(*authentication.Controller)
+	auth := app.Use("auth").(*AuthController)
 
 	// Load and apply theme from settings
 	settings, err := models.GetSettings()
@@ -55,21 +54,21 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("POST /settings", app.ProtectFunc(s.updateSettings, adminRequired))
 	http.Handle("POST /settings/theme", app.ProtectFunc(s.updateTheme, adminRequired))
 	// GitHub settings moved to IntegrationsController
-	
+
 	// User Account settings - for individual users
 	http.Handle("GET /settings/account", app.Serve("settings-account.html", auth.Required))
 	http.Handle("POST /settings/account", app.ProtectFunc(s.updateAccount, auth.Required))
 	http.Handle("POST /settings/account/password", app.ProtectFunc(s.updatePassword, auth.Required))
 	http.Handle("POST /settings/account/avatar", app.ProtectFunc(s.uploadAvatar, auth.Required))
-	
+
 	// SSH Key management (admin only for now)
 	http.Handle("GET /settings/ssh-keys", app.Serve("settings-ssh-keys.html", adminRequired))
 	http.Handle("POST /settings/ssh-keys", app.ProtectFunc(s.addSSHKey, adminRequired))
 	http.Handle("DELETE /settings/ssh-keys/{id}", app.ProtectFunc(s.deleteSSHKey, adminRequired))
-	
+
 	// Serve avatar images
 	http.HandleFunc("GET /avatar/{filename}", s.serveAvatar)
-	
+
 	// Workspace Profile settings - GET is for all authenticated users, POST is admin only
 	http.Handle("GET /settings/workspace", app.Serve("settings-workspace.html", auth.Required))
 	http.Handle("POST /settings/workspace", app.ProtectFunc(s.updateWorkspace, adminRequired))
@@ -80,7 +79,6 @@ func (s SettingsController) Handle(req *http.Request) application.Controller {
 	return &s
 }
 
-
 // GetSettings returns the current global settings
 func (s *SettingsController) GetSettings() (*models.Settings, error) {
 	return models.GetSettings()
@@ -88,10 +86,9 @@ func (s *SettingsController) GetSettings() (*models.Settings, error) {
 
 // GitHub OAuth methods moved to IntegrationsController
 
-
 // updateSettings handles the main settings form submission
 func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		s.RenderErrorMsg(w, r, "unauthorized")
@@ -109,7 +106,7 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	settings.AppName = cmp.Or(r.FormValue("app_name"), settings.AppName)
 	settings.AppDescription = cmp.Or(r.FormValue("app_description"), settings.AppDescription)
 	settings.DefaultTheme = cmp.Or(r.FormValue("default_theme"), settings.DefaultTheme)
-	
+
 	// Security Settings (checkboxes) - only update if field is present
 	if _, exists := r.Form["allow_public_repos"]; exists {
 		settings.AllowPublicRepos = r.FormValue("allow_public_repos") == "true"
@@ -143,17 +140,16 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Log activity
-	models.LogActivity("settings_updated", "Updated global settings", 
+	models.LogActivity("settings_updated", "Updated global settings",
 		"Administrator updated global settings", user.ID, "", "settings", "")
 
 	// Redirect back to settings page
 	s.Redirect(w, r, "/settings")
 }
 
-
 // updateTheme handles theme change requests
 func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		s.RenderErrorMsg(w, r, "unauthorized")
@@ -189,8 +185,8 @@ func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request)
 	s.App.SetTheme(theme)
 
 	// Log activity
-	models.LogActivity("theme_updated", "Updated UI theme to " + theme, 
-		"Administrator changed theme to " + theme, user.ID, "", "settings", "")
+	models.LogActivity("theme_updated", "Updated UI theme to "+theme,
+		"Administrator changed theme to "+theme, user.ID, "", "settings", "")
 
 	// Refresh the page to apply the new theme
 	s.Refresh(w, r)
@@ -210,7 +206,7 @@ func (s *SettingsController) GetWorkspace() (*models.Profile, error) {
 
 // updateAccount handles user account settings form submission
 func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		s.RenderErrorMsg(w, r, "authentication required")
@@ -254,7 +250,7 @@ func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Reques
 
 // updatePassword handles password change requests
 func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		s.RenderErrorMsg(w, r, "authentication required")
@@ -301,7 +297,7 @@ func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Reque
 
 // uploadAvatar handles avatar image upload
 func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		s.RenderErrorMsg(w, r, "authentication required")
@@ -384,7 +380,7 @@ func (s *SettingsController) serveAvatar(w http.ResponseWriter, r *http.Request)
 
 	// Build the full path to the avatar file
 	avatarPath := filepath.Join(database.DataDir(), "avatars", filename)
-	
+
 	// Check if file exists
 	if _, err := os.Stat(avatarPath); os.IsNotExist(err) {
 		http.NotFound(w, r)
@@ -397,7 +393,7 @@ func (s *SettingsController) serveAvatar(w http.ResponseWriter, r *http.Request)
 
 // updateWorkspace handles workspace profile settings form submission
 func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		s.RenderErrorMsg(w, r, "unauthorized")
@@ -440,7 +436,7 @@ func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Requ
 	if r.Form.Has("linkedin") {
 		profile.LinkedIn = r.FormValue("linkedin")
 	}
-	
+
 	// Checkboxes need special handling - empty checkbox means false
 	if r.Form.Has("show_email") {
 		profile.ShowEmail = r.FormValue("show_email") == "true"
@@ -457,7 +453,7 @@ func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Log activity
-	models.LogActivity("workspace_updated", "Updated workspace profile", 
+	models.LogActivity("workspace_updated", "Updated workspace profile",
 		"Administrator updated workspace profile settings", user.ID, "", "workspace", "")
 
 	// Refresh to show updated values
@@ -466,18 +462,18 @@ func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Requ
 
 // GetSSHKeys returns all SSH keys for the current user
 func (s *SettingsController) GetSSHKeys() ([]*models.SSHKey, error) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(s.Request)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return models.GetUserSSHKeys(user.ID)
 }
 
 // addSSHKey handles adding a new SSH key
 func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		s.RenderErrorMsg(w, r, "unauthorized")
@@ -518,7 +514,7 @@ func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
 
 // deleteSSHKey handles removing an SSH key
 func (s *SettingsController) deleteSSHKey(w http.ResponseWriter, r *http.Request) {
-	auth := s.App.Use("auth").(*authentication.Controller)
+	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		s.RenderErrorMsg(w, r, "unauthorized")

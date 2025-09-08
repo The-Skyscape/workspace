@@ -6,12 +6,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	
+
 	"workspace/models"
 	"workspace/services"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/authentication"
 )
 
 // Home is a factory function with the prefix and instance
@@ -42,25 +41,25 @@ type OwnerInfo struct {
 func (c *HomeController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 
-	auth := app.Use("auth").(*authentication.Controller)
-	
+	auth := app.Use("auth").(*AuthController)
+
 	http.Handle("GET /{$}", app.ProtectFunc(c.homePage, nil))
 	http.Handle("GET /signin", app.ProtectFunc(c.signinPage, nil))
 	http.Handle("GET /signup", app.ProtectFunc(c.signupPage, nil))
 	http.Handle("GET /activities", app.Serve("activities.html", auth.Required))
-	
+
 	// Public repository routes (no authentication required)
 	http.Handle("GET /public/repos/{id}", app.Serve("public-repo-view.html", nil))
 	http.Handle("GET /public/repos/{id}/issues", app.Serve("public-repo-issues.html", nil))
 	http.Handle("POST /public/repos/{id}/issues", app.ProtectFunc(c.submitPublicIssue, nil))
-	
+
 	// Public repository search
 	http.Handle("GET /public/repos/search", app.Serve("home-public-repos-results.html", nil))
-	
+
 	// Infinite scroll endpoints
 	http.Handle("GET /repos/more", app.Serve("repos-more.html", auth.Required))
 	http.Handle("GET /activities/more", app.Serve("activities-more.html", auth.Required))
-	
+
 	// Vault is now initialized automatically by models.Secrets
 }
 
@@ -88,7 +87,7 @@ func (c *HomeController) IsFirstUser() bool {
 
 // UserRepos returns repositories the current user has access to
 func (c *HomeController) UserRepos() ([]*models.Repository, error) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		// Not authenticated - show public repos with pagination support
@@ -99,7 +98,7 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 				offset = parsed
 			}
 		}
-		
+
 		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 		repos, err := models.Repositories.Search(query, "public")
 		if err != nil {
@@ -117,12 +116,11 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 	return models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 10", "public")
 }
 
-
 // MoreRepos returns the next page of repositories for infinite scroll
 func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
-	
+
 	// Parse offset from query params
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
@@ -131,20 +129,20 @@ func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
 			offset = parsed
 		}
 	}
-	
+
 	// Build query based on user permissions
 	if err != nil {
 		// Not authenticated - show public repos
 		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 		return models.Repositories.Search(query, "public")
 	}
-	
+
 	// Admins see all repositories
 	if user.IsAdmin {
 		query := fmt.Sprintf("ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 		return models.Repositories.Search(query)
 	}
-	
+
 	// Non-admins see only public repositories
 	query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 	return models.Repositories.Search(query, "public")
@@ -152,9 +150,9 @@ func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
 
 // HasMoreRepos checks if there are more repositories to load
 func (c *HomeController) HasMoreRepos() bool {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
-	
+
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
@@ -162,9 +160,9 @@ func (c *HomeController) HasMoreRepos() bool {
 			offset = parsed
 		}
 	}
-	
+
 	var repos []*models.Repository
-	
+
 	// Build query based on user permissions
 	if err != nil {
 		// Not authenticated - check public repos
@@ -179,7 +177,7 @@ func (c *HomeController) HasMoreRepos() bool {
 		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 		repos, _ = models.Repositories.Search(query, "public")
 	}
-	
+
 	// If we got 20 repos, there might be more
 	return len(repos) == 20
 }
@@ -196,7 +194,6 @@ func (c *HomeController) NextReposOffset() int {
 	return offset + 20
 }
 
-
 // PublicRepos returns all public repositories for display on homepage
 func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 	// Get all public repositories (no authentication required)
@@ -205,13 +202,13 @@ func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 
 // HasMorePublicRepos checks if there are more public repos for logged out users
 func (c *HomeController) HasMorePublicRepos() bool {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	_, _, err := auth.Authenticate(c.Request)
 	if err == nil {
 		// User is logged in, no pagination needed
 		return false
 	}
-	
+
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
@@ -219,9 +216,9 @@ func (c *HomeController) HasMorePublicRepos() bool {
 			offset = parsed
 		}
 	}
-	
+
 	// Check if there are more public repos after current offset
-	query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 1 OFFSET %d", offset + 20)
+	query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 1 OFFSET %d", offset+20)
 	repos, _ := models.Repositories.Search(query, "public")
 	return len(repos) > 0
 }
@@ -250,7 +247,7 @@ func (c *HomeController) AdminProfile() *models.Profile {
 			Avatar:      "https://ui-avatars.com/api/?name=Workspace&size=200&background=3b82f6&color=white",
 		}
 	}
-	
+
 	// Set defaults if fields are empty
 	if profile.Name == "" {
 		profile.Name = "Workspace"
@@ -258,7 +255,7 @@ func (c *HomeController) AdminProfile() *models.Profile {
 	if profile.Description == "" {
 		profile.Description = "Secure Development Platform"
 	}
-	
+
 	// Get admin email if not set
 	if profile.Email == "" {
 		users, err := models.Auth.Users.Search("ORDER BY ID ASC LIMIT 1")
@@ -266,12 +263,12 @@ func (c *HomeController) AdminProfile() *models.Profile {
 			profile.Email = users[0].Email
 		}
 	}
-	
+
 	// Generate avatar if not set
 	if profile.Avatar == "" {
 		profile.Avatar = "https://ui-avatars.com/api/?name=" + profile.Name + "&size=200&background=3b82f6&color=white"
 	}
-	
+
 	return profile
 }
 
@@ -292,7 +289,7 @@ func (c *HomeController) PublicRepoStats() (*RepoStats, error) {
 
 // RecentActivity returns recent activities for the dashboard
 func (c *HomeController) RecentActivity() ([]*models.Activity, error) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return nil, nil
@@ -304,7 +301,7 @@ func (c *HomeController) RecentActivity() ([]*models.Activity, error) {
 
 // AllActivities returns all activities for the activities page
 func (c *HomeController) AllActivities() ([]*models.Activity, error) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return nil, err
@@ -316,12 +313,12 @@ func (c *HomeController) AllActivities() ([]*models.Activity, error) {
 
 // MoreActivities returns the next page of activities for infinite scroll
 func (c *HomeController) MoreActivities() ([]*models.Activity, error) {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse offset from query params
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
@@ -330,7 +327,7 @@ func (c *HomeController) MoreActivities() ([]*models.Activity, error) {
 			offset = parsed
 		}
 	}
-	
+
 	// Get next batch of activities
 	activities, _, err := models.GetUserActivitiesPaginated(user.ID, 20, offset)
 	return activities, err
@@ -338,12 +335,12 @@ func (c *HomeController) MoreActivities() ([]*models.Activity, error) {
 
 // HasMoreActivities checks if there are more activities to load
 func (c *HomeController) HasMoreActivities() bool {
-	auth := c.Use("auth").(*authentication.Controller)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(c.Request)
 	if err != nil {
 		return false
 	}
-	
+
 	offsetStr := c.Request.URL.Query().Get("offset")
 	offset := 0
 	if offsetStr != "" {
@@ -351,12 +348,12 @@ func (c *HomeController) HasMoreActivities() bool {
 			offset = parsed
 		}
 	}
-	
+
 	activities, total, err := models.GetUserActivitiesPaginated(user.ID, 20, offset)
 	if err != nil {
 		return false
 	}
-	
+
 	return (offset + len(activities)) < total
 }
 
@@ -404,28 +401,28 @@ func (c *HomeController) PublicActivity() ([]*models.Activity, error) {
 
 // signinPage handles the signin page - redirects if already authenticated
 func (c *HomeController) signinPage(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	_, _, err := auth.Authenticate(r)
 	if err == nil {
 		// User is already signed in, redirect to dashboard
 		c.Redirect(w, r, "/")
 		return
 	}
-	
+
 	// Show signin page
 	c.Render(w, r, "signin.html", nil)
 }
 
 // signupPage handles the signup page - redirects if already authenticated
 func (c *HomeController) signupPage(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*authentication.Controller)
+	auth := c.App.Use("auth").(*AuthController)
 	_, _, err := auth.Authenticate(r)
 	if err == nil {
 		// User is already signed in, redirect to dashboard
 		c.Redirect(w, r, "/")
 		return
 	}
-	
+
 	// Show signup page
 	c.Render(w, r, "signup.html", nil)
 }
@@ -438,7 +435,7 @@ func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
 		c.Redirect(w, r, "/signup")
 		return
 	}
-	
+
 	// Show home page (public or dashboard based on auth status)
 	c.Render(w, r, "home.html", nil)
 }
@@ -447,12 +444,12 @@ func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
 func (c *HomeController) SearchPublicRepos() ([]*models.Repository, error) {
 	// Get search query from request
 	query := strings.TrimSpace(c.Request.FormValue("query"))
-	
+
 	// If no query, return all public repos
 	if query == "" {
 		return models.Repositories.Search("WHERE Visibility = 'public' ORDER BY UpdatedAt DESC")
 	}
-	
+
 	// Search for public repositories matching the query (case-insensitive)
 	// Search in name and description
 	return models.Repositories.Search(`
@@ -545,12 +542,19 @@ func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Reques
 		Title:      title,
 		Body:       body,
 		Status:     "open",
+		Column:     "", // Default to todo column
 		RepoID:     repo.ID,
 		AssigneeID: email, // Store submitter email in AssigneeID for public issues
-		Tags:       "public-submission", // Tag to identify public submissions
 	}
 
-	_, err = models.Issues.Insert(issue)
+	newIssue, err := models.Issues.Insert(issue)
+	if err != nil {
+		c.RenderErrorMsg(w, r, "Failed to submit issue")
+		return
+	}
+
+	// Add public-submission tag
+	err = models.AddTagToIssue(newIssue.ID, "public-submission")
 	if err != nil {
 		c.RenderError(w, r, fmt.Errorf("failed to create issue: %w", err))
 		return
@@ -584,4 +588,3 @@ func (c *HomeController) RepoOwnerInfo() (*OwnerInfo, error) {
 		Avatar: "https://ui-avatars.com/api/?name=?&size=40&background=6b7280&color=white",
 	}, nil
 }
-

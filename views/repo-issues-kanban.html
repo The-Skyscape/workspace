@@ -55,16 +55,12 @@
         <span class="badge badge-ghost" id="todo-count">{{len $issues.todo}}</span>
       </div>
       
-      <div class="space-y-3 min-h-[400px]" 
+      <div class="space-y-3 min-h-[400px] sortable-list" 
            id="todo-column"
-           _="on dragover halt the event
-              on drop call handleDrop(event, 'todo')">
+           data-status="todo">
         {{range $issues.todo}}
-        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow"
-             draggable="true"
-             data-issue-id="{{.ID}}"
-             _="on dragstart call handleDragStart(event, '{{.ID}}')
-                on dragend call handleDragEnd(event)">
+        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow sortable-item"
+             data-issue-id="{{.ID}}">
           <div class="card-body p-3">
             <div class="flex justify-between items-start gap-2">
               <h4 class="text-sm font-medium line-clamp-2">
@@ -74,16 +70,9 @@
                   {{.Title}}
                 </a>
               </h4>
-              <span class="text-xs text-base-content/60">#{{.Number}}</span>
+              <span class="text-xs text-base-content/60">#{{.ID}}</span>
             </div>
             
-            {{if .Tags}}
-            <div class="flex flex-wrap gap-1 mt-2">
-              {{range split .Tags ","}}
-              <span class="badge badge-sm">{{.}}</span>
-              {{end}}
-            </div>
-            {{end}}
             
             <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
               <span>{{.CreatedAt.Format "Jan 2"}}</span>
@@ -113,16 +102,12 @@
         <span class="badge badge-ghost" id="in_progress-count">{{len $issues.in_progress}}</span>
       </div>
       
-      <div class="space-y-3 min-h-[400px]"
+      <div class="space-y-3 min-h-[400px] sortable-list"
            id="in_progress-column"
-           _="on dragover halt the event
-              on drop call handleDrop(event, 'in_progress')">
+           data-status="in_progress">
         {{range $issues.in_progress}}
-        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow"
-             draggable="true"
-             data-issue-id="{{.ID}}"
-             _="on dragstart call handleDragStart(event, '{{.ID}}')
-                on dragend call handleDragEnd(event)">
+        <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow sortable-item"
+             data-issue-id="{{.ID}}">
           <div class="card-body p-3">
             <div class="flex justify-between items-start gap-2">
               <h4 class="text-sm font-medium line-clamp-2">
@@ -132,16 +117,9 @@
                   {{.Title}}
                 </a>
               </h4>
-              <span class="text-xs text-base-content/60">#{{.Number}}</span>
+              <span class="text-xs text-base-content/60">#{{.ID}}</span>
             </div>
             
-            {{if .Tags}}
-            <div class="flex flex-wrap gap-1 mt-2">
-              {{range split .Tags ","}}
-              <span class="badge badge-sm">{{.}}</span>
-              {{end}}
-            </div>
-            {{end}}
             
             <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
               <span>{{.CreatedAt.Format "Jan 2"}}</span>
@@ -171,10 +149,9 @@
         <span class="badge badge-ghost" id="done-count">{{len $issues.done}}</span>
       </div>
       
-      <div class="space-y-3 min-h-[400px]"
+      <div class="space-y-3 min-h-[400px] sortable-list"
            id="done-column"
-           _="on dragover halt the event
-              on drop call handleDrop(event, 'done')">
+           data-status="done">
         {{range $issues.done}}
         <div class="card bg-base-100 shadow-sm cursor-move hover:shadow-md transition-shadow opacity-60"
              draggable="true"
@@ -190,16 +167,9 @@
                   {{.Title}}
                 </a>
               </h4>
-              <span class="text-xs text-base-content/60">#{{.Number}}</span>
+              <span class="text-xs text-base-content/60">#{{.ID}}</span>
             </div>
             
-            {{if .Tags}}
-            <div class="flex flex-wrap gap-1 mt-2">
-              {{range split .Tags ","}}
-              <span class="badge badge-sm">{{.}}</span>
-              {{end}}
-            </div>
-            {{end}}
             
             <div class="flex items-center justify-between mt-3 text-xs text-base-content/60">
               <span>Closed {{.UpdatedAt.Format "Jan 2"}}</span>
@@ -244,9 +214,13 @@
         </div>
         <div class="form-control">
           <label class="label">
-            <span class="label-text">Tags (comma-separated)</span>
+            <span class="label-text">Initial Column</span>
           </label>
-          <input type="text" name="tags" class="input input-bordered" placeholder="bug, enhancement, help wanted" />
+          <select name="column" class="select select-bordered">
+            <option value="">Todo</option>
+            <option value="in_progress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
         </div>
       </div>
       <div class="modal-action">
@@ -262,65 +236,54 @@
 {{end}}
 
 <script>
-let draggedIssueId = null;
-
-function handleDragStart(event, issueId) {
-  draggedIssueId = issueId;
-  event.dataTransfer.effectAllowed = 'move';
-  event.target.classList.add('opacity-50');
-}
-
-function handleDragEnd(event) {
-  event.target.classList.remove('opacity-50');
-}
-
-function handleDrop(event, newStatus) {
-  event.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize Sortable for each column
+  const columns = document.querySelectorAll('.sortable-list');
   
-  if (!draggedIssueId) return;
-  
-  // Get the dragged element
-  const draggedElement = document.querySelector(`[data-issue-id="${draggedIssueId}"]`);
-  if (!draggedElement) return;
-  
-  // Move the element to the new column immediately (optimistic update)
-  const targetColumn = document.getElementById(newStatus + '-column');
-  if (targetColumn) {
-    targetColumn.appendChild(draggedElement);
-  }
-  
-  // Send HTMX request to persist the change
-  // Create a form dynamically to trigger HTMX
-  const form = document.createElement('form');
-  form.setAttribute('hx-post', `{{host}}/repos/{{$repo.ID}}/issues/${draggedIssueId}/move`);
-  form.setAttribute('hx-trigger', 'submit');
-  form.setAttribute('hx-swap', 'none');
-  form.innerHTML = `<input type="hidden" name="status" value="${newStatus}">`;
-  
-  // Trigger HTMX
-  document.body.appendChild(form);
-  htmx.process(form);
-  htmx.trigger(form, 'submit');
-  document.body.removeChild(form);
-  
-  // Update counts manually
-  updateColumnCounts();
-  
-  draggedIssueId = null;
-}
-
-function updateColumnCounts() {
-  // Update the count badges for each column
-  const columns = ['todo', 'in_progress', 'done'];
-  columns.forEach(status => {
-    const column = document.getElementById(status + '-column');
-    const badge = document.querySelector(`#${status}-count`);
-    if (column && badge) {
-      const count = column.querySelectorAll('[data-issue-id]').length;
-      badge.textContent = count;
-    }
+  columns.forEach(column => {
+    new Sortable(column, {
+      group: 'kanban',
+      animation: 150,
+      ghostClass: 'opacity-50',
+      dragClass: 'opacity-50',
+      onEnd: function(evt) {
+        // Get the issue ID and new status
+        const issueId = evt.item.dataset.issueId;
+        const newStatus = evt.to.dataset.status;
+        const oldStatus = evt.from.dataset.status;
+        
+        // If moved to different column, update on server
+        if (newStatus !== oldStatus) {
+          // Create a form to send the update
+          const form = document.createElement('form');
+          form.innerHTML = `<input type="hidden" name="status" value="${newStatus}">`;
+          
+          // Send HTMX request
+          htmx.ajax('POST', `{{host}}/repos/{{$repo.ID}}/issues/${issueId}/move`, {
+            values: { status: newStatus },
+            swap: 'none'
+          });
+          
+          // Update counts
+          updateColumnCounts();
+        }
+      }
+    });
   });
-}
+  
+  function updateColumnCounts() {
+    // Update the count badges for each column
+    const statuses = ['todo', 'in_progress', 'done'];
+    statuses.forEach(status => {
+      const column = document.getElementById(status + '-column');
+      const badge = document.getElementById(status + '-count');
+      if (column && badge) {
+        const count = column.querySelectorAll('.sortable-item').length;
+        badge.textContent = count;
+      }
+    });
+  }
+});
 </script>
 
 {{template "layout/end"}}

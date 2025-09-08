@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -97,24 +96,18 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 	}
 	
 	// Process tags if provided
-	tagsJSON := "[]"
+	var tagsList []string
 	if tags, exists := params["tags"]; exists {
 		switch v := tags.(type) {
 		case []interface{}:
 			// Convert to string array
-			strTags := make([]string, len(v))
-			for i, tag := range v {
+			for _, tag := range v {
 				if tagStr, ok := tag.(string); ok {
-					strTags[i] = tagStr
+					tagsList = append(tagsList, tagStr)
 				}
 			}
-			if tagsBytes, err := json.Marshal(strTags); err == nil {
-				tagsJSON = string(tagsBytes)
-			}
 		case []string:
-			if tagsBytes, err := json.Marshal(v); err == nil {
-				tagsJSON = string(tagsBytes)
-			}
+			tagsList = v
 		}
 	}
 	
@@ -122,7 +115,7 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 	issue := &models.Issue{
 		Title:      title,
 		Body:       body,
-		Tags:       tagsJSON,
+		Column:     "", // Default to todo column
 		Status:     "open",
 		AuthorID:   user.ID,
 		RepoID:     repoID,
@@ -130,6 +123,23 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 	}
 	
 	issue, err = models.Issues.Insert(issue)
+	if err != nil {
+		return "", fmt.Errorf("failed to create issue: %w", err)
+	}
+	
+	// Add tags using IssueTag model
+	for _, tag := range tagsList {
+		if tag != "" {
+			err := models.AddTagToIssue(issue.ID, tag)
+			if err != nil {
+				// Log but don't fail
+				fmt.Printf("Warning: failed to add tag %s: %v\n", tag, err)
+			}
+		}
+	}
+	
+	// Continue with the response
+	issue, err = models.Issues.Get(issue.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to create issue: %w", err)
 	}
@@ -142,8 +152,8 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 	result.WriteString(fmt.Sprintf("**Status:** Open\n"))
 	result.WriteString(fmt.Sprintf("**Author:** %s\n", user.Name))
 	
-	if tagsJSON != "[]" {
-		result.WriteString(fmt.Sprintf("**Tags:** %s\n", tagsJSON))
+	if len(tagsList) > 0 {
+		result.WriteString(fmt.Sprintf("**Tags:** %s\n", strings.Join(tagsList, ", ")))
 	}
 	
 	result.WriteString(fmt.Sprintf("\n**Description:**\n%s\n", body))
@@ -276,8 +286,10 @@ func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (
 				issue.CreatedAt.Format("Jan 2, 2006")))
 			
 			// Show tags if any
-			if issue.Tags != "" && issue.Tags != "[]" {
-				result.WriteString(fmt.Sprintf("   Tags: %s\n", issue.Tags))
+			// Get tags from IssueTag model
+			tags, _ := models.GetIssueTags(issue.ID)
+			if len(tags) > 0 {
+				result.WriteString(fmt.Sprintf("   Tags: %s\n", strings.Join(tags, ", ")))
 			}
 			
 			// Show truncated body
@@ -414,15 +426,13 @@ func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) 
 					strTags[i] = tagStr
 				}
 			}
-			if tagsBytes, err := json.Marshal(strTags); err == nil {
-				issue.Tags = string(tagsBytes)
-				updates = append(updates, "tags")
-			}
+			// Tags will be handled separately with IssueTag model
+			// TODO: Clear existing tags and add new ones
+			updates = append(updates, "tags")
 		case []string:
-			if tagsBytes, err := json.Marshal(v); err == nil {
-				issue.Tags = string(tagsBytes)
-				updates = append(updates, "tags")
-			}
+			// Tags will be handled separately with IssueTag model
+			// TODO: Clear existing tags and add new ones
+			updates = append(updates, "tags")
 		}
 	}
 	

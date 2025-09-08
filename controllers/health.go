@@ -23,7 +23,7 @@ type HealthController struct {
 
 func (c *HealthController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
-	
+
 	// Public health endpoint (no auth required)
 	http.HandleFunc("GET /health", c.healthCheck)
 	http.HandleFunc("GET /health/detailed", c.detailedHealthCheck)
@@ -53,13 +53,13 @@ func (c *HealthController) healthCheck(w http.ResponseWriter, r *http.Request) {
 		Version:   "1.0.0",
 		Uptime:    time.Since(startTime).Round(time.Second).String(),
 	}
-	
+
 	// Check database connection by trying to get settings
 	if _, err := models.GetSettings(); err != nil {
 		status.Status = "unhealthy"
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
 }
@@ -68,7 +68,7 @@ func (c *HealthController) healthCheck(w http.ResponseWriter, r *http.Request) {
 func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Request) {
 	checks := make(map[string]string)
 	status := "healthy"
-	
+
 	// Database check
 	if _, err := models.GetSettings(); err != nil {
 		checks["database"] = "unhealthy: " + err.Error()
@@ -76,21 +76,21 @@ func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Re
 	} else {
 		checks["database"] = "healthy"
 	}
-	
+
 	// Docker check
 	if services.IsDockerAvailable() {
 		checks["docker"] = "healthy"
 	} else {
 		checks["docker"] = "unavailable"
 	}
-	
+
 	// Coder service check
 	if services.Coder.IsRunning() {
 		checks["coder_service"] = "running"
 	} else {
 		checks["coder_service"] = "stopped"
 	}
-	
+
 	// Memory check
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -100,7 +100,7 @@ func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Re
 	} else {
 		checks["memory"] = "healthy"
 	}
-	
+
 	// Goroutines check
 	numGoroutines := runtime.NumGoroutine()
 	if numGoroutines > 1000 {
@@ -108,7 +108,7 @@ func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Re
 	} else {
 		checks["goroutines"] = "healthy"
 	}
-	
+
 	healthStatus := HealthStatus{
 		Status:    status,
 		Timestamp: time.Now(),
@@ -116,7 +116,7 @@ func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Re
 		Version:   "1.0.0",
 		Uptime:    time.Since(startTime).Round(time.Second).String(),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	if status == "unhealthy" {
 		w.WriteHeader(http.StatusServiceUnavailable)
