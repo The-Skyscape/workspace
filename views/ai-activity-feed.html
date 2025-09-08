@@ -1,0 +1,55 @@
+<!-- AI Activity Feed for Panel -->
+<div class="space-y-3">
+    {{if .}}
+    {{range .}}
+    <div class="card bg-base-100 border border-base-300 hover:border-primary/30 transition-all">
+        <div class="card-body p-3">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <span class="badge 
+                        {{if eq .Type "issue_triage"}}badge-primary{{end}}
+                        {{if eq .Type "pr_review"}}badge-secondary{{end}}
+                        {{if eq .Type "daily_report"}}badge-info{{end}}
+                        {{if eq .Type "security_scan"}}badge-error{{end}}
+                        {{if eq .Type "stale_management"}}badge-warning{{end}}
+                        badge-sm">
+                        {{.Type}}
+                    </span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-base-content">{{.Description}}</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs text-base-content/50">{{.RepoName}}</span>
+                        <span class="text-xs text-base-content/30">•</span>
+                        <span class="text-xs text-base-content/50">{{.CreatedAt.Format "3:04 PM"}}</span>
+                        {{if .Duration}}
+                        <span class="text-xs text-base-content/30">•</span>
+                        <span class="text-xs text-base-content/50">{{.Duration}}ms</span>
+                        {{end}}
+                    </div>
+                </div>
+                <div class="flex-shrink-0">
+                    {{if .Success}}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {{else}}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+    {{else}}
+    <div class="text-center py-8">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-base-content/30 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+        </svg>
+        <p class="text-base-content/50 text-sm">No AI activity yet</p>
+        <p class="text-base-content/30 text-xs mt-1">Activity will appear here as AI processes tasks</p>
+    </div>
+    {{end}}
+</div>

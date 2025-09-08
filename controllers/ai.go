@@ -78,6 +78,7 @@ func (c *AIController) Setup(app *application.App) {
 
 	// Conversation routes - Admin only
 	http.Handle("GET /ai/panel", app.ProtectFunc(c.panel, auth.AdminOnly))
+	http.Handle("GET /ai/chat", app.ProtectFunc(c.redirectToPanel, auth.AdminOnly))
 	http.Handle("POST /ai/conversations", app.ProtectFunc(c.createConversation, auth.AdminOnly))
 	http.Handle("DELETE /ai/conversations/{id}", app.ProtectFunc(c.deleteConversation, auth.AdminOnly))
 
@@ -240,7 +241,32 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's conversations
+	// Check which tab is requested
+	tab := r.URL.Query().Get("tab")
+	if tab == "" {
+		// Check if this is the initial load or has search params
+		_, hasSearchParam := r.URL.Query()["q"]
+		if !hasSearchParam {
+			// Initial load - show enhanced panel
+			c.Render(w, r, "ai-panel-enhanced.html", nil)
+			return
+		}
+	}
+
+	// Handle tab-specific content
+	switch tab {
+	case "proactive":
+		c.Render(w, r, "ai-panel-enhanced.html", nil)
+		return
+	case "chat":
+		// Fall through to conversation handling
+	case "activity":
+		activities := c.GetRecentActivity()
+		c.Render(w, r, "ai-activity-feed.html", activities)
+		return
+	}
+
+	// Get user's conversations for chat tab or search
 	conversations, err := models.Conversations.Search("WHERE UserID = ? ORDER BY UpdatedAt DESC LIMIT 50", user.ID)
 	if err != nil {
 		conversations = []*models.Conversation{}
@@ -269,7 +295,13 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Default to original panel for backward compatibility
 	c.Render(w, r, "ai-panel.html", conversations)
+}
+
+// redirectToPanel redirects /ai/chat to /ai/panel
+func (c *AIController) redirectToPanel(w http.ResponseWriter, r *http.Request) {
+	c.Redirect(w, r, "/ai/panel")
 }
 
 // createConversation creates a new conversation (admin only)
@@ -2353,4 +2385,66 @@ func (c *AIController) GetRecentActivity() []*models.AIActivity {
 // getAIService returns the global AI service instance
 func (c *AIController) getAIService() *aiService.Service {
 	return aiService.Instance
+}
+
+// GetActiveAlerts returns active AI alerts for the template
+func (c *AIController) GetActiveAlerts() map[string]interface{} {
+	// Check for critical issues that need attention
+	criticalIssues, _ := models.Issues.Search("WHERE Status = 'open' AND Priority = 'critical' LIMIT 10")
+	if len(criticalIssues) > 0 {
+		return map[string]interface{}{
+			"Count": len(criticalIssues),
+			"Items": criticalIssues,
+		}
+	}
+	return nil
+}
+
+// GetLatestInsights returns AI-generated insights
+func (c *AIController) GetLatestInsights() []map[string]string {
+	insights := []map[string]string{}
+	
+	// Check recent activity patterns
+	recentActivities := c.GetRecentActivity()
+	if len(recentActivities) > 0 {
+		// Analyze patterns
+		successRate := 0
+		for _, a := range recentActivities {
+			if a.Success {
+				successRate++
+			}
+		}
+		
+		if successRate < len(recentActivities)/2 {
+			insights = append(insights, map[string]string{
+				"Message": "High failure rate detected in recent AI tasks - review automation settings",
+			})
+		}
+	}
+	
+	// Check for stale issues
+	staleIssues, _ := models.Issues.Search("WHERE Status = 'open' AND UpdatedAt < ? LIMIT 5", 
+		time.Now().Add(-30*24*time.Hour).Unix())
+	if len(staleIssues) > 3 {
+		insights = append(insights, map[string]string{
+			"Message": fmt.Sprintf("%d stale issues detected - consider enabling stale management", len(staleIssues)),
+		})
+	}
+	
+	// Check PR review backlog
+	openPRs, _ := models.PullRequests.Search("WHERE Status = 'open'")
+	if len(openPRs) > 5 {
+		insights = append(insights, map[string]string{
+			"Message": fmt.Sprintf("%d PRs awaiting review - AI can help accelerate reviews", len(openPRs)),
+		})
+	}
+	
+	// Default insight if none
+	if len(insights) == 0 {
+		insights = append(insights, map[string]string{
+			"Message": "Repository health is good - AI is monitoring for issues",
+		})
+	}
+	
+	return insights
 }
