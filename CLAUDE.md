@@ -114,14 +114,15 @@ func (s *Service) Init() error {
 ## Key Implementation Details
 
 ### AI Assistant System
-The AI assistant provides an intelligent interface for repository operations:
+The AI assistant provides an intelligent interface for repository operations with proactive automation:
 
 1. **Architecture**:
-   - Conversation-based system (not worker-based)
+   - Dual-mode system: Conversational chat + Event-driven automation
    - Admin-only access for all AI features
    - Requires AI_ENABLED="true" (Pro tier, 16GB+ RAM)
    - Runs Llama 3.2:3b model locally via Ollama
    - Native OpenAI-compatible tool calling
+   - Background queue service with priority-based task processing
 
 2. **Model Configuration**:
    - **Default Model**: `llama3.2:3b` - Fast, efficient model with native tool calling
@@ -131,39 +132,48 @@ The AI assistant provides an intelligent interface for repository operations:
 
 3. **Tier Requirements**:
    - **Standard Workspace**: AI features disabled, use external tools (Claude CLI, Copilot)
-   - **Pro Workspace**: Full AI integration with Llama model
+   - **Pro Workspace**: Full AI integration with Llama model + automation
    - Controlled via AI_ENABLED environment variable
 
-4. **Available Tools** (21 total):
+4. **Chat Assistant Tools** (21 total):
    - **Repository Management**: list_repos, get_repo, create_repo, delete_repo, get_repo_link
    - **File Operations**: list_files, read_file, write_file, edit_file, delete_file, move_file, search_files
    - **Git Operations**: git_status, git_history, git_diff, git_commit, git_push
    - **Issue Tracking**: create_issue, get_issue
    - **Project Management**: create_milestone, create_project_card
 
-5. **Tool Calling Format**:
-   The system uses **native Ollama tool calling**:
-   - Tools are defined in the request with proper JSON schemas
-   - Llama 3.2:3b returns structured tool_calls in the response
-   - Automatic parsing and execution of native tool calls
-   - Direct integration with Ollama's tool calling API
+5. **Proactive AI Features**:
+   - **Intelligent Issue Triage**: Automatic labeling and prioritization
+   - **PR Review Automation**: Code analysis and auto-approval for safe changes
+   - **Daily Reports**: Repository health and activity summaries
+   - **Stale Management**: Automatic handling of inactive issues/PRs
+   - **Smart Notifications**: Context-aware alerts and suggestions
 
-6. **Implementation Files**:
-   - `controllers/ai.go` - Main AI controller with native tool calling
+6. **AI Queue System**:
+   - Priority-based task queue (1-10 levels)
+   - 3 parallel workers for concurrent processing
+   - Automatic retry with exponential backoff
+   - Real-time statistics and activity tracking
+   - Task types: issue_triage, pr_review, daily_report, stale_management, auto_approve
+
+7. **Implementation Files**:
+   - `controllers/ai.go` - Main AI controller with chat and config
    - `services/ollama.go` - Ollama service with ChatWithTools method
+   - `services/ai_queue_simple.go` - Queue service for background processing
    - `models/conversation.go` - Conversation model
-   - `models/message.go` - Message model with roles (user/assistant/tool/error)
+   - `models/message.go` - Message model with roles
+   - `models/ai_activity.go` - Activity tracking model
    - `internal/ai/tools.go` - Tool registry with OpenAI schema generation
    - `internal/ai/parser.go` - Tool call parser (XML fallback)
    - `internal/ai/tools/*.go` - 21 tool implementations
 
-7. **Key Design Decisions**:
+8. **Key Design Decisions**:
+   - Event-driven architecture for proactive responses
    - Native Ollama tool calling with Llama 3.2:3b
-   - Tools defined with proper JSON schemas
-   - Automatic tool detection and execution
-   - Incremental thinking approach for faster responses
-   - Tool results use "tool" role in conversation
-   - Agentic loop supports up to 5 iterations
+   - Priority queue ensures critical tasks are handled first
+   - Activity logging provides full audit trail
+   - Configurable automation aggressiveness levels
+   - Smart fallback patterns for analysis
 
 ### Actions System (CI/CD)
 1. Actions run in Docker sandboxes (`action-{id}-{runid}`)

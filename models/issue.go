@@ -9,13 +9,16 @@ import (
 
 type Issue struct {
 	application.Model
-	Title      string
-	Body       string
-	Status     string // "open", "closed"
-	Column     string // Kanban column: "" (default/todo), "in_progress", "done"
-	AuthorID   string // User who created the issue
-	AssigneeID string
-	RepoID     string
+	Title       string
+	Body        string
+	Description string // Alias for Body for AI tools
+	Status      string // "open", "closed", "in_progress", "resolved"
+	Column      string // Kanban column: "" (default/todo), "in_progress", "done"
+	Priority    string // "critical", "high", "medium", "low"
+	AuthorID    string // User who created the issue
+	AssigneeID  string
+	RepoID      string
+	Metadata    string // JSON field for labels and other metadata
 	
 	// GitHub Sync Fields
 	GitHubNumber  int       // GitHub issue number

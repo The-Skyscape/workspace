@@ -306,6 +306,27 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	}
 	go services.TriggerActionsByEvent("on_issue", repoID, eventData)
 
+	// Queue AI task for issue triage if AI is enabled
+	if services.IsAIEnabled() && user.IsAdmin {
+		go func() {
+			if services.AIQueue != nil {
+				services.AIQueue.QueueTask(
+					services.TaskIssueTriage,
+					repoID,
+					user.ID,
+					"issue",
+					issue.ID,
+					map[string]interface{}{
+						"title":       issue.Title,
+						"description": issue.Description,
+						"author":      user.Email,
+					},
+					3, // Medium priority
+				)
+			}
+		}()
+	}
+
 	// Refresh to show new issue
 	c.Refresh(w, r)
 }

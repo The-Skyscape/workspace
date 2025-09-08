@@ -1,0 +1,517 @@
+{{define "ai-dashboard.html"}}
+<div class="min-h-screen bg-gradient-to-br from-base-200/50 via-base-100 to-base-200/30">
+  <!-- Header with animated gradient -->
+  <div class="relative overflow-hidden bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 backdrop-blur-sm border-b border-base-300">
+    <div class="absolute inset-0 bg-grid-pattern opacity-5"></div>
+    <div class="container mx-auto px-6 py-8 relative">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            AI Command Center
+          </h1>
+          <p class="text-base-content/70 mt-2">Intelligent automation managing your code 24/7</p>
+        </div>
+        <div class="flex gap-3">
+          <button class="btn btn-primary btn-sm gap-2" onclick="ai_config_modal.showModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Configure
+          </button>
+          <a href="/ai/chat" class="btn btn-secondary btn-sm gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Chat Assistant
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container mx-auto px-6 py-8">
+    <!-- Real-time Status Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <!-- AI Service Status -->
+      <div class="card bg-base-100 border border-base-300 shadow-xl hover:shadow-2xl transition-all duration-300">
+        <div class="card-body">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-base-content/70">AI Service</h3>
+            <div class="relative">
+              {{if ai.IsAIEnabled}}
+                <span class="absolute -inset-1 rounded-full bg-success/20 animate-ping"></span>
+                <span class="relative badge badge-success badge-sm">Active</span>
+              {{else}}
+                <span class="badge badge-error badge-sm">Offline</span>
+              {{end}}
+            </div>
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <p class="text-3xl font-bold">
+                {{if ai.IsAIEnabled}}
+                  Llama 3.2
+                {{else}}
+                  Disabled
+                {{end}}
+              </p>
+              <p class="text-xs text-base-content/50 mt-1">3b parameters</p>
+            </div>
+            <div class="radial-progress text-primary" style="--value:{{if ai.IsAIEnabled}}100{{else}}0{{end}}; --size:3rem;">
+              <span class="text-xs">{{if ai.IsAIEnabled}}100%{{else}}0%{{end}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue Status -->
+      <div class="card bg-base-100 border border-base-300 shadow-xl hover:shadow-2xl transition-all duration-300">
+        <div class="card-body">
+          {{with ai.GetQueueStats}}
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-base-content/70">Task Queue</h3>
+            {{if .running}}
+              <span class="badge badge-primary badge-sm">Processing</span>
+            {{else}}
+              <span class="badge badge-warning badge-sm">Idle</span>
+            {{end}}
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <p class="text-3xl font-bold">{{.queue_length}}</p>
+              <p class="text-xs text-base-content/50 mt-1">tasks queued</p>
+            </div>
+            <div class="flex flex-col items-end text-xs">
+              <span class="text-success">{{.processing}} active</span>
+              <span class="text-base-content/50">{{.workers}} workers</span>
+            </div>
+          </div>
+          {{else}}
+          <div class="text-center py-4">
+            <p class="text-base-content/50">Queue offline</p>
+          </div>
+          {{end}}
+        </div>
+      </div>
+
+      <!-- Processing Stats -->
+      <div class="card bg-base-100 border border-base-300 shadow-xl hover:shadow-2xl transition-all duration-300">
+        <div class="card-body">
+          {{with ai.GetQueueStats}}
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-base-content/70">Processing</h3>
+            <span class="badge badge-info badge-sm">24h</span>
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <p class="text-3xl font-bold">{{.total_processed}}</p>
+              <p class="text-xs text-base-content/50 mt-1">completed</p>
+            </div>
+            <div class="flex flex-col items-end text-xs">
+              <span class="text-error">{{.total_failed}} failed</span>
+              <span class="text-warning">{{.total_retried}} retried</span>
+            </div>
+          </div>
+          {{end}}
+        </div>
+      </div>
+
+      <!-- Performance -->
+      <div class="card bg-base-100 border border-base-300 shadow-xl hover:shadow-2xl transition-all duration-300">
+        <div class="card-body">
+          {{with ai.GetQueueStats}}
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-base-content/70">Performance</h3>
+            <span class="badge badge-accent badge-sm">Avg</span>
+          </div>
+          <div class="flex items-end justify-between">
+            <div>
+              <p class="text-3xl font-bold">{{.average_time_ms}}</p>
+              <p class="text-xs text-base-content/50 mt-1">ms per task</p>
+            </div>
+            <div class="sparkline">
+              <!-- Inline sparkline chart -->
+              <svg class="w-16 h-8" viewBox="0 0 64 32">
+                <polyline points="0,30 10,25 20,27 30,20 40,22 50,15 64,18" 
+                  fill="none" stroke="currentColor" stroke-width="2" class="text-primary opacity-50"/>
+              </svg>
+            </div>
+          </div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <!-- Automation Controls -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <!-- Active Automations -->
+      <div class="lg:col-span-2 card bg-base-100 border border-base-300 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-4">Active Automations</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Issue Triage -->
+            <label class="card bg-base-200/50 border border-base-300 hover:border-primary transition-colors cursor-pointer">
+              <div class="card-body p-4">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="toggle toggle-primary mt-1" checked 
+                    hx-post="/ai/toggle/issue_triage" hx-trigger="change" />
+                  <div class="flex-1">
+                    <h4 class="font-semibold">Issue Triage</h4>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      Automatically analyze, label, and prioritize new issues
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                      <span class="badge badge-xs badge-success">Active</span>
+                      <span class="badge badge-xs">23 processed today</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            <!-- PR Review -->
+            <label class="card bg-base-200/50 border border-base-300 hover:border-primary transition-colors cursor-pointer">
+              <div class="card-body p-4">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="toggle toggle-primary mt-1" checked 
+                    hx-post="/ai/toggle/pr_review" hx-trigger="change" />
+                  <div class="flex-1">
+                    <h4 class="font-semibold">PR Review</h4>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      Review code changes and provide feedback
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                      <span class="badge badge-xs badge-success">Active</span>
+                      <span class="badge badge-xs">15 reviewed today</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            <!-- Auto-Approve -->
+            <label class="card bg-base-200/50 border border-base-300 hover:border-warning transition-colors cursor-pointer">
+              <div class="card-body p-4">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="toggle toggle-warning mt-1" 
+                    hx-post="/ai/toggle/auto_approve" hx-trigger="change" />
+                  <div class="flex-1">
+                    <h4 class="font-semibold">Auto-Approve</h4>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      Approve safe changes like docs and configs
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                      <span class="badge badge-xs badge-warning">Cautious</span>
+                      <span class="badge badge-xs">3 approved today</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            <!-- Daily Reports -->
+            <label class="card bg-base-200/50 border border-base-300 hover:border-primary transition-colors cursor-pointer">
+              <div class="card-body p-4">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="toggle toggle-primary mt-1" 
+                    hx-post="/ai/toggle/daily_reports" hx-trigger="change" />
+                  <div class="flex-1">
+                    <h4 class="font-semibold">Daily Reports</h4>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      Generate repository health summaries
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                      <span class="badge badge-xs">Scheduled 2 AM</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            <!-- Stale Management -->
+            <label class="card bg-base-200/50 border border-base-300 hover:border-warning transition-colors cursor-pointer">
+              <div class="card-body p-4">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="toggle toggle-warning mt-1" 
+                    hx-post="/ai/toggle/stale_management" hx-trigger="change" />
+                  <div class="flex-1">
+                    <h4 class="font-semibold">Stale Management</h4>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      Handle inactive issues and PRs
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                      <span class="badge badge-xs">30 day threshold</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            <!-- Security Scanning -->
+            <label class="card bg-base-200/50 border border-base-300 hover:border-error transition-colors cursor-pointer">
+              <div class="card-body p-4">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="toggle toggle-error mt-1" 
+                    hx-post="/ai/toggle/security_scan" hx-trigger="change" />
+                  <div class="flex-1">
+                    <h4 class="font-semibold">Security Scanning</h4>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      Scan for vulnerabilities and risks
+                    </p>
+                    <div class="flex gap-2 mt-2">
+                      <span class="badge badge-xs badge-error">Beta</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Settings -->
+      <div class="card bg-base-100 border border-base-300 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-4">AI Behavior</h2>
+          
+          <!-- Aggressiveness -->
+          <div class="form-control mb-4">
+            <label class="label">
+              <span class="label-text font-semibold">Automation Level</span>
+            </label>
+            <select class="select select-bordered w-full" 
+              hx-post="/ai/config/aggressiveness" hx-trigger="change">
+              <option value="conservative">Conservative - Suggest only</option>
+              <option value="balanced" selected>Balanced - Act on clear cases</option>
+              <option value="aggressive">Aggressive - Proactive automation</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-xs">How autonomous should the AI be?</span>
+            </label>
+          </div>
+
+          <!-- Response Delay -->
+          <div class="form-control mb-4">
+            <label class="label">
+              <span class="label-text font-semibold">Response Delay</span>
+            </label>
+            <div class="flex items-center gap-3">
+              <input type="range" min="0" max="300" value="30" class="range range-primary flex-1" 
+                id="response-delay" hx-post="/ai/config/delay" hx-trigger="change" />
+              <span class="badge badge-lg" id="delay-value">30s</span>
+            </div>
+            <label class="label">
+              <span class="label-text-alt text-xs">Wait before AI responds</span>
+            </label>
+          </div>
+
+          <!-- Model Selection -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">AI Model</span>
+            </label>
+            <select class="select select-bordered w-full" disabled>
+              <option selected>Llama 3.2:3b (Default)</option>
+              <option>GPT-4 (Coming Soon)</option>
+              <option>Claude 3 (Coming Soon)</option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-xs">Model for analysis</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="card bg-base-100 border border-base-300 shadow-xl">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="card-title text-xl">Recent AI Activity</h2>
+          <button class="btn btn-sm btn-ghost gap-2" 
+            hx-get="/ai/activity/feed" hx-target="#activity-feed" hx-trigger="click">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Repository</th>
+                <th>Action</th>
+                <th>Duration</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="activity-feed" hx-get="/ai/activity/feed" hx-trigger="load, every 10s">
+              {{range ai.GetRecentActivity}}
+              <tr class="hover:bg-base-200/50 transition-colors">
+                <td>
+                  <span class="text-xs text-base-content/70">{{.CreatedAt.Format "15:04:05"}}</span>
+                </td>
+                <td>
+                  <span class="badge badge-sm badge-outline 
+                    {{if eq .Type "issue_triage"}}badge-primary{{end}}
+                    {{if eq .Type "pr_review"}}badge-secondary{{end}}
+                    {{if eq .Type "security_scan"}}badge-error{{end}}">
+                    {{.Type}}
+                  </span>
+                </td>
+                <td>
+                  <a href="/repos/{{.RepoID}}" class="link link-hover">{{.RepoName}}</a>
+                </td>
+                <td class="max-w-xs">
+                  <span class="text-sm truncate">{{.Description}}</span>
+                </td>
+                <td>
+                  <span class="text-xs">{{.Duration}}ms</span>
+                </td>
+                <td>
+                  {{if .Success}}
+                    <span class="badge badge-success badge-xs gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Success
+                    </span>
+                  {{else}}
+                    <span class="badge badge-error badge-xs gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Failed
+                    </span>
+                  {{end}}
+                </td>
+              </tr>
+              {{else}}
+              <tr>
+                <td colspan="6" class="text-center py-8">
+                  <div class="flex flex-col items-center gap-2 text-base-content/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <p>No recent AI activity</p>
+                    <p class="text-xs">AI tasks will appear here as they're processed</p>
+                  </div>
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Configuration Modal -->
+<dialog id="ai_config_modal" class="modal">
+  <div class="modal-box max-w-2xl">
+    <h3 class="font-bold text-lg mb-4">AI Configuration</h3>
+    
+    <form hx-post="/ai/config/save" hx-target="#config-result">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Left Column -->
+        <div class="space-y-4">
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text">Enable Issue Triage</span>
+              <input type="checkbox" name="issue_triage" class="toggle toggle-primary" checked />
+            </label>
+          </div>
+          
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text">Enable PR Review</span>
+              <input type="checkbox" name="pr_review" class="toggle toggle-primary" checked />
+            </label>
+          </div>
+          
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text">Auto-Approve Safe Changes</span>
+              <input type="checkbox" name="auto_approve" class="toggle toggle-warning" />
+            </label>
+          </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="space-y-4">
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text">Daily Reports</span>
+              <input type="checkbox" name="daily_reports" class="toggle toggle-primary" />
+            </label>
+          </div>
+          
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text">Stale Management</span>
+              <input type="checkbox" name="stale_management" class="toggle toggle-warning" />
+            </label>
+          </div>
+          
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text">Security Scanning</span>
+              <input type="checkbox" name="security_scan" class="toggle toggle-error" />
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div id="config-result" class="mt-4"></div>
+      
+      <div class="modal-action">
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+        <button type="button" class="btn" onclick="ai_config_modal.close()">Cancel</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<!-- Inline JavaScript for real-time updates -->
+<script>
+  // Update delay value display
+  document.getElementById('response-delay')?.addEventListener('input', function(e) {
+    document.getElementById('delay-value').textContent = e.target.value + 's';
+  });
+  
+  // Auto-refresh stats every 5 seconds
+  setInterval(() => {
+    htmx.trigger('#activity-feed', 'refresh');
+  }, 5000);
+</script>
+
+<style>
+  /* Grid pattern for header */
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  /* Smooth animations */
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+</style>
+{{end}}

@@ -15,6 +15,7 @@ var (
 
 	// Git-related collections
 	Repositories = database.Manage(DB, new(Repository))
+	Repos        = Repositories // Alias for convenience
 	AccessTokens = database.Manage(DB, new(AccessToken))
 
 	// Application-specific collections
@@ -43,5 +44,6 @@ var (
 	Conversations = database.Manage(DB, new(Conversation))
 	Messages      = database.Manage(DB, new(Message))
 	Todos         = database.Manage(DB, new(Todo))
+	AIActivities  = database.Manage(DB, new(AIActivity))
 )
 

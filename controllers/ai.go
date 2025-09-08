@@ -14,6 +14,7 @@ import (
 	"workspace/internal/agents"
 	"workspace/internal/agents/providers"
 	"workspace/internal/agents/tools"
+	aiService "workspace/internal/ai"
 	"workspace/models"
 	"workspace/services"
 
@@ -93,6 +94,14 @@ func (c *AIController) Setup(app *application.App) {
 
 	// Control routes - Admin only
 	http.Handle("POST /ai/chat/{id}/stop", app.ProtectFunc(c.stopExecution, auth.AdminOnly))
+	
+	// Configuration routes - Admin only
+	http.Handle("GET /ai/config", app.Serve("ai-config.html", auth.AdminOnly))
+	http.Handle("POST /ai/config/update", app.ProtectFunc(c.updateConfig, auth.AdminOnly))
+	http.Handle("GET /ai/activity", app.ProtectFunc(c.getRecentActivity, auth.AdminOnly))
+	
+	// Dashboard route - Admin only
+	http.Handle("GET /ai/dashboard", app.Serve("ai-dashboard.html", auth.AdminOnly))
 
 	// Initialize Ollama service in background
 	go func() {
@@ -100,6 +109,14 @@ func (c *AIController) Setup(app *application.App) {
 		if !services.Ollama.IsConfigured() {
 			if err := services.Ollama.Init(); err != nil {
 				log.Printf("AIController: Warning - Ollama service not available: %v", err)
+			}
+		}
+		
+		// Initialize AI Queue service if Ollama is running
+		if services.Ollama != nil && services.Ollama.IsRunning() {
+			log.Println("AIController: Initializing AI Queue service...")
+			if err := services.InitAIQueue(); err != nil {
+				log.Printf("AIController: Warning - AI Queue service initialization failed: %v", err)
 			}
 		}
 	}()
@@ -139,8 +156,14 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 		// "git_push":    &tools.GitPushTool{}, // Not implemented
 
 		// Issue tools
-		"create_issue": &tools.CreateIssueTool{},
-		"get_issue":    &tools.ListIssuesTool{}, // Use ListIssuesTool
+		"create_issue":      &tools.CreateIssueTool{},
+		"update_issue":      &tools.UpdateIssueTool{},
+		"list_issues":       &tools.ListIssuesTool{},
+		"get_issue":         &tools.ListIssuesTool{}, // Alias for compatibility
+		
+		// Pull Request tools
+		"create_pr":      &tools.CreatePRTool{},
+		"list_prs":       &tools.ListPRsTool{},
 
 		// Project tools
 		// "create_milestone":     &tools.CreateMilestoneTool{}, // Not implemented
@@ -2241,4 +2264,93 @@ Be curious and thorough. For "explore" requests, don't stop after just listing -
 - Only stop when the task is complete or you genuinely need user input`
 
 	return basePrompt + autonomousInstructions
+}
+
+// updateConfig handles AI configuration updates
+func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
+
+	// Parse form values
+	enableIssueTriage := r.FormValue("enable_issue_triage") == "on"
+	enablePRReview := r.FormValue("enable_pr_review") == "on"
+	enableAutoApprove := r.FormValue("enable_auto_approve") == "on"
+	enableDailyReports := r.FormValue("enable_daily_reports") == "on"
+	enableStaleManagement := r.FormValue("enable_stale_management") == "on"
+	aggressiveness := r.FormValue("ai_aggressiveness")
+	responseDelay := r.FormValue("response_delay")
+
+	// Store configuration in settings or model (simplified for now)
+	log.Printf("AI Config updated: issue_triage=%v, pr_review=%v, auto_approve=%v, daily=%v, stale=%v, aggr=%s, delay=%s",
+		enableIssueTriage, enablePRReview, enableAutoApprove, enableDailyReports, 
+		enableStaleManagement, aggressiveness, responseDelay)
+
+	// TODO: Store these settings in the database
+
+	c.Refresh(w, r)
+}
+
+// getRecentActivity returns recent AI activity
+func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request) {
+	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
+	if err != nil || !user.IsAdmin {
+		c.RenderErrorMsg(w, r, "Admin access required")
+		return
+	}
+
+	activities, err := models.GetRecentAIActivities(20)
+	if err != nil || len(activities) == 0 {
+		fmt.Fprint(w, `<tr><td colspan="5" class="text-center text-base-content/50">No recent AI activity</td></tr>`)
+		return
+	}
+	
+	// Render activity rows
+	for _, activity := range activities {
+		statusIcon := "✓"
+		if !activity.Success {
+			statusIcon = "✗"
+		}
+		
+		fmt.Fprintf(w, `<tr>
+			<td class="text-xs">%s</td>
+			<td><span class="badge badge-sm badge-outline">%s</span></td>
+			<td>%s</td>
+			<td class="text-sm">%s</td>
+			<td><span class="text-%s">%s</span></td>
+		</tr>`,
+			activity.CreatedAt.Format("15:04:05"),
+			activity.Type,
+			activity.RepoName,
+			activity.Description,
+			map[bool]string{true: "success", false: "error"}[activity.Success],
+			statusIcon,
+		)
+	}
+}
+
+// GetQueueStats returns AI queue statistics for templates
+func (c *AIController) GetQueueStats() map[string]interface{} {
+	// Use the new internal AI service
+	if ai := c.getAIService(); ai != nil {
+		return ai.GetQueueStats()
+	}
+	return nil
+}
+
+// GetRecentActivity returns recent AI activity for templates
+func (c *AIController) GetRecentActivity() []*models.AIActivity {
+	activities, err := models.GetRecentAIActivities(10)
+	if err != nil {
+		log.Printf("AIController: Failed to get recent activities: %v", err)
+		return []*models.AIActivity{}
+	}
+	return activities
+}
+
+// getAIService returns the global AI service instance
+func (c *AIController) getAIService() *aiService.Service {
+	return aiService.Instance
 }

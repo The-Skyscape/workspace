@@ -10,11 +10,22 @@ type PullRequest struct {
 	application.Model
 	Title         string
 	Body          string
+	Description   string // Alias for Body
 	RepoID        string
 	AuthorID      string
 	BaseBranch    string
+	HeadBranch    string // Alias for CompareBranch
 	CompareBranch string
-	Status        string // "draft", "open", "merged", "closed"
+	Status        string // "draft", "open", "merged", "closed", "approved", "changes_requested"
+	
+	// Merge fields
+	MergedAt      time.Time
+	MergedBy      string
+	
+	// Diff statistics
+	Additions     int
+	Deletions     int
+	ChangedFiles  int
 	
 	// GitHub Sync Fields
 	GitHubNumber   int       // GitHub PR number

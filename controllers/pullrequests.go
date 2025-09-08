@@ -321,6 +321,29 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	}
 	go services.TriggerActionsByEvent("on_pr", repoID, eventData)
 
+	// Queue AI task for PR review if AI is enabled
+	if services.IsAIEnabled() && user.IsAdmin {
+		go func() {
+			if services.AIQueue != nil {
+				services.AIQueue.QueueTask(
+					services.TaskPRReview,
+					repoID,
+					user.ID,
+					"pull_request",
+					pr.ID,
+					map[string]interface{}{
+						"title":       pr.Title,
+						"description": pr.Description,
+						"base_branch": pr.BaseBranch,
+						"head_branch": pr.HeadBranch,
+						"author":      user.Email,
+					},
+					4, // Higher priority for PR reviews
+				)
+			}
+		}()
+	}
+
 	// Redirect to PRs page
 	c.Redirect(w, r, "/repos/"+repoID+"/prs")
 }

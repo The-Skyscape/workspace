@@ -209,7 +209,7 @@ func (e *ActionExecutor) executeJob(job *ActionJob) error {
 		status = "failed"
 	}
 	models.LogActivity("action_executed", fmt.Sprintf("Action %s %s", action.Title, status),
-		fmt.Sprintf("Action %s %s after %.1f seconds", action.Title, status, run.Duration),
+		fmt.Sprintf("Action %s %s after %.1f seconds", action.Title, status, float64(run.Duration)),
 		"system", action.RepoID, "action", action.ID)
 	
 	return execErr

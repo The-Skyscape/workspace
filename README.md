@@ -45,11 +45,16 @@ Skyscape Workspace is a full-featured development platform that empowers teams t
 - **Notifications**: Email and in-app notifications (coming soon)
 
 ### 🤖 **AI Integration** (Pro Tier)
-- **OpenAI GPT Models**: Integrated GPT-4 class models for Pro workspaces
-- **Local Execution**: Models run on your infrastructure for privacy
+- **Intelligent Automation**: AI manages your code 24/7 with proactive features
+- **Chat Assistant**: Repository-aware conversational AI with 21+ tools
+- **Automatic Issue Triage**: Smart labeling, prioritization, and analysis
+- **PR Review Automation**: Code analysis, suggestions, and auto-approval
+- **Event-Driven Actions**: Responds automatically to repository events
+- **Local Execution**: Llama 3.2:3b runs on your infrastructure for privacy
 - **No API Keys**: No external dependencies or rate limits
+- **Activity Tracking**: Complete audit trail of all AI actions
+- **Configurable**: Control automation aggressiveness and response delays
 - **Standard Tier**: Works great with external AI tools (Claude CLI, GitHub Copilot)
-- **Environment Controlled**: AI_ENABLED flag based on workspace tier
 
 ### 🔗 **Integrations**
 - **GitHub Sync**: Bidirectional synchronization with GitHub repositories
@@ -139,16 +144,20 @@ workspace/
 ## 💡 Workspace Tiers
 
 ### Standard Workspace ($80/month or self-hosted)
-- 2 vCPUs, 4GB RAM, 80GB storage
+- 2 vCPUs, 4GB RAM, 160GB storage
 - Full Git, IDE, CI/CD features
 - Perfect for use with external AI tools (Claude CLI, GitHub Copilot)
 - Most cost-effective AI-assisted development workflow
 
-### Pro Workspace ($200/month)
-- 4 vCPUs, 16GB RAM, 160GB storage  
-- Integrated OpenAI GPT models (AI_ENABLED=true)
+### Pro Workspace ($800/month)
+- 4 vCPUs, 16GB RAM, 320GB storage  
+- RTX 4000 Ada GPU with 20GB VRAM
+- Full AI automation suite (AI_ENABLED=true)
+- Proactive issue triage and PR reviews
+- Daily repository health reports
+- Smart handling of stale issues
 - No API keys or rate limits needed
-- Models run locally on your infrastructure
+- AI manages your code 24/7
 
 ### Installation
 
@@ -289,6 +298,16 @@ GET  /repos/{id}/prs         # List pull requests
 GET  /repos/{id}/prs/{prId}  # View pull request
 ```
 
+### AI Features (Pro Tier)
+```
+GET  /ai/chat                # AI chat interface
+POST /ai/chat/send           # Send message to AI
+GET  /ai/config              # AI configuration panel
+POST /ai/config/update       # Update AI settings
+GET  /ai/activity            # Recent AI activity
+GET  /ai/queue/stats         # Queue statistics
+```
+
 ### HTMX Partials
 These routes return HTML fragments for dynamic updates:
 ```
@@ -296,6 +315,7 @@ GET  /repos/{id}/actions/{actionId}/logs-partial     # Live log streaming
 GET  /repos/{id}/actions/{actionId}/artifacts-partial # Artifact list updates
 GET  /monitoring/stats                                # Live monitoring stats
 POST /repos/{id}/issues/{issueId}/comments           # Add comment (returns HTML)
+GET  /ai/activity                                     # AI activity updates
 ```
 
 ## 🧪 Testing

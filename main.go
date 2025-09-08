@@ -8,6 +8,7 @@ import (
 	"github.com/The-Skyscape/devtools/pkg/application"
 
 	"workspace/controllers"
+	"workspace/internal/ai"
 	"workspace/models"
 )
 
@@ -23,6 +24,9 @@ func main() {
 	} else if envTheme := os.Getenv("THEME"); envTheme != "" {
 		theme = envTheme
 	}
+
+	// Initialize AI system if enabled
+	ai.InitializeAISystem()
 
 	// Start application immediately
 	application.Serve(views,
