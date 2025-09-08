@@ -113,13 +113,8 @@ func (c *AIController) Setup(app *application.App) {
 			}
 		}
 		
-		// Initialize AI Queue service if Ollama is running
-		if services.Ollama != nil && services.Ollama.IsRunning() {
-			log.Println("AIController: Initializing AI Queue service...")
-			if err := services.InitAIQueue(); err != nil {
-				log.Printf("AIController: Warning - AI Queue service initialization failed: %v", err)
-			}
-		}
+		// The new AI queue is initialized in main.go via ai.InitializeAISystem()
+		// No need to initialize the old queue here
 	}()
 }
 

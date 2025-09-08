@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -307,22 +308,14 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	go services.TriggerActionsByEvent("on_issue", repoID, eventData)
 
 	// Queue AI task for issue triage if AI is enabled
-	if services.IsAIEnabled() && user.IsAdmin {
+	// Trigger AI issue triage if enabled
+	if services.Ollama.IsRunning() && user.IsAdmin {
 		go func() {
-			if services.AIQueue != nil {
-				services.AIQueue.QueueTask(
-					services.TaskIssueTriage,
-					repoID,
-					user.ID,
-					"issue",
-					issue.ID,
-					map[string]interface{}{
-						"title":       issue.Title,
-						"description": issue.Description,
-						"author":      user.Email,
-					},
-					3, // Medium priority
-				)
+			// Use the new AI service from internal/ai
+			if ai := c.App.Use("ai").(*AIController).getAIService(); ai != nil {
+				if err := ai.EnqueueIssue(issue, user.ID); err != nil {
+					log.Printf("IssuesController: Failed to enqueue AI triage: %v", err)
+				}
 			}
 		}()
 	}

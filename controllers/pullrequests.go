@@ -322,24 +322,14 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	go services.TriggerActionsByEvent("on_pr", repoID, eventData)
 
 	// Queue AI task for PR review if AI is enabled
-	if services.IsAIEnabled() && user.IsAdmin {
+	// Trigger AI PR review if enabled
+	if services.Ollama.IsRunning() && user.IsAdmin {
 		go func() {
-			if services.AIQueue != nil {
-				services.AIQueue.QueueTask(
-					services.TaskPRReview,
-					repoID,
-					user.ID,
-					"pull_request",
-					pr.ID,
-					map[string]interface{}{
-						"title":       pr.Title,
-						"description": pr.Description,
-						"base_branch": pr.BaseBranch,
-						"head_branch": pr.HeadBranch,
-						"author":      user.Email,
-					},
-					4, // Higher priority for PR reviews
-				)
+			// Use the new AI service from internal/ai
+			if ai := c.App.Use("ai").(*AIController).getAIService(); ai != nil {
+				if err := ai.EnqueuePR(pr, user.ID); err != nil {
+					log.Printf("PullRequestsController: Failed to enqueue AI review: %v", err)
+				}
 			}
 		}()
 	}
