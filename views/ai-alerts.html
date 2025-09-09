@@ -1,0 +1,54 @@
+<!-- AI Alerts View -->
+<div class="modal-box max-w-4xl">
+    <h3 class="font-bold text-lg mb-4">Critical Alerts</h3>
+    
+    {{if .}}
+    <div class="flex flex-col gap-3">
+        {{range .}}
+        <div class="card bg-base-100 border border-error shadow-sm">
+            <div class="card-body p-4">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-sm flex items-center gap-2">
+                            <span class="badge badge-error badge-xs">Critical</span>
+                            {{.Title}}
+                        </h4>
+                        <p class="text-sm text-base-content/80 mt-2">{{.Description}}</p>
+                        <div class="flex items-center gap-4 mt-3 text-xs text-base-content/60">
+                            <span>Repo: {{.RepoName}}</span>
+                            <span>Created: {{.CreatedAt.Format "Jan 2, 3:04 PM"}}</span>
+                            {{if .AssigneeName}}
+                            <span>Assigned to: {{.AssigneeName}}</span>
+                            {{else}}
+                            <span class="text-warning">Unassigned</span>
+                            {{end}}
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="/repos/{{.RepoID}}/issues/{{.ID}}" 
+                           class="btn btn-sm btn-primary" 
+                           target="_blank">
+                            View Issue
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="text-center py-8">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-success mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p class="text-base-content/60">No critical issues detected</p>
+        <p class="text-sm text-base-content/40 mt-1">All systems operating normally</p>
+    </div>
+    {{end}}
+    
+    <div class="modal-action">
+        <form method="dialog">
+            <button class="btn">Close</button>
+        </form>
+    </div>
+</div>

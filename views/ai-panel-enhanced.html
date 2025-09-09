@@ -1,16 +1,15 @@
 <!-- Enhanced AI Panel with Proactive Features -->
-<div class="flex flex-col h-full overflow-hidden" id="ai-panel-content">
+<div class="flex flex-col h-full overflow-hidden" id="ai-panel-wrapper">
     <div class="flex flex-col h-full">
         <!-- Header with Status Indicator -->
-        <div class="flex-shrink-0 bg-gradient-to-r from-primary/10 to-secondary/10 border-b border-base-300 p-4">
+        <div class="flex-shrink-0 border-b border-base-300 p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="relative">
                         {{if ai.IsAIEnabled}}
-                        <span class="absolute -inset-1 rounded-full bg-success/20 animate-ping"></span>
-                        <span class="relative flex h-3 w-3 rounded-full bg-success"></span>
+                        <span class="badge badge-success badge-xs"></span>
                         {{else}}
-                        <span class="flex h-3 w-3 rounded-full bg-error"></span>
+                        <span class="badge badge-error badge-xs"></span>
                         {{end}}
                     </div>
                     <div>
@@ -42,7 +41,8 @@
             <a role="tab" class="tab tab-active" 
                hx-get="{{host}}/ai/panel?tab=proactive" 
                hx-target="#panel-content"
-               hx-swap="innerHTML">
+               hx-swap="innerHTML"
+               onclick="this.classList.add('tab-active'); this.nextElementSibling?.classList.remove('tab-active'); this.nextElementSibling?.nextElementSibling?.classList.remove('tab-active');">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
@@ -51,7 +51,8 @@
             <a role="tab" class="tab"
                hx-get="{{host}}/ai/panel?tab=chat"
                hx-target="#panel-content"
-               hx-swap="innerHTML">
+               hx-swap="innerHTML"
+               onclick="this.classList.add('tab-active'); this.previousElementSibling?.classList.remove('tab-active'); this.nextElementSibling?.classList.remove('tab-active');">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
@@ -60,7 +61,8 @@
             <a role="tab" class="tab"
                hx-get="{{host}}/ai/panel?tab=activity"
                hx-target="#panel-content"
-               hx-swap="innerHTML">
+               hx-swap="innerHTML"
+               onclick="this.classList.add('tab-active'); this.previousElementSibling?.classList.remove('tab-active'); this.previousElementSibling?.previousElementSibling?.classList.remove('tab-active');">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
@@ -68,179 +70,10 @@
             </a>
         </div>
 
-        <!-- Tab Content -->
+        <!-- Tab Content Container -->
         <div class="flex-1 overflow-y-auto p-4" id="panel-content">
-            <!-- Proactive AI Features (Default Tab) -->
-            <div class="space-y-4">
-                <!-- Real-time Monitoring Alert -->
-                {{with ai.GetActiveAlerts}}
-                {{if .}}
-                <div class="alert alert-warning shadow-lg mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div>
-                        <h3 class="font-bold">AI Detection</h3>
-                        <div class="text-xs">{{.Count}} issues need immediate attention</div>
-                    </div>
-                    <button class="btn btn-sm" hx-get="/ai/alerts" hx-target="#panel-content">View</button>
-                </div>
-                {{end}}
-                {{end}}
-
-                <!-- AI Insights Card -->
-                <div class="card bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/20">
-                    <div class="card-body p-4">
-                        <h3 class="card-title text-sm flex items-center gap-2">
-                            <span class="relative flex h-2 w-2">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                            </span>
-                            AI Insights
-                        </h3>
-                        <div class="text-xs space-y-2 mt-2">
-                            {{with ai.GetLatestInsights}}
-                            {{range .}}
-                            <div class="flex items-start gap-2">
-                                <span class="text-primary">•</span>
-                                <span>{{.Message}}</span>
-                            </div>
-                            {{else}}
-                            <p class="text-base-content/50">Analyzing repository patterns...</p>
-                            {{end}}
-                            {{else}}
-                            <p class="text-base-content/50">No insights available yet</p>
-                            {{end}}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Automation Status -->
-                <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body p-4">
-                        <h3 class="card-title text-sm">Active Automations</h3>
-                        <div class="space-y-2 mt-2">
-                            {{with ai.GetQueueStats}}
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-base-content/70">Queue Status</span>
-                                <span class="badge badge-sm {{if eq .status "processing"}}badge-primary{{else}}badge-warning{{end}}">
-                                    {{.status}}
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-base-content/70">Tasks in Queue</span>
-                                <span class="font-semibold">{{.queue_length}}</span>
-                            </div>
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-base-content/70">Processing</span>
-                                <span class="font-semibold">{{.processing}}</span>
-                            </div>
-                            <div class="divider my-2"></div>
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-base-content/70">24h Processed</span>
-                                <span class="text-success font-semibold">{{.total_processed}}</span>
-                            </div>
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="text-base-content/70">24h Failed</span>
-                                <span class="text-error">{{.total_failed}}</span>
-                            </div>
-                            {{else}}
-                            <p class="text-xs text-base-content/50">Queue offline</p>
-                            {{end}}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Proactive Suggestions -->
-                <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body p-4">
-                        <h3 class="card-title text-sm">AI Recommendations</h3>
-                        <div class="space-y-2 mt-2" 
-                             hx-get="{{host}}/ai/recommendations" 
-                             hx-trigger="load, every 30s"
-                             hx-swap="innerHTML">
-                            <div class="flex items-center justify-center py-4">
-                                <span class="loading loading-spinner loading-sm"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent AI Actions -->
-                <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body p-4">
-                        <h3 class="card-title text-sm">Recent AI Actions</h3>
-                        <div class="space-y-2 mt-2">
-                            {{range ai.GetRecentActivity}}
-                            <div class="flex items-start gap-2 text-xs">
-                                <span class="badge badge-xs 
-                                    {{if eq .Type "issue_triage"}}badge-primary{{end}}
-                                    {{if eq .Type "pr_review"}}badge-secondary{{end}}
-                                    {{if eq .Type "security_scan"}}badge-error{{end}}">
-                                    {{.Type}}
-                                </span>
-                                <div class="flex-1">
-                                    <p class="text-base-content/90">{{.Description}}</p>
-                                    <p class="text-base-content/50 text-[10px]">{{.CreatedAt.Format "3:04 PM"}}</p>
-                                </div>
-                            </div>
-                            {{else}}
-                            <p class="text-xs text-base-content/50">No recent activity</p>
-                            {{end}}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Actions -->
-                <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body p-4">
-                        <h3 class="card-title text-sm">Quick Actions</h3>
-                        <div class="grid grid-cols-2 gap-2 mt-2">
-                            <button class="btn btn-sm btn-ghost"
-                                    hx-post="{{host}}/ai/trigger/daily-report"
-                                    hx-confirm="Generate daily report now?">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5-4h4" />
-                                </svg>
-                                Report
-                            </button>
-                            <button class="btn btn-sm btn-ghost"
-                                    hx-post="{{host}}/ai/trigger/security-scan"
-                                    hx-confirm="Run security scan now?">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                                Security
-                            </button>
-                            <button class="btn btn-sm btn-ghost"
-                                    hx-post="{{host}}/ai/trigger/stale-check"
-                                    hx-confirm="Check for stale issues/PRs?">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Stale
-                            </button>
-                            <button class="btn btn-sm btn-ghost"
-                                    hx-post="{{host}}/ai/trigger/dependency-check"
-                                    hx-confirm="Check for dependency updates?">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Updates
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Default content loads the proactive tab -->
+            {{template "ai-panel-proactive.html" .}}
         </div>
     </div>
 </div>
-
-<script>
-// Auto-refresh activity feed
-if (!window.aiPanelInterval) {
-    window.aiPanelInterval = setInterval(() => {
-        htmx.trigger(htmx.find('#panel-content'), 'refresh');
-    }, 30000); // Refresh every 30 seconds
-}
-</script>

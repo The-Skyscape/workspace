@@ -1,0 +1,159 @@
+<!-- Proactive AI Features Tab Content -->
+<div class="flex flex-col gap-4">
+    <!-- Real-time Monitoring Alert -->
+    {{with ai.GetActiveAlerts}}
+    {{if .}}
+    <div class="alert alert-warning mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+            <h3 class="font-bold">AI Detection</h3>
+            <div class="text-xs">{{.Count}} issues need immediate attention</div>
+        </div>
+        <button class="btn btn-sm" hx-get="/ai/alerts" hx-target="#panel-content">View</button>
+    </div>
+    {{end}}
+    {{end}}
+
+    <!-- AI Insights Card -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+            <h3 class="card-title text-sm flex items-center gap-2">
+                <span class="badge badge-primary badge-xs"></span>
+                AI Insights
+            </h3>
+            <div class="text-xs flex flex-col gap-2 mt-2">
+                {{with ai.GetLatestInsights}}
+                {{range .}}
+                <div class="flex items-start gap-2">
+                    <span class="text-primary">•</span>
+                    <span>{{.Message}}</span>
+                </div>
+                {{else}}
+                <p class="text-base-content/50">Analyzing repository patterns...</p>
+                {{end}}
+                {{else}}
+                <p class="text-base-content/50">No insights available yet</p>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Automation Status -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+            <h3 class="card-title text-sm">Active Automations</h3>
+            <div class="flex flex-col gap-2 mt-2">
+                {{with ai.GetQueueStats}}
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-base-content/70">Queue Status</span>
+                    <span class="badge badge-sm {{if eq .status "processing"}}badge-primary{{else}}badge-warning{{end}}">
+                        {{.status}}
+                    </span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-base-content/70">Tasks in Queue</span>
+                    <span class="font-semibold">{{.queue_length}}</span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-base-content/70">Processing</span>
+                    <span class="font-semibold">{{.processing}}</span>
+                </div>
+                <div class="divider my-2"></div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-base-content/70">24h Processed</span>
+                    <span class="text-success font-semibold">{{.total_processed}}</span>
+                </div>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-base-content/70">24h Failed</span>
+                    <span class="text-error">{{.total_failed}}</span>
+                </div>
+                {{else}}
+                <p class="text-xs text-base-content/50">Queue offline</p>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Proactive Suggestions -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+            <h3 class="card-title text-sm">AI Recommendations</h3>
+            <div class="space-y-2 mt-2" 
+                 hx-get="{{host}}/ai/recommendations" 
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="flex items-center justify-center py-4">
+                    <span class="loading loading-spinner loading-sm"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent AI Actions -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+            <h3 class="card-title text-sm">Recent AI Actions</h3>
+            <div class="flex flex-col gap-2 mt-2">
+                {{range ai.GetRecentActivity}}
+                <div class="flex items-start gap-2 text-xs">
+                    <span class="badge badge-xs 
+                        {{if eq .Type "issue_triage"}}badge-primary{{end}}
+                        {{if eq .Type "pr_review"}}badge-secondary{{end}}
+                        {{if eq .Type "security_scan"}}badge-error{{end}}">
+                        {{.Type}}
+                    </span>
+                    <div class="flex-1">
+                        <p class="text-base-content/90">{{.Description}}</p>
+                        <p class="text-base-content/50 text-[10px]">{{.CreatedAt.Format "3:04 PM"}}</p>
+                    </div>
+                </div>
+                {{else}}
+                <p class="text-xs text-base-content/50">No recent activity</p>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card bg-base-100 shadow-sm border border-base-300">
+        <div class="card-body p-4">
+            <h3 class="card-title text-sm">Quick Actions</h3>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+                <button class="btn btn-sm btn-ghost"
+                        hx-post="{{host}}/ai/trigger/daily-report"
+                        hx-confirm="Generate daily report now?">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5-4h4" />
+                    </svg>
+                    Report
+                </button>
+                <button class="btn btn-sm btn-ghost"
+                        hx-post="{{host}}/ai/trigger/security-scan"
+                        hx-confirm="Run security scan now?">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Security
+                </button>
+                <button class="btn btn-sm btn-ghost"
+                        hx-post="{{host}}/ai/trigger/stale-check"
+                        hx-confirm="Check for stale issues/PRs?">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Stale
+                </button>
+                <button class="btn btn-sm btn-ghost"
+                        hx-post="{{host}}/ai/trigger/dependency-check"
+                        hx-confirm="Check for dependency updates?">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Updates
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

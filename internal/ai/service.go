@@ -3,6 +3,7 @@ package ai
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -290,6 +291,40 @@ func (s *Service) GetConfig() *Config {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.config
+}
+
+// EnqueueTask creates a generic task for the AI queue
+func (s *Service) EnqueueTask(taskType string, data map[string]interface{}, priority int) error {
+	if s.Queue == nil {
+		return fmt.Errorf("queue not initialized")
+	}
+	
+	// Get user ID from data
+	userID, _ := data["user_id"].(string)
+	
+	// Map task type string to TaskType
+	var tType queue.TaskType
+	switch taskType {
+	case "daily_report":
+		tType = queue.TaskDailyReport
+	case "security_scan":
+		tType = queue.TaskSecurityScan
+	case "stale_management":
+		tType = queue.TaskStaleManagement
+	case "dependency_check":
+		tType = queue.TaskDependencyUpdate
+	default:
+		return fmt.Errorf("unknown task type: %s", taskType)
+	}
+	
+	task := &queue.Task{
+		Type:     tType,
+		Priority: priority,
+		UserID:   userID,
+		Data:     data,
+	}
+	
+	return s.Queue.Enqueue(task)
 }
 
 // UpdateConfig updates the AI configuration

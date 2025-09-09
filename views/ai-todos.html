@@ -22,7 +22,7 @@
         </div>
         <div class="collapse-content px-4">
             {{if .Todos}}
-            <div class="space-y-1" 
+            <div class="flex flex-col gap-1" 
                  hx-get="{{host}}/ai/chat/{{.ConversationID}}/todos"
                  hx-trigger="sse:todo-updated from:#sse-todos"
                  hx-swap="innerHTML">
