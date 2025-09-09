@@ -43,8 +43,6 @@ func (c *HomeController) Setup(app *application.App) {
 	auth := app.Use("auth").(*AuthController)
 
 	http.Handle("GET /{$}", app.ProtectFunc(c.homePage, nil))
-	http.Handle("GET /signin", app.ProtectFunc(c.signinPage, nil))
-	http.Handle("GET /signup", app.ProtectFunc(c.signupPage, nil))
 	http.Handle("GET /activities", app.Serve("activities.html", auth.Required))
 
 	// Public repository routes (no authentication required)
@@ -369,34 +367,6 @@ func (c *HomeController) PublicActivity() ([]*models.Activity, error) {
 		) OR Type IN ('repo_created', 'repo_updated')
 		ORDER BY CreatedAt DESC LIMIT 10
 	`)
-}
-
-// signinPage handles the signin page - redirects if already authenticated
-func (c *HomeController) signinPage(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*AuthController)
-	_, _, err := auth.Authenticate(r)
-	if err == nil {
-		// User is already signed in, redirect to dashboard
-		c.Redirect(w, r, "/")
-		return
-	}
-
-	// Show signin page
-	c.Render(w, r, "signin.html", nil)
-}
-
-// signupPage handles the signup page - redirects if already authenticated
-func (c *HomeController) signupPage(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*AuthController)
-	_, _, err := auth.Authenticate(r)
-	if err == nil {
-		// User is already signed in, redirect to dashboard
-		c.Redirect(w, r, "/")
-		return
-	}
-
-	// Show signup page
-	c.Render(w, r, "signup.html", nil)
 }
 
 // homePage handles the home page - redirects to signup if no users exist

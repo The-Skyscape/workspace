@@ -3,7 +3,9 @@ package tools
 import (
 	"fmt"
 	"strings"
+	"time"
 	"workspace/models"
+	"workspace/services"
 )
 
 // GitStatusTool shows the status of a repository
@@ -702,4 +704,417 @@ func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (stri
 	}
 	
 	return result.String(), nil
+}
+
+// GitPushTool pushes changes to remote repository (sandbox-based for safety)
+type GitPushTool struct{}
+
+func (t *GitPushTool) Name() string {
+	return "git_push"
+}
+
+func (t *GitPushTool) Description() string {
+	return "Push local commits to remote repository. Required params: repo_id. Optional params: branch, remote (default: origin), force (bool)"
+}
+
+func (t *GitPushTool) ValidateParams(params map[string]interface{}) error {
+	repoID, exists := params["repo_id"]
+	if !exists {
+		return fmt.Errorf("repo_id is required")
+	}
+	if _, ok := repoID.(string); !ok {
+		return fmt.Errorf("repo_id must be a string")
+	}
+	return nil
+}
+
+func (t *GitPushTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to push (default: current branch)",
+		},
+		"remote": map[string]interface{}{
+			"type":        "string",
+			"description": "Remote name (default: origin)",
+			"default":     "origin",
+		},
+		"force": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Force push (use with caution)",
+			"default":     false,
+		},
+	})
+}
+
+func (t *GitPushTool) Execute(params map[string]interface{}, userID string) (string, error) {
+	repoID := params["repo_id"].(string)
+	
+	// Get user for permissions
+	user, err := models.Auth.GetUser(userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %w", err)
+	}
+	
+	// Get repository
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		return "", fmt.Errorf("repository not found: %s", repoID)
+	}
+	
+	// Check write permissions
+	if !user.IsAdmin && repo.UserID != user.ID {
+		return "", fmt.Errorf("access denied: you don't have push permissions")
+	}
+	
+	// Get parameters
+	remote := "origin"
+	if r, exists := params["remote"]; exists {
+		if remoteStr, ok := r.(string); ok && remoteStr != "" {
+			remote = remoteStr
+		}
+	}
+	
+	branch := ""
+	if b, exists := params["branch"]; exists {
+		if branchStr, ok := b.(string); ok && branchStr != "" {
+			branch = branchStr
+		}
+	}
+	
+	force := false
+	if f, exists := params["force"]; exists {
+		if forceBool, ok := f.(bool); ok {
+			force = forceBool
+		}
+	}
+	
+	// Build git push command
+	pushCmd := fmt.Sprintf("git push %s", remote)
+	if branch != "" {
+		pushCmd = fmt.Sprintf("%s %s", pushCmd, branch)
+	}
+	if force {
+		pushCmd = fmt.Sprintf("%s --force", pushCmd)
+	}
+	
+	// Execute in sandbox for safety
+	sandboxName := fmt.Sprintf("git-push-%s-%d", repo.ID, time.Now().Unix())
+	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, pushCmd, 30)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sandbox: %w", err)
+	}
+	defer sandbox.Cleanup()
+	
+	// Execute the push
+	output, exitCode, err := sandbox.Execute(pushCmd)
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("git push failed: %w\nOutput: %s", err, output)
+	}
+	
+	// Log the activity
+	activity := &models.Activity{
+		Type:        "git_push",
+		UserID:      user.ID,
+		RepoID:      repo.ID,
+		Description: fmt.Sprintf("Pushed to %s/%s", remote, branch),
+	}
+	models.Activities.Insert(activity)
+	
+	return fmt.Sprintf("✅ Successfully pushed to %s\n\n%s", remote, output), nil
+}
+
+// GitPullTool pulls changes from remote repository
+type GitPullTool struct{}
+
+func (t *GitPullTool) Name() string {
+	return "git_pull"
+}
+
+func (t *GitPullTool) Description() string {
+	return "Pull changes from remote repository. Required params: repo_id. Optional params: branch, remote (default: origin), rebase (bool)"
+}
+
+func (t *GitPullTool) ValidateParams(params map[string]interface{}) error {
+	repoID, exists := params["repo_id"]
+	if !exists {
+		return fmt.Errorf("repo_id is required")
+	}
+	if _, ok := repoID.(string); !ok {
+		return fmt.Errorf("repo_id must be a string")
+	}
+	return nil
+}
+
+func (t *GitPullTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to pull (default: current branch)",
+		},
+		"remote": map[string]interface{}{
+			"type":        "string",
+			"description": "Remote name (default: origin)",
+			"default":     "origin",
+		},
+		"rebase": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Use rebase instead of merge",
+			"default":     false,
+		},
+	})
+}
+
+func (t *GitPullTool) Execute(params map[string]interface{}, userID string) (string, error) {
+	repoID := params["repo_id"].(string)
+	
+	// Get user for permissions
+	user, err := models.Auth.GetUser(userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %w", err)
+	}
+	
+	// Get repository
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		return "", fmt.Errorf("repository not found: %s", repoID)
+	}
+	
+	// Check write permissions
+	if !user.IsAdmin && repo.UserID != user.ID {
+		return "", fmt.Errorf("access denied: you don't have pull permissions")
+	}
+	
+	// Get parameters
+	remote := "origin"
+	if r, exists := params["remote"]; exists {
+		if remoteStr, ok := r.(string); ok && remoteStr != "" {
+			remote = remoteStr
+		}
+	}
+	
+	branch := ""
+	if b, exists := params["branch"]; exists {
+		if branchStr, ok := b.(string); ok && branchStr != "" {
+			branch = branchStr
+		}
+	}
+	
+	rebase := false
+	if r, exists := params["rebase"]; exists {
+		if rebaseBool, ok := r.(bool); ok {
+			rebase = rebaseBool
+		}
+	}
+	
+	// Build git pull command
+	pullCmd := "git pull"
+	if rebase {
+		pullCmd = fmt.Sprintf("%s --rebase", pullCmd)
+	}
+	pullCmd = fmt.Sprintf("%s %s", pullCmd, remote)
+	if branch != "" {
+		pullCmd = fmt.Sprintf("%s %s", pullCmd, branch)
+	}
+	
+	// Execute in sandbox
+	sandboxName := fmt.Sprintf("git-pull-%s-%d", repo.ID, time.Now().Unix())
+	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, pullCmd, 30)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sandbox: %w", err)
+	}
+	defer sandbox.Cleanup()
+	
+	// Execute the pull
+	output, exitCode, err := sandbox.Execute(pullCmd)
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("git pull failed: %w\nOutput: %s", err, output)
+	}
+	
+	// Log the activity
+	activity := &models.Activity{
+		Type:        "git_pull",
+		UserID:      user.ID,
+		RepoID:      repo.ID,
+		Description: fmt.Sprintf("Pulled from %s/%s", remote, branch),
+	}
+	models.Activities.Insert(activity)
+	
+	return fmt.Sprintf("✅ Successfully pulled from %s\n\n%s", remote, output), nil
+}
+
+// GitMergeTool merges branches or pull requests
+type GitMergeTool struct{}
+
+func (t *GitMergeTool) Name() string {
+	return "git_merge"
+}
+
+func (t *GitMergeTool) Description() string {
+	return "Merge branches or pull requests. Required params: repo_id, source_branch. Optional params: target_branch (default: main), squash (bool), no_ff (bool)"
+}
+
+func (t *GitMergeTool) ValidateParams(params map[string]interface{}) error {
+	repoID, exists := params["repo_id"]
+	if !exists {
+		return fmt.Errorf("repo_id is required")
+	}
+	if _, ok := repoID.(string); !ok {
+		return fmt.Errorf("repo_id must be a string")
+	}
+	
+	sourceBranch, exists := params["source_branch"]
+	if !exists {
+		return fmt.Errorf("source_branch is required")
+	}
+	if _, ok := sourceBranch.(string); !ok {
+		return fmt.Errorf("source_branch must be a string")
+	}
+	
+	return nil
+}
+
+func (t *GitMergeTool) Schema() map[string]interface{} {
+	return SimpleSchema(map[string]interface{}{
+		"repo_id": map[string]interface{}{
+			"type":        "string",
+			"description": "The repository ID",
+			"required":    true,
+		},
+		"source_branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to merge from",
+			"required":    true,
+		},
+		"target_branch": map[string]interface{}{
+			"type":        "string",
+			"description": "Branch to merge into (default: main)",
+			"default":     "main",
+		},
+		"squash": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Squash commits before merging",
+			"default":     false,
+		},
+		"no_ff": map[string]interface{}{
+			"type":        "boolean",
+			"description": "Create merge commit even if fast-forward is possible",
+			"default":     true,
+		},
+		"pr_id": map[string]interface{}{
+			"type":        "string",
+			"description": "Optional PR ID to mark as merged",
+		},
+	})
+}
+
+func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (string, error) {
+	repoID := params["repo_id"].(string)
+	sourceBranch := params["source_branch"].(string)
+	
+	// Get user for permissions
+	user, err := models.Auth.GetUser(userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %w", err)
+	}
+	
+	// Get repository
+	repo, err := models.Repositories.Get(repoID)
+	if err != nil {
+		return "", fmt.Errorf("repository not found: %s", repoID)
+	}
+	
+	// Check write permissions
+	if !user.IsAdmin && repo.UserID != user.ID {
+		return "", fmt.Errorf("access denied: you don't have merge permissions")
+	}
+	
+	// Get parameters
+	targetBranch := "main"
+	if t, exists := params["target_branch"]; exists {
+		if targetStr, ok := t.(string); ok && targetStr != "" {
+			targetBranch = targetStr
+		}
+	}
+	
+	squash := false
+	if s, exists := params["squash"]; exists {
+		if squashBool, ok := s.(bool); ok {
+			squash = squashBool
+		}
+	}
+	
+	noFF := true
+	if n, exists := params["no_ff"]; exists {
+		if noFFBool, ok := n.(bool); ok {
+			noFF = noFFBool
+		}
+	}
+	
+	// Build merge commands
+	var commands []string
+	commands = append(commands, fmt.Sprintf("git checkout %s", targetBranch))
+	commands = append(commands, "git pull origin " + targetBranch)
+	
+	mergeCmd := fmt.Sprintf("git merge %s", sourceBranch)
+	if squash {
+		mergeCmd = fmt.Sprintf("%s --squash", mergeCmd)
+	}
+	if noFF {
+		mergeCmd = fmt.Sprintf("%s --no-ff", mergeCmd)
+	}
+	mergeCmd = fmt.Sprintf("%s -m 'Merge %s into %s (AI-automated)'", mergeCmd, sourceBranch, targetBranch)
+	commands = append(commands, mergeCmd)
+	
+	// Push the merge
+	commands = append(commands, fmt.Sprintf("git push origin %s", targetBranch))
+	
+	// Execute in sandbox
+	fullCmd := strings.Join(commands, " && ")
+	sandboxName := fmt.Sprintf("git-merge-%s-%d", repo.ID, time.Now().Unix())
+	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, fullCmd, 60)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sandbox: %w", err)
+	}
+	defer sandbox.Cleanup()
+	
+	// Execute the merge
+	output, exitCode, err := sandbox.Execute(fullCmd)
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("merge failed: %w\nOutput: %s", err, output)
+	}
+	
+	// If PR ID provided, mark it as merged
+	if prID, exists := params["pr_id"]; exists {
+		if prIDStr, ok := prID.(string); ok && prIDStr != "" {
+			pr, err := models.PullRequests.Get(prIDStr)
+			if err == nil {
+				pr.Status = "merged"
+				pr.MergedBy = user.ID
+				pr.MergedAt = time.Now()
+				models.PullRequests.Update(pr)
+			}
+		}
+	}
+	
+	// Log the activity
+	activity := &models.Activity{
+		Type:        "git_merge",
+		UserID:      user.ID,
+		RepoID:      repo.ID,
+		Description: fmt.Sprintf("Merged %s into %s", sourceBranch, targetBranch),
+	}
+	models.Activities.Insert(activity)
+	
+	return fmt.Sprintf("✅ Successfully merged %s into %s\n\n%s", sourceBranch, targetBranch, output), nil
 }

@@ -48,62 +48,6 @@
     {{end}}
   </div>
 
-  <!-- Rate Limiting Stats -->
-  <div class="card border border-base-300 shadow-lg mb-8">
-    <div class="card-body">
-      <h2 class="card-title text-lg">Rate Limiting Status</h2>
-      {{with ratelimit.GetRateLimitStats}}
-        <div class="grid md:grid-cols-2 gap-6">
-          <div>
-            <h3 class="font-semibold mb-2">Authentication Endpoints</h3>
-            {{with .auth}}
-              <div class="text-sm flex flex-col gap-1">
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">IPs Tracked:</span>
-                  <span class="font-mono">{{.total_tracked}}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">Currently Blocked:</span>
-                  <span class="font-mono text-error">{{.currently_blocked}}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">Max Attempts:</span>
-                  <span class="font-mono">{{.max_attempts}}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">Window:</span>
-                  <span class="font-mono">{{.window_seconds}}s</span>
-                </div>
-              </div>
-            {{end}}
-          </div>
-          <div>
-            <h3 class="font-semibold mb-2">Signup Endpoints</h3>
-            {{with .signup}}
-              <div class="text-sm flex flex-col gap-1">
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">IPs Tracked:</span>
-                  <span class="font-mono">{{.total_tracked}}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">Currently Blocked:</span>
-                  <span class="font-mono text-error">{{.currently_blocked}}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">Max Attempts:</span>
-                  <span class="font-mono">{{.max_attempts}}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-base-content/70">Window:</span>
-                  <span class="font-mono">{{.window_seconds}}s</span>
-                </div>
-              </div>
-            {{end}}
-          </div>
-        </div>
-      {{end}}
-    </div>
-  </div>
 
   <!-- Recent Logs -->
   <div class="card border border-base-300 shadow-lg">

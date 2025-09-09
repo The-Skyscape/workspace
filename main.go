@@ -31,7 +31,6 @@ func main() {
 	// Start application immediately
 	application.Serve(views,
 		application.WithController(controllers.Auth()),       // Use custom auth controller
-		application.WithController(controllers.RateLimit()),  // Add rate limiting before other controllers
 		application.WithController(controllers.Logs()),       // Add logs controller
 		application.WithController(controllers.Home()),
 		application.WithController(controllers.Repos()),

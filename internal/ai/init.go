@@ -26,5 +26,11 @@ func InitializeAISystem() {
 		return
 	}
 	
+	// Initialize the event queue for proactive AI
+	if err := InitializeEventQueue(3); err != nil {
+		log.Printf("AI Event Queue: Failed to initialize: %v", err)
+		// Continue anyway - the chat-based AI will still work
+	}
+	
 	log.Println("AI System: Initialized successfully")
 }

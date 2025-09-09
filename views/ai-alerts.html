@@ -13,12 +13,12 @@
                             <span class="badge badge-error badge-xs">Critical</span>
                             {{.Title}}
                         </h4>
-                        <p class="text-sm text-base-content/80 mt-2">{{.Description}}</p>
+                        <p class="text-sm text-base-content/80 mt-2">{{.Body}}</p>
                         <div class="flex items-center gap-4 mt-3 text-xs text-base-content/60">
-                            <span>Repo: {{.RepoName}}</span>
-                            <span>Created: {{.CreatedAt.Format "Jan 2, 3:04 PM"}}</span>
-                            {{if .AssigneeName}}
-                            <span>Assigned to: {{.AssigneeName}}</span>
+                            <span>Repo ID: {{.RepoID}}</span>
+                            <span>Priority: {{.Priority}}</span>
+                            {{if .AssigneeID}}
+                            <span>Assigned: {{.AssigneeID}}</span>
                             {{else}}
                             <span class="text-warning">Unassigned</span>
                             {{end}}

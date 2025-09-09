@@ -39,12 +39,12 @@ type AuthController struct {
 func (c *AuthController) Setup(app *application.App) {
 	c.BaseController.Setup(app)
 	
-	// Register authentication routes
+	// Register authentication routes with /_auth/ prefix
 	http.HandleFunc("GET /signin", c.ShowSignin)
-	http.HandleFunc("POST /signin", c.HandleSignin)
+	http.HandleFunc("POST /_auth/signin", c.HandleSignin)
 	http.HandleFunc("GET /signup", c.ShowSignup)
-	http.HandleFunc("POST /signup", c.HandleSignup)
-	http.HandleFunc("POST /signout", c.HandleSignout)
+	http.HandleFunc("POST /_auth/signup", c.HandleSignup)
+	http.HandleFunc("POST /_auth/signout", c.HandleSignout)
 }
 
 // Handle prepares the controller for request-specific operations.
@@ -55,6 +55,9 @@ func (c AuthController) Handle(req *http.Request) application.Controller {
 
 // ShowSignin displays the signin page
 func (c *AuthController) ShowSignin(w http.ResponseWriter, r *http.Request) {
+	// Set the request on the controller
+	c.SetRequest(r)
+	
 	// If already authenticated, redirect to home
 	if c.CurrentUser() != nil {
 		c.Redirect(w, r, "/")
@@ -65,6 +68,9 @@ func (c *AuthController) ShowSignin(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignin processes signin form submission
 func (c *AuthController) HandleSignin(w http.ResponseWriter, r *http.Request) {
+	// Set the request on the controller
+	c.SetRequest(r)
+	
 	handle := r.FormValue("handle")
 	password := r.FormValue("password")
 	
@@ -101,6 +107,9 @@ func (c *AuthController) HandleSignin(w http.ResponseWriter, r *http.Request) {
 
 // ShowSignup displays the signup page
 func (c *AuthController) ShowSignup(w http.ResponseWriter, r *http.Request) {
+	// Set the request on the controller
+	c.SetRequest(r)
+	
 	// Only show signup if no users exist (first user setup)
 	if models.Auth.Users.Count("") > 0 {
 		c.Redirect(w, r, "/signin")
@@ -111,6 +120,9 @@ func (c *AuthController) ShowSignup(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignup processes signup form submission
 func (c *AuthController) HandleSignup(w http.ResponseWriter, r *http.Request) {
+	// Set the request on the controller
+	c.SetRequest(r)
+	
 	// Only allow signup if no users exist
 	if models.Auth.Users.Count("") > 0 {
 		c.Redirect(w, r, "/signin")
@@ -154,6 +166,9 @@ func (c *AuthController) HandleSignup(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignout processes signout
 func (c *AuthController) HandleSignout(w http.ResponseWriter, r *http.Request) {
+	// Set the request on the controller
+	c.SetRequest(r)
+	
 	// Clear cookie
 	c.auth.ClearCookie(w, c.cookieName)
 	c.Redirect(w, r, "/signin")

@@ -140,10 +140,9 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 	// Map of all available tools
 	allTools := map[string]agents.ToolImplementation{
 		// Repository tools
-		"list_repos":  &tools.ListReposTool{},
-		"get_repo":    &tools.GetRepoTool{},
-		"create_repo": &tools.CreateRepoTool{},
-		// "delete_repo":  &tools.DeleteRepoTool{}, // Not implemented yet
+		"list_repos":    &tools.ListReposTool{},
+		"get_repo":      &tools.GetRepoTool{},
+		"create_repo":   &tools.CreateRepoTool{},
 		"get_repo_link": &tools.GetRepoLinkTool{},
 
 		// File tools
@@ -157,30 +156,32 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 
 		// Git tools
 		"git_status":  &tools.GitStatusTool{},
-		"git_history": &tools.GitLogTool{}, // Use GitLogTool
+		"git_history": &tools.GitLogTool{},
 		"git_diff":    &tools.GitDiffTool{},
 		"git_commit":  &tools.GitCommitTool{},
-		// "git_push":    &tools.GitPushTool{}, // Not implemented
+		"git_push":    &tools.GitPushTool{},
+		"git_pull":    &tools.GitPullTool{},
+		"git_merge":   &tools.GitMergeTool{},
 
 		// Issue tools
-		"create_issue":      &tools.CreateIssueTool{},
-		"update_issue":      &tools.UpdateIssueTool{},
-		"list_issues":       &tools.ListIssuesTool{},
-		"get_issue":         &tools.ListIssuesTool{}, // Alias for compatibility
+		"create_issue": &tools.CreateIssueTool{},
+		"update_issue": &tools.UpdateIssueTool{},
+		"list_issues":  &tools.ListIssuesTool{},
+		"get_issue":    &tools.ListIssuesTool{}, // Alias for compatibility
 		
 		// Pull Request tools
-		"create_pr":      &tools.CreatePRTool{},
-		"list_prs":       &tools.ListPRsTool{},
+		"create_pr": &tools.CreatePRTool{},
+		"list_prs":  &tools.ListPRsTool{},
 
-		// Project tools
-		// "create_milestone":     &tools.CreateMilestoneTool{}, // Not implemented
-		// "create_project_card":  &tools.CreateProjectCardTool{}, // Not implemented
+		// CI/CD tools
+		"build":  &tools.BuildTool{},
+		"test":   &tools.TestTool{},
+		"deploy": &tools.DeployTool{},
 
 		// Terminal tool
 		"terminal_execute": &tools.RunCommandTool{},
 
 		// Todo tools
-		// "create_todo": &tools.TodoCreateTool{}, // Not implemented
 		"list_todos":  &tools.TodoListTool{},
 		"update_todo": &tools.TodoUpdateTool{},
 	}

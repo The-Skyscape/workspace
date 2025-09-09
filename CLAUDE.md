@@ -15,6 +15,40 @@ When working on this codebase:
 
 **Skyscape Workspace** is a GitHub-like platform with containerized development environments. Think of it as self-hosted GitHub + Codespaces.
 
+## Design Philosophy
+
+### HTMX/HATEOAS Architecture
+We've rejected the complexity of modern JavaScript frameworks in favor of HTMX with HATEOAS principles:
+- **HTML as the engine of application state** - The server sends HTML, not JSON
+- **No client-side state management** - All state lives on the server
+- **Progressive enhancement** - Works without JavaScript, enhanced with HTMX
+- **Simplicity over features** - No webpack, no npm, no build pipeline for the frontend
+
+### Value Receiver Pattern for Request Isolation
+Our controllers use a unique pattern for request isolation without mutexes:
+```go
+// Value receiver creates a copy
+func (c ReposController) Handle(r *http.Request) application.Controller {
+    c.Request = r  // Modifies the copy
+    return &c      // Returns pointer to the copy
+}
+```
+This gives each request its own controller instance (16-32 bytes overhead) with zero shared state.
+
+### Template Validation with check-views
+Templates are validated at build time using our `check-views` tool:
+- Parses Go AST to find all controller methods
+- Parses templates to find all references
+- Validates that every template reference has a corresponding controller method
+- Turns runtime template errors into build-time errors
+
+### No Client State Principle
+By eliminating client-side state, we've removed entire categories of bugs:
+- No state synchronization issues
+- No cache invalidation problems
+- No version mismatches between API and client
+- Debugging happens in one place: the server
+
 ### Core Features
 - 🔐 **Git Repository Management** - Create, browse, search repos with FTS5
 - 🚀 **Containerized Development** - Docker-based VS Code (Coder) and Jupyter environments  
@@ -313,12 +347,24 @@ workspace/
 │   ├── actions.go  # CI/CD
 │   └── coder.go    # IDE management
 ├── models/         # Data models & repositories
-├── services/       # Docker container services
+├── services/       # Docker container services ONLY
+│   ├── ollama.go   # Manages Ollama Docker container
+│   ├── coder.go    # Manages Coder Docker container
+│   ├── actions.go  # Manages action Docker containers
+│   └── sandbox.go  # Manages sandbox Docker containers
+├── internal/       # Internal business logic & utilities
+│   ├── ai/        # AI logic (event queue, processors, tools)
+│   ├── agents/    # Agent system (providers, registry)
+│   └── coding/    # Git operations
 ├── views/          # HTML templates
-├── coding/         # Git operations (internal)
 ├── auth/          # Authentication (moved from pkg)
 └── Makefile       # Build configuration
 ```
+
+**IMPORTANT**: Directory usage rules:
+- `services/` - ONLY for Docker container management services
+- `internal/` - Business logic, algorithms, utilities, AI logic
+- Never put non-Docker logic in `services/`
 
 ## Environment Variables
 

@@ -3,10 +3,11 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
-	"log"
+	"workspace/internal/ai"
 	"workspace/internal/github"
 	"workspace/models"
 	"workspace/services"
@@ -298,6 +299,15 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	// Log activity
 	models.LogActivity("pr_created", "Created pull request: "+pr.Title,
 		"New pull request opened", user.ID, repoID, "pull_request", pr.ID)
+	
+	// Trigger AI event for PR review if AI is enabled
+	if services.Ollama.IsRunning() {
+		go func() {
+			if err := ai.PublishPREvent(ai.EventPRCreated, pr, user.ID); err != nil {
+				log.Printf("Failed to publish PR created event: %v", err)
+			}
+		}()
+	}
 
 	// Sync to GitHub if repo has GitHub integration
 	repo, _ := models.Repositories.Get(repoID)

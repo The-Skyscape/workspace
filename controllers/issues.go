@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"workspace/internal/ai"
 	"workspace/models"
 	"workspace/services"
 
@@ -307,15 +308,11 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	}
 	go services.TriggerActionsByEvent("on_issue", repoID, eventData)
 
-	// Queue AI task for issue triage if AI is enabled
-	// Trigger AI issue triage if enabled
-	if services.Ollama.IsRunning() && user.IsAdmin {
+	// Trigger AI event for issue triage if AI is enabled
+	if services.Ollama.IsRunning() {
 		go func() {
-			// Use the new AI service from internal/ai
-			if ai := c.App.Use("ai").(*AIController).getAIService(); ai != nil {
-				if err := ai.EnqueueIssue(issue, user.ID); err != nil {
-					log.Printf("IssuesController: Failed to enqueue AI triage: %v", err)
-				}
+			if err := ai.PublishIssueEvent(ai.EventIssueCreated, issue, user.ID); err != nil {
+				log.Printf("Failed to publish issue created event: %v", err)
 			}
 		}()
 	}
