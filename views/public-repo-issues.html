@@ -65,7 +65,7 @@
 <!-- Issues Header -->
 <div class="flex items-center justify-between mb-6">
   <h2 class="text-2xl font-bold">Issues</h2>
-  <button class="btn btn-primary" _="on click call submit_issue_modal.showModal()">
+  <button class="btn btn-primary" onclick="submit_issue_modal.showModal()">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
     </svg>
@@ -120,7 +120,7 @@
   </svg>
   <h2 class="text-2xl font-bold mb-4">No issues yet</h2>
   <p class="text-base-content/70 mb-6">Be the first to report an issue or suggest an improvement!</p>
-  <button class="btn btn-primary btn-lg" _="on click call submit_issue_modal.showModal()">Submit First Issue</button>
+  <button class="btn btn-primary btn-lg" onclick="submit_issue_modal.showModal()">Submit First Issue</button>
 </div>
 {{end}}
 {{end}}
@@ -129,7 +129,10 @@
 <dialog id="submit_issue_modal" class="modal">
   <div class="modal-box w-11/12">
     <h3 class="font-bold text-lg mb-4">Submit an Issue</h3>
-    <form hx-post="{{host}}/public/repos/{{.ID}}/issues" hx-target="body" hx-swap="outerHTML">
+    <div class="error-message mb-4"></div>
+    <form hx-post="{{host}}/public/repos/{{.ID}}/issues" 
+          hx-target="previous .error-message" 
+          hx-swap="innerHTML">
       <div class="flex flex-col gap-4">
         <div class="form-control">
           <label class="label">
@@ -167,7 +170,9 @@
 
         <div class="modal-action">
           <button type="submit" class="btn btn-primary">Submit Issue</button>
-          <button type="button" class="btn" _="on click call submit_issue_modal.close()">Cancel</button>
+          <form method="dialog" class="inline">
+            <button class="btn">Cancel</button>
+          </form>
         </div>
       </div>
     </form>

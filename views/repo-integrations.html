@@ -40,7 +40,7 @@
             <div class="flex flex-col gap-2">
               <div class="flex items-center gap-2 text-sm">
                 <span class="text-base-content/70">Repository:</span>
-                <a href="{{.GitHubURL}}" target="_blank" class="link link-primary font-mono">{{.GitHubURL}}</a>
+                <a href="{{.GitHubURL}}" target="_blank" class="link text-primary font-mono">{{.GitHubURL}}</a>
               </div>
               {{if .LastSyncAt}}
               <div class="flex items-center gap-2 text-sm">
@@ -115,7 +115,7 @@
               Sync Issues & PRs
             </button>
             <button class="btn btn-sm btn-ghost"
-                    _="on click call github_settings_modal.showModal()">
+                    onclick="github_settings_modal.showModal()">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -139,7 +139,7 @@
             <h3 class="text-lg font-semibold mb-2">Not connected to GitHub</h3>
             <p class="text-base-content/70 mb-6">Connect your repository to GitHub to enable backup and collaboration features</p>
             <button class="btn btn-primary"
-                    _="on click call github_link_modal.showModal()">
+                    onclick="github_link_modal.showModal()">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
@@ -273,7 +273,11 @@
 <dialog id="github_link_modal" class="modal">
   <div class="modal-box">
     <h3 class="text-2xl font-bold mb-6">Link GitHub Repository</h3>
-    <form hx-post="{{host}}/repos/{{.ID}}/github/link" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+    <div class="error-message mb-4"></div>
+    <form hx-post="{{host}}/repos/{{.ID}}/github/link" 
+          hx-target="previous .error-message" 
+          hx-swap="innerHTML" 
+          class="flex flex-col gap-2">
       
       <div class="alert alert-info mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
@@ -286,20 +290,18 @@
       <div class="tabs tabs-boxed mb-4">
         <input type="radio" name="link_mode" value="existing" class="hidden" id="link-existing" checked />
         <label for="link-existing" class="tab tab-active"
-               _="on click 
-                  add .hidden to #create-github-fields
-                  remove .hidden from #select-github-fields
-                  remove .tab-active from .tab
-                  add .tab-active to me">
+               onclick="document.getElementById('create-github-fields').classList.add('hidden');
+                        document.getElementById('select-github-fields').classList.remove('hidden');
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
+                        this.classList.add('tab-active')">
           Select Existing
         </label>
         <input type="radio" name="link_mode" value="create" class="hidden" id="link-create" />
         <label for="link-create" class="tab"
-               _="on click 
-                  add .hidden to #select-github-fields
-                  remove .hidden from #create-github-fields
-                  remove .tab-active from .tab
-                  add .tab-active to me">
+               onclick="document.getElementById('select-github-fields').classList.add('hidden');
+                        document.getElementById('create-github-fields').classList.remove('hidden');
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
+                        this.classList.add('tab-active')">
           Create New
         </label>
       </div>
@@ -363,7 +365,11 @@
 <dialog id="github_settings_modal" class="modal">
   <div class="modal-box">
     <h3 class="text-2xl font-bold mb-6">GitHub Sync Settings</h3>
-    <form hx-post="{{host}}/repos/{{$repo.ID}}/github/settings" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+    <div class="error-message mb-4"></div>
+    <form hx-post="{{host}}/repos/{{$repo.ID}}/github/settings" 
+          hx-target="previous .error-message" 
+          hx-swap="innerHTML" 
+          class="flex flex-col gap-2">
       
       <div class="alert alert-info mb-4">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
@@ -371,7 +377,7 @@
         </svg>
         <div>
           <div class="font-semibold">Connected Repository</div>
-          <a href="{{$repo.GitHubURL}}" target="_blank" class="link link-primary text-sm">{{$repo.GitHubURL}}</a>
+          <a href="{{$repo.GitHubURL}}" target="_blank" class="link text-primary text-sm">{{$repo.GitHubURL}}</a>
         </div>
       </div>
 

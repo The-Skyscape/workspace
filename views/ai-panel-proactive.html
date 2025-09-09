@@ -80,7 +80,7 @@
     <div class="card bg-base-100 shadow-sm border border-base-300">
         <div class="card-body p-4">
             <h3 class="card-title text-sm">AI Recommendations</h3>
-            <div class="space-y-2 mt-2" 
+            <div class="flex flex-col gap-2 mt-2" 
                  hx-get="{{host}}/ai/recommendations" 
                  hx-trigger="load, every 30s"
                  hx-swap="innerHTML">

@@ -2,7 +2,11 @@
 <dialog id="create_file_modal" class="modal">
   <div class="modal-box">
     <h3 class="text-2xl font-bold mb-6">Create New File</h3>
-    <form hx-post="{{host}}/repos/{{$repo.ID}}/files/create" hx-target="body" hx-swap="outerHTML" class="flex flex-col gap-2">
+    <div class="error-message mb-4"></div>
+    <form hx-post="{{host}}/repos/{{$repo.ID}}/files/create" 
+          hx-target="previous .error-message" 
+          hx-swap="innerHTML" 
+          class="flex flex-col gap-2">
       <input type="hidden" name="branch" value="{{repos.CurrentBranch}}">
       
       <!-- File Path Input -->
@@ -46,7 +50,9 @@
           </svg>
           Create File
         </button>
-        <button type="button" class="btn" _="on click call create_file_modal.close()">Cancel</button>
+        <form method="dialog" class="inline">
+          <button class="btn">Cancel</button>
+        </form>
       </div>
     </form>
   </div>

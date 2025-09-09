@@ -55,7 +55,7 @@
         <span class="badge badge-ghost" id="todo-count">{{len $issues.todo}}</span>
       </div>
       
-      <div class="space-y-3 min-h-[400px] sortable-list" 
+      <div class="flex flex-col gap-3 min-h-[400px] sortable-list" 
            id="todo-column"
            data-status="todo">
         {{range $issues.todo}}
@@ -102,7 +102,7 @@
         <span class="badge badge-ghost" id="in_progress-count">{{len $issues.in_progress}}</span>
       </div>
       
-      <div class="space-y-3 min-h-[400px] sortable-list"
+      <div class="flex flex-col gap-3 min-h-[400px] sortable-list"
            id="in_progress-column"
            data-status="in_progress">
         {{range $issues.in_progress}}
@@ -149,7 +149,7 @@
         <span class="badge badge-ghost" id="done-count">{{len $issues.done}}</span>
       </div>
       
-      <div class="space-y-3 min-h-[400px] sortable-list"
+      <div class="flex flex-col gap-3 min-h-[400px] sortable-list"
            id="done-column"
            data-status="done">
         {{range $issues.done}}

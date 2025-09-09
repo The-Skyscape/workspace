@@ -38,8 +38,12 @@
     </div>
 
     <!-- Create New Form -->
-    <form id="create-form" hx-post="{{host}}/repos/create" hx-target="body" hx-swap="outerHTML" 
-          hx-indicator="#create-submit-indicator" class="flex flex-col gap-4">
+    <div class="error-message mb-4"></div>
+    <form id="create-form" hx-post="{{host}}/repos/create" 
+          hx-target="previous .error-message" 
+          hx-swap="innerHTML" 
+          hx-indicator="#create-submit-indicator" 
+          class="flex flex-col gap-4">
       <!-- Repository Name -->
       <label class="form-control w-full">
         <div class="label">
@@ -115,7 +119,10 @@
     </form>
 
     <!-- Import from GitHub Form -->
-    <form id="import-form" hx-post="{{host}}/github/import" hx-target="body" hx-swap="outerHTML" 
+    <div class="error-message mb-4"></div>
+    <form id="import-form" hx-post="{{host}}/github/import" 
+          hx-target="previous .error-message" 
+          hx-swap="innerHTML" 
           hx-indicator="#import-submit-indicator" class="flex flex-col gap-4 hidden">
       
       <!-- Loading indicator -->

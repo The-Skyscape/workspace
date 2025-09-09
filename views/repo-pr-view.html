@@ -37,7 +37,7 @@
                 <!-- GitHub Sync Status -->
                 {{if .GitHubURL}}
                 <div class="flex items-center gap-2 mt-2">
-                    <a href="{{.GitHubURL}}" target="_blank" hx-boost="false" class="link link-primary text-sm">
+                    <a href="{{.GitHubURL}}" target="_blank" hx-boost="false" class="link text-primary text-sm">
                         View on GitHub ↗
                     </a>
                     {{if eq .SyncStatus "synced"}}
