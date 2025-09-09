@@ -73,7 +73,7 @@ func (a *IssueAnalyzer) Analyze(ctx context.Context, issue *models.Issue) (*Issu
 	}
 	
 	// Combine title and description for analysis
-	content := strings.ToLower(issue.Title + " " + issue.Description)
+	content := strings.ToLower(issue.Title + " " + issue.Body)
 	
 	// Analyze sentiment
 	result.Sentiment = a.analyzeSentiment(content)
@@ -412,7 +412,7 @@ func (a *IssueAnalyzer) hasSecurityImplications(content string) bool {
 // estimateEffort estimates the effort required
 func (a *IssueAnalyzer) estimateEffort(issue *models.Issue, result *IssueAnalysis) string {
 	// Simple estimation based on categories and content length
-	contentLength := len(issue.Title) + len(issue.Description)
+	contentLength := len(issue.Title) + len(issue.Body)
 	
 	if contentLength < 100 && len(result.Labels) <= 1 {
 		return "small"
@@ -518,10 +518,10 @@ func (a *IssueAnalyzer) findSimilarIssues(ctx context.Context, issue *models.Iss
 	}
 	
 	// Simple similarity check based on keywords
-	issueWords := extractKeywords(issue.Title + " " + issue.Description)
+	issueWords := extractKeywords(issue.Title + " " + issue.Body)
 	
 	for _, other := range recentIssues {
-		otherWords := extractKeywords(other.Title + " " + other.Description)
+		otherWords := extractKeywords(other.Title + " " + other.Body)
 		similarity := calculateSimilarity(issueWords, otherWords)
 		
 		if similarity > 0.3 { // 30% similarity threshold

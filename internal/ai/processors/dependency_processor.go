@@ -323,11 +323,23 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 	}
 	
 	// Create issue
+	var issuePriority models.IssuePriority
+	switch priority {
+	case "critical":
+		issuePriority = models.PriorityCritical
+	case "high":
+		issuePriority = models.PriorityHigh
+	case "medium":
+		issuePriority = models.PriorityMedium
+	default:
+		issuePriority = models.PriorityLow
+	}
+	
 	issue := &models.Issue{
 		Title:       fmt.Sprintf("📦 Dependency Updates Available (%d packages)", len(updates)),
-		Description: report.String(),
-		Status:      "open",
-		Priority:    priority,
+		Body:        report.String(),
+		Status:      models.IssueStatusOpen,
+		Priority:    issuePriority,
 		RepoID:      repo.ID,
 		AuthorID:    "system",
 	}

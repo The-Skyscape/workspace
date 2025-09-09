@@ -3,7 +3,6 @@ package processors
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -68,25 +67,36 @@ func (p *IssueProcessor) applyAnalysis(issue *models.Issue, result *analysis.Iss
 	updated := false
 	
 	// Set priority if not already set
-	if issue.Priority == "" && result.Priority != "" {
-		issue.Priority = result.Priority
+	if issue.Priority == models.PriorityNone && result.Priority != "" {
+		switch result.Priority {
+		case "critical":
+			issue.Priority = models.PriorityCritical
+		case "high":
+			issue.Priority = models.PriorityHigh
+		case "medium":
+			issue.Priority = models.PriorityMedium
+		case "low":
+			issue.Priority = models.PriorityLow
+		default:
+			issue.Priority = models.PriorityMedium
+		}
 		updated = true
 	}
 	
-	// Add labels as metadata
+	// Add labels to issue
 	if len(result.Labels) > 0 {
-		metadata := map[string]interface{}{
-			"labels":     result.Labels,
-			"categories": result.Categories,
-			"sentiment":  result.Sentiment,
+		for _, label := range result.Labels {
+			tag, err := models.GetOrCreateTag(label, issue.RepoID)
+			if err != nil {
+				log.Printf("Failed to create tag %s: %v", label, err)
+				continue
+			}
+			if tag != nil {
+				if err := models.AddLabelToIssue(issue.ID, tag.ID, "system"); err != nil {
+					log.Printf("Failed to add label %s to issue: %v", label, err)
+				}
+			}
 		}
-		
-		metadataJSON, err := json.Marshal(metadata)
-		if err != nil {
-			return fmt.Errorf("failed to marshal metadata: %w", err)
-		}
-		
-		issue.Metadata = string(metadataJSON)
 		updated = true
 	}
 	
@@ -110,7 +120,6 @@ func (p *IssueProcessor) postComment(task *queue.Task, issue *models.Issue, resu
 	comment := &models.Comment{
 		Body:       commentBody,
 		AuthorID:   task.UserID,
-		IssueID:    issue.ID,
 		EntityType: "issue",
 		EntityID:   issue.ID,
 		RepoID:     task.RepoID,

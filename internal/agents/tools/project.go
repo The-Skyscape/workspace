@@ -410,8 +410,18 @@ func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) 
 	
 	if status, exists := params["status"]; exists {
 		if statusStr, ok := status.(string); ok {
-			if statusStr == "open" || statusStr == "closed" {
-				issue.Status = statusStr
+			switch statusStr {
+			case "open":
+				issue.Status = models.IssueStatusOpen
+				updates = append(updates, "status")
+			case "closed":
+				issue.Status = models.IssueStatusClosed
+				updates = append(updates, "status")
+			case "in_progress":
+				issue.Status = models.IssueStatusInProgress
+				updates = append(updates, "status")
+			case "resolved":
+				issue.Status = models.IssueStatusResolved
 				updates = append(updates, "status")
 			}
 		}

@@ -348,8 +348,6 @@ func (m *MonitoringController) updateContainers() {
 	m.containersMu.Lock()
 	m.containers = containers
 	m.containersMu.Unlock()
-
-	log.Printf("Updated container stats: %d containers found", len(containers))
 }
 
 // parseMemoryString converts memory strings like "1.5GiB" to bytes

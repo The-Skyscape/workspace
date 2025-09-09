@@ -129,7 +129,7 @@ func (p *SecurityProcessor) scanRepository(ctx context.Context, repo *models.Rep
 	// Check recent issues for security keywords
 	issues, _ := models.Issues.Search("WHERE RepoID = ? AND Status = 'open' LIMIT 10", repo.ID)
 	for _, issue := range issues {
-		content := issue.Title + " " + issue.Description
+		content := issue.Title + " " + issue.Body
 		
 		// Check for exposed secrets
 		for _, pattern := range p.secretPatterns {
@@ -258,14 +258,27 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 	report.WriteString("---\n")
 	report.WriteString("*This report was generated automatically by AI security scanning.*\n")
 	
+	// Convert severity to priority
+	var priority models.IssuePriority
+	switch p.calculateSeverity(findings) {
+	case "critical":
+		priority = models.PriorityCritical
+	case "high":
+		priority = models.PriorityHigh
+	case "medium":
+		priority = models.PriorityMedium
+	default:
+		priority = models.PriorityLow
+	}
+	
 	// Create issue
 	issue := &models.Issue{
-		Title:       fmt.Sprintf("🔒 Security Scan - %d findings", len(findings)),
-		Description: report.String(),
-		Status:      "open",
-		Priority:    p.calculateSeverity(findings),
-		RepoID:      repo.ID,
-		AuthorID:    "system",
+		Title:    fmt.Sprintf("🔒 Security Scan - %d findings", len(findings)),
+		Body:     report.String(),
+		Status:   models.IssueStatusOpen,
+		Priority: priority,
+		RepoID:   repo.ID,
+		AuthorID: "system",
 	}
 	
 	_, err := models.Issues.Insert(issue)

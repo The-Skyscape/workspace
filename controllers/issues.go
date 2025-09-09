@@ -303,7 +303,7 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 	eventData := map[string]string{
 		"ISSUE_ID":     issue.ID,
 		"ISSUE_TITLE":  issue.Title,
-		"ISSUE_STATUS": issue.Status,
+		"ISSUE_STATUS": string(issue.Status),
 		"AUTHOR_ID":    user.ID,
 	}
 	go services.TriggerActionsByEvent("on_issue", repoID, eventData)

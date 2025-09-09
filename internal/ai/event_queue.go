@@ -286,9 +286,9 @@ func PublishIssueEvent(eventType EventType, issue *models.Issue, userID string) 
 	}
 	
 	priority := PriorityNormal
-	if issue.Priority == "critical" {
+	if issue.Priority == models.PriorityCritical {
 		priority = PriorityCritical
-	} else if issue.Priority == "high" {
+	} else if issue.Priority == models.PriorityHigh {
 		priority = PriorityHigh
 	}
 	

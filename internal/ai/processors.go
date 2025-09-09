@@ -37,8 +37,19 @@ func (p *IssueTriageProcessor) ProcessEvent(event *AIEvent) error {
 	}
 	
 	// Update issue priority if not already set
-	if issue.Priority == "" {
-		issue.Priority = analysis.Priority
+	if issue.Priority == models.PriorityNone {
+		switch analysis.Priority {
+		case "critical":
+			issue.Priority = models.PriorityCritical
+		case "high":
+			issue.Priority = models.PriorityHigh
+		case "medium":
+			issue.Priority = models.PriorityMedium
+		case "low":
+			issue.Priority = models.PriorityLow
+		default:
+			issue.Priority = models.PriorityMedium
+		}
 		if err := models.Issues.Update(issue); err != nil {
 			log.Printf("IssueTriageProcessor: Failed to update priority: %v", err)
 		}

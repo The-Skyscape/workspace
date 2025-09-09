@@ -40,12 +40,12 @@ func (p *ReportProcessor) Process(ctx context.Context, task *queue.Task) error {
 	
 	// Create an issue with the report
 	issue := &models.Issue{
-		Title:       fmt.Sprintf("Daily Report - %s", time.Now().Format("January 2, 2006")),
-		Description: report,
-		Status:      "open",
-		Priority:    "low",
-		RepoID:      repoID,
-		AuthorID:    task.UserID,
+		Title:    fmt.Sprintf("Daily Report - %s", time.Now().Format("January 2, 2006")),
+		Body:     report,
+		Status:   models.IssueStatusOpen,
+		Priority: models.PriorityLow,
+		RepoID:   repoID,
+		AuthorID: task.UserID,
 	}
 	
 	if _, err := models.Issues.Insert(issue); err != nil {
