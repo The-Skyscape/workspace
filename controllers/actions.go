@@ -94,6 +94,8 @@ func (c *ActionsController) RepoBranches() ([]*models.Branch, error) {
 
 // redirectToInfo redirects from base action URL to info tab
 func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 	c.Redirect(w, r, fmt.Sprintf("/repos/%s/actions/%s/info", repoID, actionID))
@@ -101,6 +103,8 @@ func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Reques
 
 // createAction handles action creation
 func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -165,6 +169,8 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 
 // runAction handles manual action execution
 func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -212,6 +218,8 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 
 // disableAction handles disabling an action
 func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -248,6 +256,8 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 
 // enableAction handles enabling an action
 func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -284,6 +294,8 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 
 // downloadArtifact handles artifact download
 func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Access already verified by route middleware (PublicOrAdmin)
 
 	auth := c.Use("auth").(*AuthController)
@@ -319,6 +331,8 @@ func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Requ
 
 // getActionLogs handles fetching action logs via HTMX
 func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
@@ -335,6 +349,8 @@ func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request
 
 // getActionArtifacts handles fetching action artifacts via HTMX
 func (c *ActionsController) getActionArtifacts(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
