@@ -1,0 +1,166 @@
+{{with $stats := ai.GetEventQueueStats}}
+<div class="container mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-6">AI System Metrics</h1>
+
+  <!-- Overview Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <!-- Queue Status -->
+    <div class="card bg-base-100 border border-base-300 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title text-sm">Queue Status</h2>
+        <div class="stat-value text-2xl">
+          {{if $stats.running}}
+            <span class="text-success">Active</span>
+          {{else}}
+            <span class="text-error">Inactive</span>
+          {{end}}
+        </div>
+        <div class="stat-desc">{{$stats.workers}} workers</div>
+      </div>
+    </div>
+
+    <!-- Events Processed -->
+    <div class="card bg-base-100 border border-base-300 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title text-sm">Events Processed</h2>
+        <div class="stat-value text-2xl text-primary">{{$stats.processed}}</div>
+        <div class="stat-desc">{{$stats.pending}} pending</div>
+      </div>
+    </div>
+
+    <!-- Failed Events -->
+    <div class="card bg-base-100 border border-base-300 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title text-sm">Failed Events</h2>
+        <div class="stat-value text-2xl {{if gt $stats.failed 0}}text-error{{else}}text-success{{end}}">
+          {{$stats.failed}}
+        </div>
+        <div class="stat-desc">Total failures</div>
+      </div>
+    </div>
+
+    <!-- System Uptime -->
+    <div class="card bg-base-100 border border-base-300 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title text-sm">Uptime</h2>
+        <div class="stat-value text-2xl">{{$stats.uptime}}</div>
+        <div class="stat-desc">Since last restart</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Processing Chart -->
+  <div class="card bg-base-100 border border-base-300 shadow-lg mb-8">
+    <div class="card-body">
+      <h2 class="card-title mb-4">Event Processing Rate</h2>
+      <div class="h-64 flex items-center justify-center text-base-content/50">
+        <div id="processing-chart" class="w-full h-full">
+          <!-- Chart would be rendered here with HTMX updates -->
+          <div class="skeleton h-full w-full"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Recent Activities -->
+    <div class="card bg-base-100 border border-base-300 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title mb-4">Recent AI Activities</h2>
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+          {{range ai.GetRecentActivities 10}}
+          <div class="flex items-start gap-3 p-3 rounded-lg hover:bg-base-200 transition-colors">
+            <div class="flex-shrink-0">
+              {{if .Success}}
+                <div class="badge badge-success badge-sm">✓</div>
+              {{else}}
+                <div class="badge badge-error badge-sm">✗</div>
+              {{end}}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-sm">{{.Type}}</span>
+                <span class="text-xs text-base-content/60">{{.CreatedAt | timeAgo}}</span>
+              </div>
+              <p class="text-sm text-base-content/80 truncate">{{.Description}}</p>
+              {{if .RepoName}}
+                <span class="text-xs text-primary">{{.RepoName}}</span>
+              {{end}}
+              {{if .Duration}}
+                <span class="text-xs text-base-content/60 ml-2">{{.Duration}}ms</span>
+              {{end}}
+            </div>
+          </div>
+          {{else}}
+          <p class="text-center text-base-content/60 py-8">No recent activities</p>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Type Distribution -->
+    <div class="card bg-base-100 border border-base-300 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title mb-4">Event Type Distribution</h2>
+        <div class="space-y-4">
+          {{with ai.GetEventTypeStats}}
+            {{range $type, $count := .}}
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">{{$type}}</span>
+              <div class="flex items-center gap-2">
+                <div class="w-32 bg-base-200 rounded-full h-2">
+                  <div class="bg-primary h-2 rounded-full" style="width: {{mul $count 10}}%"></div>
+                </div>
+                <span class="text-sm text-base-content/60 w-12 text-right">{{$count}}</span>
+              </div>
+            </div>
+            {{end}}
+          {{else}}
+            <p class="text-center text-base-content/60 py-8">No event data available</p>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance Metrics -->
+  <div class="card bg-base-100 border border-base-300 shadow-lg mt-6">
+    <div class="card-body">
+      <h2 class="card-title mb-4">Performance Metrics</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Average Processing Time -->
+        <div class="text-center">
+          <div class="text-3xl font-bold text-primary">{{ai.GetAverageProcessingTime}}</div>
+          <div class="text-sm text-base-content/60 mt-1">Avg Processing Time</div>
+        </div>
+        
+        <!-- Success Rate -->
+        <div class="text-center">
+          <div class="text-3xl font-bold text-success">{{ai.GetSuccessRate}}%</div>
+          <div class="text-sm text-base-content/60 mt-1">Success Rate</div>
+        </div>
+        
+        <!-- Queue Efficiency -->
+        <div class="text-center">
+          <div class="text-3xl font-bold text-info">{{ai.GetQueueEfficiency}}%</div>
+          <div class="text-sm text-base-content/60 mt-1">Queue Efficiency</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-refresh indicator -->
+  <div class="text-center mt-6 text-sm text-base-content/60">
+    <span>Auto-refreshing every 30 seconds</span>
+    <span class="loading loading-dots loading-xs ml-2"></span>
+  </div>
+</div>
+
+<!-- Auto-refresh with HTMX -->
+<script>
+  // Refresh metrics every 30 seconds
+  setInterval(() => {
+    htmx.trigger(document.body, 'refresh-metrics');
+  }, 30000);
+</script>
+{{end}}

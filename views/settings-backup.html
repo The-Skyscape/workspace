@@ -1,0 +1,151 @@
+{{with $status := backup.GetSchedulerStatus}}
+{{with $backups := backup.GetBackupList}}
+<div class="container mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-6">Backup & Recovery</h1>
+  
+  <!-- Status Card -->
+  <div class="card bg-base-100 border border-base-300 shadow-lg mb-6">
+    <div class="card-body">
+      <h2 class="card-title mb-4">Backup Status</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <div class="text-sm text-base-content/60">Scheduler Status</div>
+          <div class="text-lg font-semibold">
+            {{if $status.Enabled}}
+              <span class="text-success">Enabled</span>
+            {{else}}
+              <span class="text-warning">Disabled</span>
+            {{end}}
+          </div>
+        </div>
+        
+        <div>
+          <div class="text-sm text-base-content/60">Last Backup</div>
+          <div class="text-lg font-semibold">
+            {{if $status.LastRun.IsZero}}
+              Never
+            {{else}}
+              {{$status.LastRun | timeAgo}}
+            {{end}}
+          </div>
+        </div>
+        
+        <div>
+          <div class="text-sm text-base-content/60">Next Backup</div>
+          <div class="text-lg font-semibold">
+            {{if $status.NextRun.IsZero}}
+              Not scheduled
+            {{else}}
+              {{$status.NextRun.Format "Jan 2, 3:04 PM"}}
+            {{end}}
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex gap-2 mt-4">
+        <button hx-post="/backup/create" 
+                hx-target="#backup-message" 
+                hx-swap="innerHTML"
+                class="btn btn-primary">
+          Create Backup Now
+        </button>
+        
+        <button hx-post="/backup/toggle" 
+                hx-target="#status-container" 
+                hx-swap="outerHTML"
+                class="btn btn-ghost">
+          {{if $status.Enabled}}Disable{{else}}Enable{{end}} Scheduler
+        </button>
+      </div>
+      
+      <div id="backup-message" class="mt-4"></div>
+    </div>
+  </div>
+  
+  <!-- Available Backups -->
+  <div class="card bg-base-100 border border-base-300 shadow-lg">
+    <div class="card-body">
+      <h2 class="card-title mb-4">Available Backups</h2>
+      
+      {{if $backups}}
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Backup Name</th>
+              <th>Size</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range $backups}}
+            <tr>
+              <td>{{.Name}}</td>
+              <td>{{.FormatSize}}</td>
+              <td>{{.Created | timeAgo}}</td>
+              <td>
+                <form hx-post="/backup/restore" 
+                      hx-target="#backup-message" 
+                      hx-swap="innerHTML"
+                      hx-confirm="Are you sure you want to restore this backup? This will overwrite current data."
+                      class="inline">
+                  <input type="hidden" name="backup_path" value="{{.Path}}">
+                  <button type="submit" class="btn btn-sm btn-warning">
+                    Restore
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <div class="text-center py-8 text-base-content/60">
+        No backups available yet
+      </div>
+      {{end}}
+    </div>
+  </div>
+  
+  <!-- Backup Configuration -->
+  <div class="card bg-base-100 border border-base-300 shadow-lg mt-6">
+    <div class="card-body">
+      <h2 class="card-title mb-4">Backup Configuration</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-sm text-base-content/60">Schedule</div>
+          <div class="font-mono">{{$status.Schedule}}</div>
+          <div class="text-xs text-base-content/50">Daily at 2:00 AM</div>
+        </div>
+        
+        <div>
+          <div class="text-sm text-base-content/60">Retention</div>
+          <div>30 days / 10 backups max</div>
+        </div>
+        
+        <div>
+          <div class="text-sm text-base-content/60">Backup Includes</div>
+          <div class="text-sm">
+            <ul class="list-disc list-inside">
+              <li>Database</li>
+              <li>Repositories</li>
+              <li>Secrets (Vault)</li>
+              <li>Uploads</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div>
+          <div class="text-sm text-base-content/60">Backup Location</div>
+          <div class="font-mono text-sm">~/.skyscape/backups/</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+{{end}}

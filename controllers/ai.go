@@ -106,6 +106,7 @@ func (c *AIController) Setup(app *application.App) {
 	
 	// Dashboard route - Admin only
 	http.Handle("GET /ai/dashboard", app.Serve("ai-dashboard.html", auth.AdminOnly))
+	http.Handle("GET /ai/metrics", app.Serve("ai-metrics.html", auth.AdminOnly))
 	
 	// Proactive AI routes - Admin only
 	http.Handle("GET /ai/recommendations", app.ProtectFunc(c.getRecommendations, auth.AdminOnly))
@@ -2594,6 +2595,126 @@ func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
 	// Get critical issues
 	criticalIssues, _ := models.Issues.Search("WHERE Status = 'open' AND Priority = 'critical' ORDER BY CreatedAt DESC LIMIT 20")
 	c.Render(w, r, "ai-alerts.html", criticalIssues)
+}
+
+// GetEventQueueStats returns event queue statistics for the metrics dashboard
+func (c *AIController) GetEventQueueStats() map[string]interface{} {
+	stats := map[string]interface{}{
+		"running":   false,
+		"workers":   0,
+		"processed": 0,
+		"pending":   0,
+		"failed":    0,
+		"uptime":    "0s",
+	}
+	
+	// Get queue service stats
+	if ai := c.getAIService(); ai != nil {
+		queueStats := ai.GetQueueStats()
+		if queueStats != nil {
+			stats = queueStats
+		}
+	}
+	
+	// Calculate uptime
+	if startTime, ok := stats["started_at"].(time.Time); ok {
+		stats["uptime"] = time.Since(startTime).Round(time.Second).String()
+	}
+	
+	return stats
+}
+
+// GetRecentActivities returns recent AI activities for the metrics dashboard
+func (c *AIController) GetRecentActivities(limit int) []*models.AIActivity {
+	activities, err := models.GetRecentAIActivities(limit)
+	if err != nil {
+		log.Printf("AIController: Failed to get recent activities: %v", err)
+		return []*models.AIActivity{}
+	}
+	return activities
+}
+
+// GetEventTypeStats returns event type distribution statistics
+func (c *AIController) GetEventTypeStats() map[string]int {
+	stats := make(map[string]int)
+	
+	// Query activities grouped by type from last 7 days
+	activities, err := models.GetRecentAIActivities(1000)
+	if err != nil {
+		return stats
+	}
+	
+	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
+	for _, activity := range activities {
+		if activity.CreatedAt.After(sevenDaysAgo) {
+			stats[activity.Type]++
+		}
+	}
+	
+	return stats
+}
+
+// GetAverageProcessingTime returns average processing time in milliseconds
+func (c *AIController) GetAverageProcessingTime() string {
+	activities, err := models.GetRecentAIActivities(100)
+	if err != nil || len(activities) == 0 {
+		return "0ms"
+	}
+	
+	var total int64
+	var count int
+	for _, activity := range activities {
+		if activity.Duration > 0 {
+			total += activity.Duration
+			count++
+		}
+	}
+	
+	if count == 0 {
+		return "0ms"
+	}
+	
+	avg := total / int64(count)
+	if avg < 1000 {
+		return fmt.Sprintf("%dms", avg)
+	}
+	return fmt.Sprintf("%.1fs", float64(avg)/1000)
+}
+
+// GetSuccessRate returns the success rate percentage
+func (c *AIController) GetSuccessRate() int {
+	activities, err := models.GetRecentAIActivities(100)
+	if err != nil || len(activities) == 0 {
+		return 100
+	}
+	
+	var successful int
+	for _, activity := range activities {
+		if activity.Success {
+			successful++
+		}
+	}
+	
+	return (successful * 100) / len(activities)
+}
+
+// GetQueueEfficiency returns queue processing efficiency percentage
+func (c *AIController) GetQueueEfficiency() int {
+	if ai := c.getAIService(); ai != nil {
+		stats := ai.GetQueueStats()
+		if stats != nil {
+			processed, _ := stats["processed"].(int)
+			failed, _ := stats["failed"].(int)
+			total := processed + failed
+			
+			if total == 0 {
+				return 100
+			}
+			
+			return (processed * 100) / total
+		}
+	}
+	return 100
 }
 
 // triggerDailyReport triggers a daily report generation (admin only)
