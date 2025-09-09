@@ -55,7 +55,8 @@ func (c AuthController) Handle(req *http.Request) application.Controller {
 
 // ShowSignin displays the signin page
 func (c *AuthController) ShowSignin(w http.ResponseWriter, r *http.Request) {
-	// Set the request on the controller
+	c.SetRequest(r)
+		// Set the request on the controller
 	c.SetRequest(r)
 	
 	// If already authenticated, redirect to home
@@ -68,7 +69,8 @@ func (c *AuthController) ShowSignin(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignin processes signin form submission
 func (c *AuthController) HandleSignin(w http.ResponseWriter, r *http.Request) {
-	// Set the request on the controller
+	c.SetRequest(r)
+		// Set the request on the controller
 	c.SetRequest(r)
 	
 	handle := r.FormValue("handle")
@@ -107,7 +109,8 @@ func (c *AuthController) HandleSignin(w http.ResponseWriter, r *http.Request) {
 
 // ShowSignup displays the signup page
 func (c *AuthController) ShowSignup(w http.ResponseWriter, r *http.Request) {
-	// Set the request on the controller
+	c.SetRequest(r)
+		// Set the request on the controller
 	c.SetRequest(r)
 	
 	// Only show signup if no users exist (first user setup)
@@ -120,7 +123,8 @@ func (c *AuthController) ShowSignup(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignup processes signup form submission
 func (c *AuthController) HandleSignup(w http.ResponseWriter, r *http.Request) {
-	// Set the request on the controller
+	c.SetRequest(r)
+		// Set the request on the controller
 	c.SetRequest(r)
 	
 	// Only allow signup if no users exist
@@ -166,7 +170,8 @@ func (c *AuthController) HandleSignup(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignout processes signout
 func (c *AuthController) HandleSignout(w http.ResponseWriter, r *http.Request) {
-	// Set the request on the controller
+	c.SetRequest(r)
+		// Set the request on the controller
 	c.SetRequest(r)
 	
 	// Clear cookie

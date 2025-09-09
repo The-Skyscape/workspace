@@ -173,7 +173,8 @@ func (c *ReposController) RepoCommitCount() int {
 
 // importRepository handles importing an existing Git repository
 func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Request) {
-	// Parse form data
+	c.SetRequest(r)
+		// Parse form data
 	name := r.FormValue("name")
 	description := r.FormValue("description")
 	gitURL := r.FormValue("git_url")

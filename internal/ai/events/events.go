@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 	"workspace/internal/ai/queue"
-	"workspace/models"
 )
 
 // EventType represents the type of event

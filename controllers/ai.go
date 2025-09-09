@@ -116,18 +116,8 @@ func (c *AIController) Setup(app *application.App) {
 	http.Handle("POST /ai/trigger/stale-check", app.ProtectFunc(c.triggerStaleCheck, auth.AdminOnly))
 	http.Handle("POST /ai/trigger/dependency-check", app.ProtectFunc(c.triggerDependencyCheck, auth.AdminOnly))
 
-	// Initialize Ollama service in background
-	go func() {
-		log.Println("AIController: Initializing Ollama service...")
-		if !services.Ollama.IsConfigured() {
-			if err := services.Ollama.Init(); err != nil {
-				log.Printf("AIController: Warning - Ollama service not available: %v", err)
-			}
-		}
-		
-		// The new AI queue is initialized in main.go via ai.InitializeAISystem()
-		// No need to initialize the old queue here
-	}()
+	// Ollama service is now initialized in services/init.go at startup
+	// The AI queue is initialized in main.go via ai.InitializeAISystem()
 }
 
 // Handle prepares the controller for request handling

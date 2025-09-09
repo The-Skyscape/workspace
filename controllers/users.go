@@ -125,7 +125,8 @@ func (c *UsersController) GetByID(id string) (*authentication.User, error) {
 
 // updateUserRole handles changing a user's role
 func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -174,7 +175,8 @@ func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request)
 
 // disableUser handles disabling a user account
 func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
-	// For now, we'll just change their role to "guest"
+	c.SetRequest(r)
+		// For now, we'll just change their role to "guest"
 	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
@@ -217,7 +219,8 @@ func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 
 // enableUser handles enabling a user account
 func (c *UsersController) enableUser(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")

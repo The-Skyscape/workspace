@@ -267,6 +267,9 @@ func (c *DatabaseHealthChecker) CheckHealth(ctx context.Context) ComponentHealth
 }
 
 // VaultHealthChecker checks Vault service health
+// NOTE: Vault is managed through models.Secrets, not a direct service
+// Commenting out until proper health check implementation
+/*
 type VaultHealthChecker struct{}
 
 func (c *VaultHealthChecker) Name() string {
@@ -310,6 +313,7 @@ func (c *VaultHealthChecker) CheckHealth(ctx context.Context) ComponentHealth {
 	
 	return health
 }
+*/
 
 // SandboxHealthChecker checks sandbox availability
 type SandboxHealthChecker struct{}
@@ -340,6 +344,9 @@ func (c *SandboxHealthChecker) CheckHealth(ctx context.Context) ComponentHealth 
 }
 
 // AIQueueHealthChecker checks AI queue health
+// NOTE: AI queue is managed through internal/ai/queue, not services
+// Commenting out until proper health check implementation
+/*
 type AIQueueHealthChecker struct{}
 
 func (c *AIQueueHealthChecker) Name() string {
@@ -385,6 +392,7 @@ func (c *AIQueueHealthChecker) CheckHealth(ctx context.Context) ComponentHealth 
 	
 	return health
 }
+*/
 
 // HealthHandler creates an HTTP handler for health checks
 func HealthHandler(monitor *HealthMonitor) http.HandlerFunc {

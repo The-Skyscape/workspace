@@ -218,7 +218,8 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Re
 
 // createRepository handles POST /repos/create
 func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Request) {
-	auth := c.App.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -261,7 +262,8 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 
 // updateRepository handles POST /repos/{id}/settings/update
 func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Request) {
-	repo, err := c.getCurrentRepoFromRequest(r)
+	c.SetRequest(r)
+		repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return
@@ -314,7 +316,8 @@ func (c *ReposController) IsMarkdown(filename string) bool {
 
 // deleteRepository handles POST /repos/{id}/delete
 func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Request) {
-	repo, err := c.getCurrentRepoFromRequest(r)
+	c.SetRequest(r)
+		repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return

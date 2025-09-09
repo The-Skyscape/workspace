@@ -47,7 +47,8 @@ var startTime = time.Now()
 
 // healthCheck provides a simple health check endpoint
 func (c *HealthController) healthCheck(w http.ResponseWriter, r *http.Request) {
-	status := HealthStatus{
+	c.SetRequest(r)
+		status := HealthStatus{
 		Status:    "healthy",
 		Timestamp: time.Now(),
 		Version:   "1.0.0",
@@ -66,7 +67,8 @@ func (c *HealthController) healthCheck(w http.ResponseWriter, r *http.Request) {
 
 // detailedHealthCheck provides detailed health information
 func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Request) {
-	checks := make(map[string]string)
+	c.SetRequest(r)
+		checks := make(map[string]string)
 	status := "healthy"
 
 	// Database check

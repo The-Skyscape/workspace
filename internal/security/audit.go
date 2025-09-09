@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
-	"workspace/models"
 	
 	"github.com/The-Skyscape/devtools/pkg/database"
 	"github.com/The-Skyscape/devtools/pkg/application"
@@ -90,8 +90,8 @@ func (*AuditLog) Table() string { return "audit_logs" }
 
 // AuditTrail manages audit logging
 type AuditTrail struct {
-	db          *database.DB
-	logs        *database.Repository
+	db          *database.DynamicDB
+	logs        *database.Collection[*AuditLog]
 	mu          sync.RWMutex
 	buffer      []AuditLog
 	bufferSize  int
@@ -101,7 +101,7 @@ type AuditTrail struct {
 }
 
 // NewAuditTrail creates a new audit trail manager
-func NewAuditTrail(db *database.DB) *AuditTrail {
+func NewAuditTrail(db *database.DynamicDB) *AuditTrail {
 	at := &AuditTrail{
 		db:         db,
 		logs:       database.Manage(db, new(AuditLog)),
@@ -250,14 +250,10 @@ func (at *AuditTrail) cleanOldLogs() {
 	cutoff := time.Now().Add(-at.retention)
 	
 	query := "DELETE FROM audit_logs WHERE Timestamp < ?"
-	result := at.db.Exec(query, cutoff)
-	if result.Error != nil {
-		log.Printf("Failed to clean old audit logs: %v", result.Error)
+	err := at.db.Query(query, cutoff).Exec()
+	if err != nil {
+		log.Printf("Failed to clean old audit logs: %v", err)
 		return
-	}
-	
-	if result.RowsAffected > 0 {
-		log.Printf("Cleaned %d old audit logs", result.RowsAffected)
 	}
 }
 
@@ -318,13 +314,19 @@ func (at *AuditTrail) Query(filter AuditFilter) ([]AuditLog, error) {
 		args = append(args, filter.Limit)
 	}
 	
-	var logs []AuditLog
-	result := at.db.Raw(query, args...).Scan(&logs)
-	if result.Error != nil {
-		return nil, result.Error
+	// Use the Search method from the logs collection
+	logs, err := at.logs.Search(query, args...)
+	if err != nil {
+		return nil, err
 	}
 	
-	return logs, nil
+	// Convert from []*AuditLog to []AuditLog
+	result := make([]AuditLog, len(logs))
+	for i, log := range logs {
+		result[i] = *log
+	}
+	
+	return result, nil
 }
 
 // GetUserActivity gets audit logs for a specific user
@@ -337,19 +339,24 @@ func (at *AuditTrail) GetUserActivity(userID string, limit int) ([]AuditLog, err
 
 // GetSecurityEvents gets security-related audit logs
 func (at *AuditTrail) GetSecurityEvents(severity AuditSeverity, limit int) ([]AuditLog, error) {
-	query := `SELECT * FROM audit_logs 
-	          WHERE EventType LIKE 'security.%' 
+	query := `WHERE EventType LIKE 'security.%' 
 	          AND Severity >= ? 
 	          ORDER BY Timestamp DESC 
 	          LIMIT ?`
 	
-	var logs []AuditLog
-	result := at.db.Raw(query, severity, limit).Scan(&logs)
-	if result.Error != nil {
-		return nil, result.Error
+	// Use the Search method from the logs collection
+	logs, err := at.logs.Search(query, severity, limit)
+	if err != nil {
+		return nil, err
 	}
 	
-	return logs, nil
+	// Convert from []*AuditLog to []AuditLog
+	result := make([]AuditLog, len(logs))
+	for i, log := range logs {
+		result[i] = *log
+	}
+	
+	return result, nil
 }
 
 // GenerateComplianceReport generates a compliance report
@@ -461,7 +468,7 @@ type ComplianceReport struct {
 var Trail *AuditTrail
 
 // InitializeAuditTrail initializes the global audit trail
-func InitializeAuditTrail(db *database.DB) {
+func InitializeAuditTrail(db *database.DynamicDB) {
 	Trail = NewAuditTrail(db)
 	log.Println("Audit trail initialized")
 }

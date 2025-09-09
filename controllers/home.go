@@ -371,7 +371,8 @@ func (c *HomeController) PublicActivity() ([]*models.Activity, error) {
 
 // homePage handles the home page - redirects to signup if no users exist
 func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
-	// Check if any users exist
+	c.SetRequest(r)
+		// Check if any users exist
 	if models.Auth.Users.Count("") == 0 {
 		// No users, redirect to signup
 		c.Redirect(w, r, "/signup")
@@ -451,7 +452,8 @@ func (c *HomeController) IssueSubmitted() bool {
 
 // submitPublicIssue handles public issue submission
 func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Request) {
-	// Get the public repository
+	c.SetRequest(r)
+		// Get the public repository
 	repo, err := c.getPublicRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)

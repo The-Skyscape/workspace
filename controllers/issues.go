@@ -240,7 +240,8 @@ func (c *IssuesController) IssueComments() ([]*models.Comment, error) {
 
 // searchIssues handles issue search requests with HTMX
 func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) {
-	// Access already checked by route middleware
+	c.SetRequest(r)
+		// Access already checked by route middleware
 	repoID := r.PathValue("id")
 	if repoID == "" {
 		c.RenderErrorMsg(w, r, "repository ID required")
@@ -253,7 +254,8 @@ func (c *IssuesController) searchIssues(w http.ResponseWriter, r *http.Request) 
 
 // createIssue handles issue creation
 func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
-	// Access already checked by route middleware (PublicRepoOnly)
+	c.SetRequest(r)
+		// Access already checked by route middleware (PublicRepoOnly)
 	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
@@ -323,7 +325,8 @@ func (c *IssuesController) createIssue(w http.ResponseWriter, r *http.Request) {
 
 // closeIssue handles closing an issue
 func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -367,7 +370,8 @@ func (c *IssuesController) closeIssue(w http.ResponseWriter, r *http.Request) {
 
 // reopenIssue handles reopening an issue
 func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -411,7 +415,8 @@ func (c *IssuesController) reopenIssue(w http.ResponseWriter, r *http.Request) {
 
 // editIssue handles editing an issue
 func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -466,7 +471,8 @@ func (c *IssuesController) editIssue(w http.ResponseWriter, r *http.Request) {
 
 // deleteIssue handles deleting an issue
 func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -506,7 +512,8 @@ func (c *IssuesController) deleteIssue(w http.ResponseWriter, r *http.Request) {
 
 // createIssueComment handles adding a comment to an issue
 func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -547,7 +554,8 @@ func (c *IssuesController) createIssueComment(w http.ResponseWriter, r *http.Req
 
 // moveIssue handles moving an issue between Kanban columns
 func (c *IssuesController) moveIssue(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")

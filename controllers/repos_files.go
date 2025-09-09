@@ -226,7 +226,8 @@ func (c *ReposController) RepoFileCount() (int, error) {
 
 // saveFile handles saving changes to an existing file
 func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
-	repo, err := c.getCurrentRepoFromRequest(r)
+	c.SetRequest(r)
+		repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return
@@ -272,7 +273,8 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 
 // createFile handles creating a new file in the repository
 func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
-	repo, err := c.getCurrentRepoFromRequest(r)
+	c.SetRequest(r)
+		repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return
@@ -334,7 +336,8 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 
 // deleteFile handles deleting a file from the repository
 func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
-	repo, err := c.getCurrentRepoFromRequest(r)
+	c.SetRequest(r)
+		repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return

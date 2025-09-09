@@ -242,7 +242,8 @@ func (c *PullRequestsController) IncludeMerged() bool {
 
 // searchPRs handles PR search requests with HTMX
 func (c *PullRequestsController) searchPRs(w http.ResponseWriter, r *http.Request) {
-	// Access already verified by route middleware
+	c.SetRequest(r)
+		// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
@@ -256,7 +257,8 @@ func (c *PullRequestsController) searchPRs(w http.ResponseWriter, r *http.Reques
 
 // createPR handles pull request creation
 func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request) {
-	// Access already verified by route middleware (PublicRepoOnly)
+	c.SetRequest(r)
+		// Access already verified by route middleware (PublicRepoOnly)
 
 	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
@@ -350,7 +352,8 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 
 // mergePR handles merging a pull request
 func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -449,7 +452,8 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 
 // closePR handles closing a pull request
 func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request) {
-	auth := c.Use("auth").(*AuthController)
+	c.SetRequest(r)
+		auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -504,7 +508,8 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 
 // createPRComment handles adding a comment to a pull request
 func (c *PullRequestsController) createPRComment(w http.ResponseWriter, r *http.Request) {
-	// Access already verified by route middleware (PublicRepoOnly)
+	c.SetRequest(r)
+		// Access already verified by route middleware (PublicRepoOnly)
 
 	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
