@@ -243,6 +243,8 @@ func (c *AIController) IsOllamaReady() bool {
 
 // panel renders the main AI panel with conversation list (admin only)
 func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -309,11 +311,15 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 
 // redirectToPanel redirects /ai/chat to /ai/panel
 func (c *AIController) redirectToPanel(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	c.Redirect(w, r, "/ai/panel")
 }
 
 // createConversation creates a new conversation (admin only)
 func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -339,6 +345,8 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 
 // deleteConversation deletes a conversation and its messages (admin only)
 func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -372,6 +380,8 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 
 // loadChat loads the chat interface for a conversation (admin only)
 func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -391,6 +401,8 @@ func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 
 // getMessages returns messages for a conversation (admin only)
 func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -417,6 +429,8 @@ func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 
 // sendMessage sends a message to the AI and gets a response
 func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 	content := strings.TrimSpace(r.FormValue("message"))
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -953,6 +967,8 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 
 // streamResponse handles SSE streaming of AI responses
 func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -1840,6 +1856,8 @@ func (c *AIController) streamToolResult(w http.ResponseWriter, flusher http.Flus
 
 // getTodoPanel renders the todo panel for a conversation
 func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 
 	// Get conversation
@@ -1889,6 +1907,8 @@ func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 
 // getTodos returns just the todo list items (for HTMX refresh)
 func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 
 	// Get conversation
@@ -1937,6 +1957,8 @@ func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
 
 // streamTodos provides SSE endpoint for todo updates
 func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 
 	// Get conversation
@@ -1987,6 +2009,8 @@ func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 
 // stopExecution handles cancellation of AI execution
 func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -2308,6 +2332,8 @@ Be curious and thorough. For "explore" requests, don't stop after just listing -
 
 // updateConfig handles AI configuration updates
 func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2335,6 +2361,8 @@ func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
 
 // getRecentActivity returns recent AI activity
 func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2538,6 +2566,8 @@ func (c *AIController) GetLatestInsights() []map[string]string {
 
 // getRecommendations returns AI recommendations (admin only)
 func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2586,6 +2616,8 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 
 // viewAlerts shows AI alerts (admin only)
 func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2719,6 +2751,8 @@ func (c *AIController) GetQueueEfficiency() int {
 
 // triggerDailyReport triggers a daily report generation (admin only)
 func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2747,6 +2781,8 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 
 // triggerSecurityScan triggers a security scan (admin only)
 func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2774,6 +2810,8 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 
 // triggerStaleCheck triggers a stale issue/PR check (admin only)
 func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2801,6 +2839,8 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 
 // triggerDependencyCheck triggers a dependency update check (admin only)
 func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2828,6 +2868,8 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 
 // toggleFeature toggles an AI feature on/off (admin only)
 func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2871,6 +2913,8 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 
 // updateAggressiveness updates AI automation level (admin only)
 func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2907,6 +2951,8 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 
 // updateDelay updates AI response delay (admin only)
 func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
+	c.SetRequest(r)
+	
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
