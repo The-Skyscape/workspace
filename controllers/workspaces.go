@@ -50,7 +50,7 @@ func (w WorkspacesController) Handle(req *http.Request) application.Controller {
 // proxyToCodeServer handles requests to the code-server instance
 func (w *WorkspacesController) proxyToCodeServer(wr http.ResponseWriter, r *http.Request) {
 	if !services.Coder.IsRunning() {
-		w.Render(wr, r, "error-message.html", errors.New("coder service is not running"))
+		w.RenderErrorMsg(wr, r, "coder service is not running")
 		return
 	}
 

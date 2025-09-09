@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"workspace/middleware"
 
@@ -50,14 +49,13 @@ func (c *LogsController) GetLogStats() map[string]interface{} {
 // API handlers
 
 func (c *LogsController) getRecentLogs(w http.ResponseWriter, r *http.Request) {
-	// Parse limit from query params
-	limit := 100
-	if l := r.URL.Query().Get("limit"); l != "" {
-		// Parse limit safely
-		var parsed int
-		if _, err := fmt.Sscanf(l, "%d", &parsed); err == nil && parsed > 0 && parsed <= 1000 {
-			limit = parsed
-		}
+	// Use pagination helper for limit
+	pagination := c.Pagination(100) // default 100 items
+	limit := pagination.Limit
+	
+	// Cap at maximum 1000 for safety
+	if limit > 1000 {
+		limit = 1000
 	}
 
 	logs := middleware.AppLogger.GetRecentLogs(limit)

@@ -104,7 +104,11 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
-	user, _, _ := auth.Authenticate(r)
+	user := auth.GetAuthenticatedUser(r)
+	if user == nil {
+		c.RenderErrorMsg(w, r, "authentication required")
+		return
+	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
@@ -112,16 +116,23 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validate required fields
-	title := strings.TrimSpace(r.FormValue("title"))
-	description := strings.TrimSpace(r.FormValue("description"))
-	actionType := strings.TrimSpace(r.FormValue("type"))
-	branch := strings.TrimSpace(r.FormValue("branch"))
-	command := strings.TrimSpace(r.FormValue("command"))
-	artifactPaths := strings.TrimSpace(r.FormValue("artifact_paths"))
+	// Parse form parameters
+	p := c.Params()
+	title := strings.TrimSpace(p.String("title", ""))
+	description := strings.TrimSpace(p.String("description", ""))
+	actionType := strings.TrimSpace(p.String("type", ""))
+	branch := strings.TrimSpace(p.String("branch", ""))
+	command := strings.TrimSpace(p.String("command", ""))
+	artifactPaths := strings.TrimSpace(p.String("artifact_paths", ""))
 
-	if title == "" || actionType == "" || command == "" {
-		c.RenderErrorMsg(w, r, "title, type, and command are required")
+	// Validate required fields
+	v := c.Validator()
+	v.CheckRequired("title", title)
+	v.CheckRequired("type", actionType)
+	v.CheckRequired("command", command)
+	
+	if err := v.Result(); err != nil {
+		c.RenderValidationError(w, r, err)
 		return
 	}
 
@@ -157,7 +168,7 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
-	user, _, _ := auth.Authenticate(r)
+	user := auth.GetAuthenticatedUser(r)
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
@@ -204,7 +215,7 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
-	user, _, _ := auth.Authenticate(r)
+	user := auth.GetAuthenticatedUser(r)
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
@@ -240,7 +251,7 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
-	user, _, _ := auth.Authenticate(r)
+	user := auth.GetAuthenticatedUser(r)
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
@@ -276,7 +287,7 @@ func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Requ
 	// Access already verified by route middleware (PublicOrAdmin)
 
 	auth := c.Use("auth").(*AuthController)
-	user, _, _ := auth.Authenticate(r)
+	user := auth.GetAuthenticatedUser(r)
 
 	repoID := r.PathValue("id")
 	artifactID := r.PathValue("artifactID")

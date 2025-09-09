@@ -120,19 +120,21 @@ The AI assistant provides an intelligent interface for repository operations wit
    - Dual-mode system: Conversational chat + Event-driven automation
    - Admin-only access for all AI features
    - Requires AI_ENABLED="true" (Pro tier, 16GB+ RAM)
-   - Runs Llama 3.2:3b model locally via Ollama
+   - Runs GPT-OSS models locally via Ollama
    - Native OpenAI-compatible tool calling
    - Background queue service with priority-based task processing
 
 2. **Model Configuration**:
-   - **Default Model**: `llama3.2:3b` - Fast, efficient model with native tool calling
+   - **Default Model**: `gpt-oss` - OpenAI's open-weight model with agentic capabilities
+   - **Model Details**: GPT-OSS is OpenAI's Apache 2.0 licensed model available in 20B and 120B variants
    - **Context Window**: 128K tokens
-   - **Tool Support**: Native function calling via Ollama API
-   - **Reasoning**: Configurable effort levels (low/medium/high)
+   - **Tool Support**: Native function calling, web browsing, Python execution
+   - **Reasoning**: Full chain-of-thought with configurable effort levels
+   - **Memory Requirements**: 16GB+ for 20B model, optimized with MXFP4 quantization
 
 3. **Tier Requirements**:
    - **Standard Workspace**: AI features disabled, use external tools (Claude CLI, Copilot)
-   - **Pro Workspace**: Full AI integration with Llama model + automation
+   - **Pro Workspace**: Full AI integration with GPT-OSS model + automation
    - Controlled via AI_ENABLED environment variable
 
 4. **Chat Assistant Tools** (21 total):

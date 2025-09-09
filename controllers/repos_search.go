@@ -144,14 +144,16 @@ func getContextLines(lines []string, lineNum, contextSize int) []string {
 // searchRepositories handles repository search via HTMX
 // Searches repository names and descriptions
 func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-	filter := r.URL.Query().Get("filter") // "all", "public", "private"
+	// Parse parameters using new helpers
+	p := c.Params()
+	query := p.String("q", "")
+	filter := p.String("filter", "") // "all", "public", "private"
 
 	// Get current user
 	auth := c.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		c.RenderError(w, r, err)
+	user := auth.GetAuthenticatedUser(r)
+	if user == nil {
+		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
 

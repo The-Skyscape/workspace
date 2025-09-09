@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"workspace/models"
@@ -88,15 +87,12 @@ func (c *HomeController) IsFirstUser() bool {
 // UserRepos returns repositories the current user has access to
 func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
+	user := auth.GetAuthenticatedUser(c.Request)
+	if user == nil {
 		// Not authenticated - show public repos with pagination support
-		offsetStr := c.Request.URL.Query().Get("offset")
-		offset := 0
-		if offsetStr != "" {
-			if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-				offset = parsed
-			}
+		offset := c.Params().Int("offset", 0)
+		if offset < 0 {
+			offset = 0
 		}
 
 		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
@@ -119,19 +115,16 @@ func (c *HomeController) UserRepos() ([]*models.Repository, error) {
 // MoreRepos returns the next page of repositories for infinite scroll
 func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
 	auth := c.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(c.Request)
+	user := auth.GetAuthenticatedUser(c.Request)
 
 	// Parse offset from query params
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 
 	// Build query based on user permissions
-	if err != nil {
+	if user == nil {
 		// Not authenticated - show public repos
 		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 		return models.Repositories.Search(query, "public")
@@ -151,20 +144,17 @@ func (c *HomeController) MoreRepos() ([]*models.Repository, error) {
 // HasMoreRepos checks if there are more repositories to load
 func (c *HomeController) HasMoreRepos() bool {
 	auth := c.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(c.Request)
+	user := auth.GetAuthenticatedUser(c.Request)
 
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 
 	var repos []*models.Repository
 
 	// Build query based on user permissions
-	if err != nil {
+	if user == nil {
 		// Not authenticated - check public repos
 		query := fmt.Sprintf("WHERE Visibility = ? ORDER BY UpdatedAt DESC LIMIT 20 OFFSET %d", offset)
 		repos, _ = models.Repositories.Search(query, "public")
@@ -184,12 +174,9 @@ func (c *HomeController) HasMoreRepos() bool {
 
 // NextReposOffset returns the offset for the next page of repositories
 func (c *HomeController) NextReposOffset() int {
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 	return offset + 20
 }
@@ -203,18 +190,15 @@ func (c *HomeController) PublicRepos() ([]*models.Repository, error) {
 // HasMorePublicRepos checks if there are more public repos for logged out users
 func (c *HomeController) HasMorePublicRepos() bool {
 	auth := c.Use("auth").(*AuthController)
-	_, _, err := auth.Authenticate(c.Request)
-	if err == nil {
+	user := auth.GetAuthenticatedUser(c.Request)
+	if user != nil {
 		// User is logged in, no pagination needed
 		return false
 	}
 
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 
 	// Check if there are more public repos after current offset
@@ -225,12 +209,9 @@ func (c *HomeController) HasMorePublicRepos() bool {
 
 // NextPublicReposOffset returns the offset for the next page of public repos
 func (c *HomeController) NextPublicReposOffset() int {
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 	return offset + 20
 }
@@ -290,8 +271,8 @@ func (c *HomeController) PublicRepoStats() (*RepoStats, error) {
 // RecentActivity returns recent activities for the dashboard
 func (c *HomeController) RecentActivity() ([]*models.Activity, error) {
 	auth := c.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
+	user := auth.GetAuthenticatedUser(c.Request)
+	if user == nil {
 		return nil, nil
 	}
 
@@ -302,9 +283,9 @@ func (c *HomeController) RecentActivity() ([]*models.Activity, error) {
 // AllActivities returns all activities for the activities page
 func (c *HomeController) AllActivities() ([]*models.Activity, error) {
 	auth := c.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, err
+	user := auth.GetAuthenticatedUser(c.Request)
+	if user == nil {
+		return nil, errors.New("authentication required")
 	}
 
 	// Get first 20 activities for initial load
@@ -314,18 +295,15 @@ func (c *HomeController) AllActivities() ([]*models.Activity, error) {
 // MoreActivities returns the next page of activities for infinite scroll
 func (c *HomeController) MoreActivities() ([]*models.Activity, error) {
 	auth := c.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(c.Request)
-	if err != nil {
-		return nil, err
+	user := auth.GetAuthenticatedUser(c.Request)
+	if user == nil {
+		return nil, errors.New("authentication required")
 	}
 
 	// Parse offset from query params
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 
 	// Get next batch of activities
@@ -341,12 +319,9 @@ func (c *HomeController) HasMoreActivities() bool {
 		return false
 	}
 
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 
 	activities, total, err := models.GetUserActivitiesPaginated(user.ID, 20, offset)
@@ -359,12 +334,9 @@ func (c *HomeController) HasMoreActivities() bool {
 
 // NextActivitiesOffset returns the offset for the next page of activities
 func (c *HomeController) NextActivitiesOffset() int {
-	offsetStr := c.Request.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed > 0 {
-			offset = parsed
-		}
+	offset := c.Params().Int("offset", 0)
+	if offset < 0 {
+		offset = 0
 	}
 	return offset + 20
 }
@@ -517,23 +489,19 @@ func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Validate required fields
-	title := strings.TrimSpace(r.FormValue("title"))
-	body := strings.TrimSpace(r.FormValue("body"))
-	email := strings.TrimSpace(r.FormValue("email"))
+	p := c.Params()
+	title := strings.TrimSpace(p.String("title", ""))
+	body := strings.TrimSpace(p.String("body", ""))
+	email := strings.TrimSpace(p.String("email", ""))
 
-	if title == "" {
-		c.RenderErrorMsg(w, r, "issue title is required")
-		return
-	}
-
-	if email == "" {
-		c.RenderErrorMsg(w, r, "email is required for notifications")
-		return
-	}
-
-	// Basic email validation
-	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
-		c.RenderErrorMsg(w, r, "please provide a valid email address")
+	// Use Validator for comprehensive validation
+	v := c.Validator()
+	v.CheckRequired("title", title)
+	v.CheckRequired("email", email)
+	v.CheckEmail("email", email)
+	
+	if err := v.Result(); err != nil {
+		c.RenderValidationError(w, r, err)
 		return
 	}
 
