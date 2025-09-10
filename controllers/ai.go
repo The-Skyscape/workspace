@@ -96,18 +96,18 @@ func (c *AIController) Setup(app *application.App) {
 
 	// Control routes - Admin only
 	http.Handle("POST /ai/chat/{id}/stop", app.ProtectFunc(c.stopExecution, auth.AdminOnly))
-	
+
 	// Configuration routes - Admin only
 	http.Handle("POST /ai/config/update", app.ProtectFunc(c.updateConfig, auth.AdminOnly))
 	http.Handle("POST /ai/toggle/{feature}", app.ProtectFunc(c.toggleFeature, auth.AdminOnly))
 	http.Handle("POST /ai/config/aggressiveness", app.ProtectFunc(c.updateAggressiveness, auth.AdminOnly))
 	http.Handle("POST /ai/config/delay", app.ProtectFunc(c.updateDelay, auth.AdminOnly))
 	http.Handle("GET /ai/activity", app.ProtectFunc(c.getRecentActivity, auth.AdminOnly))
-	
+
 	// Dashboard route - Admin only
 	http.Handle("GET /ai/dashboard", app.Serve("ai-dashboard.html", auth.AdminOnly))
 	http.Handle("GET /ai/metrics", app.Serve("ai-metrics.html", auth.AdminOnly))
-	
+
 	// Proactive AI routes - Admin only
 	http.Handle("GET /ai/recommendations", app.ProtectFunc(c.getRecommendations, auth.AdminOnly))
 	http.Handle("GET /ai/alerts", app.ProtectFunc(c.viewAlerts, auth.AdminOnly))
@@ -159,7 +159,7 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 		"update_issue": &tools.UpdateIssueTool{},
 		"list_issues":  &tools.ListIssuesTool{},
 		"get_issue":    &tools.ListIssuesTool{}, // Alias for compatibility
-		
+
 		// Pull Request tools
 		"create_pr": &tools.CreatePRTool{},
 		"list_prs":  &tools.ListPRsTool{},
@@ -234,7 +234,7 @@ func (c *AIController) IsOllamaReady() bool {
 // panel renders the main AI panel with conversation list (admin only)
 func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -302,14 +302,14 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 // redirectToPanel redirects /ai/chat to /ai/panel
 func (c *AIController) redirectToPanel(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	c.Redirect(w, r, "/ai/panel")
 }
 
 // createConversation creates a new conversation (admin only)
 func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -336,7 +336,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 // deleteConversation deletes a conversation and its messages (admin only)
 func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -371,7 +371,7 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 // loadChat loads the chat interface for a conversation (admin only)
 func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -392,7 +392,7 @@ func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 // getMessages returns messages for a conversation (admin only)
 func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -420,7 +420,7 @@ func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 // sendMessage sends a message to the AI and gets a response
 func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 	content := strings.TrimSpace(r.FormValue("message"))
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -958,7 +958,7 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 // streamResponse handles SSE streaming of AI responses
 func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -1141,12 +1141,12 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		models.Messages.Insert(errorMsg)
 
 		// Stream error message with proper formatting
-		errorHTML := fmt.Sprintf(`<div class="alert alert-error my-2">
+		errorHTML := `<div class="alert alert-error my-2">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
 			</svg>
 			<span class="text-sm">Failed to get AI response. Please try again.</span>
-		</div>`)
+		</div>`
 		errorHTMLEscaped := strings.ReplaceAll(errorHTML, "\n", "")
 		errorHTMLEscaped = strings.ReplaceAll(errorHTMLEscaped, "\t", "")
 		fmt.Fprintf(w, "event: complete\ndata: %s\n\n", errorHTMLEscaped)
@@ -1847,7 +1847,7 @@ func (c *AIController) streamToolResult(w http.ResponseWriter, flusher http.Flus
 // getTodoPanel renders the todo panel for a conversation
 func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 
 	// Get conversation
@@ -1898,7 +1898,7 @@ func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 // getTodos returns just the todo list items (for HTMX refresh)
 func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 
 	// Get conversation
@@ -1948,7 +1948,7 @@ func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
 // streamTodos provides SSE endpoint for todo updates
 func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 
 	// Get conversation
@@ -2000,7 +2000,7 @@ func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 // stopExecution handles cancellation of AI execution
 func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
@@ -2323,7 +2323,7 @@ Be curious and thorough. For "explore" requests, don't stop after just listing -
 // updateConfig handles AI configuration updates
 func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2341,7 +2341,7 @@ func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Store configuration in settings or model (simplified for now)
 	log.Printf("AI Config updated: issue_triage=%v, pr_review=%v, auto_approve=%v, daily=%v, stale=%v, aggr=%s, delay=%s",
-		enableIssueTriage, enablePRReview, enableAutoApprove, enableDailyReports, 
+		enableIssueTriage, enablePRReview, enableAutoApprove, enableDailyReports,
 		enableStaleManagement, aggressiveness, responseDelay)
 
 	// TODO: Store these settings in the database
@@ -2352,7 +2352,7 @@ func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
 // getRecentActivity returns recent AI activity
 func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2364,14 +2364,14 @@ func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request)
 		fmt.Fprint(w, `<tr><td colspan="5" class="text-center text-base-content/50">No recent AI activity</td></tr>`)
 		return
 	}
-	
+
 	// Render activity rows
 	for _, activity := range activities {
 		statusIcon := "✓"
 		if !activity.Success {
 			statusIcon = "✗"
 		}
-		
+
 		fmt.Fprintf(w, `<tr>
 			<td class="text-xs">%s</td>
 			<td><span class="badge badge-sm badge-outline">%s</span></td>
@@ -2412,19 +2412,19 @@ func (c *AIController) GetRecentActivity() []*models.AIActivity {
 func (c *AIController) GetTodayStats() map[string]int {
 	stats := map[string]int{
 		"issue_triage": 0,
-		"pr_review": 0,
+		"pr_review":    0,
 		"auto_approve": 0,
 	}
-	
+
 	// Get activities from last 24 hours
 	activities, err := models.GetRecentAIActivities(100)
 	if err != nil {
 		return stats
 	}
-	
+
 	now := time.Now()
 	dayAgo := now.Add(-24 * time.Hour)
-	
+
 	for _, activity := range activities {
 		if activity.CreatedAt.After(dayAgo) && activity.Success {
 			switch activity.Type {
@@ -2437,21 +2437,21 @@ func (c *AIController) GetTodayStats() map[string]int {
 			}
 		}
 	}
-	
+
 	return stats
 }
 
 // GetFeatureStatus returns the status of AI features
 func (c *AIController) GetFeatureStatus() map[string]bool {
 	status := map[string]bool{
-		"issue_triage": false,
-		"pr_review": false,
-		"auto_approve": false,
-		"daily_reports": false,
+		"issue_triage":     false,
+		"pr_review":        false,
+		"auto_approve":     false,
+		"daily_reports":    false,
 		"stale_management": false,
-		"security_scan": false,
+		"security_scan":    false,
 	}
-	
+
 	if ai := c.getAIService(); ai != nil {
 		config := ai.GetConfig()
 		status["issue_triage"] = config.IssueTriage
@@ -2461,29 +2461,29 @@ func (c *AIController) GetFeatureStatus() map[string]bool {
 		status["stale_management"] = config.StaleManagement
 		status["security_scan"] = config.SecurityScan
 	}
-	
+
 	return status
 }
 
 // GetCurrentConfig returns the current AI configuration for templates
 func (c *AIController) GetCurrentConfig() map[string]interface{} {
 	config := map[string]interface{}{
-		"model": "Llama 3.2:3b",
+		"model":            "Llama 3.2:3b",
 		"automation_level": "balanced",
-		"response_delay": 30,
+		"response_delay":   30,
 	}
-	
+
 	if ai := c.getAIService(); ai != nil {
 		aiConfig := ai.GetConfig()
 		config["automation_level"] = aiConfig.AutomationLevel
 		config["response_delay"] = int(aiConfig.ResponseDelay.Seconds())
-		
+
 		// Get the actual model from provider if available
 		if c.provider != nil {
 			config["model"] = c.provider.Model()
 		}
 	}
-	
+
 	return config
 }
 
@@ -2508,7 +2508,7 @@ func (c *AIController) GetActiveAlerts() map[string]interface{} {
 // GetLatestInsights returns AI-generated insights
 func (c *AIController) GetLatestInsights() []map[string]string {
 	insights := []map[string]string{}
-	
+
 	// Check recent activity patterns
 	recentActivities := c.GetRecentActivity()
 	if len(recentActivities) > 0 {
@@ -2519,23 +2519,23 @@ func (c *AIController) GetLatestInsights() []map[string]string {
 				successRate++
 			}
 		}
-		
+
 		if successRate < len(recentActivities)/2 {
 			insights = append(insights, map[string]string{
 				"Message": "High failure rate detected in recent AI tasks - review automation settings",
 			})
 		}
 	}
-	
+
 	// Check for stale issues
-	staleIssues, _ := models.Issues.Search("WHERE Status = 'open' AND UpdatedAt < ? LIMIT 5", 
+	staleIssues, _ := models.Issues.Search("WHERE Status = 'open' AND UpdatedAt < ? LIMIT 5",
 		time.Now().Add(-30*24*time.Hour).Unix())
 	if len(staleIssues) > 3 {
 		insights = append(insights, map[string]string{
 			"Message": fmt.Sprintf("%d stale issues detected - consider enabling stale management", len(staleIssues)),
 		})
 	}
-	
+
 	// Check PR review backlog
 	openPRs, _ := models.PullRequests.Search("WHERE Status = 'open'")
 	if len(openPRs) > 5 {
@@ -2543,21 +2543,21 @@ func (c *AIController) GetLatestInsights() []map[string]string {
 			"Message": fmt.Sprintf("%d PRs awaiting review - AI can help accelerate reviews", len(openPRs)),
 		})
 	}
-	
+
 	// Default insight if none
 	if len(insights) == 0 {
 		insights = append(insights, map[string]string{
 			"Message": "Repository health is good - AI is monitoring for issues",
 		})
 	}
-	
+
 	return insights
 }
 
 // getRecommendations returns AI recommendations (admin only)
 func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2566,40 +2566,40 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 
 	// Create recommendations based on repository state
 	recommendations := []map[string]interface{}{}
-	
+
 	// Check for unassigned issues
 	unassignedIssues, _ := models.Issues.Search("WHERE Status = 'open' AND AssigneeID IS NULL LIMIT 5")
 	if len(unassignedIssues) > 0 {
 		recommendations = append(recommendations, map[string]interface{}{
-			"title": "Unassigned Issues",
+			"title":       "Unassigned Issues",
 			"description": fmt.Sprintf("%d issues need assignment", len(unassignedIssues)),
-			"action": "Enable AI triage to auto-assign",
-			"type": "warning",
+			"action":      "Enable AI triage to auto-assign",
+			"type":        "warning",
 		})
 	}
-	
+
 	// Check for PRs without reviews
 	unreviewedPRs, _ := models.PullRequests.Search("WHERE Status = 'open' AND ReviewStatus IS NULL LIMIT 5")
 	if len(unreviewedPRs) > 0 {
 		recommendations = append(recommendations, map[string]interface{}{
-			"title": "Pending Reviews",
+			"title":       "Pending Reviews",
 			"description": fmt.Sprintf("%d PRs awaiting review", len(unreviewedPRs)),
-			"action": "Enable AI review assistance",
-			"type": "info",
+			"action":      "Enable AI review assistance",
+			"type":        "info",
 		})
 	}
-	
+
 	// Check for stale branches
 	repos, _ := models.Repos.Search("WHERE UserID = ?", user.ID)
 	if len(repos) > 0 {
 		recommendations = append(recommendations, map[string]interface{}{
-			"title": "Repository Health",
+			"title":       "Repository Health",
 			"description": fmt.Sprintf("Monitoring %d repositories", len(repos)),
-			"action": "All systems operational",
-			"type": "success",
+			"action":      "All systems operational",
+			"type":        "success",
 		})
 	}
-	
+
 	// Render recommendations partial
 	c.Render(w, r, "ai-recommendations.html", recommendations)
 }
@@ -2607,7 +2607,7 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 // viewAlerts shows AI alerts (admin only)
 func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2629,7 +2629,7 @@ func (c *AIController) GetEventQueueStats() map[string]interface{} {
 		"failed":    0,
 		"uptime":    "0s",
 	}
-	
+
 	// Get queue service stats
 	if ai := c.getAIService(); ai != nil {
 		queueStats := ai.GetQueueStats()
@@ -2637,12 +2637,12 @@ func (c *AIController) GetEventQueueStats() map[string]interface{} {
 			stats = queueStats
 		}
 	}
-	
+
 	// Calculate uptime
 	if startTime, ok := stats["started_at"].(time.Time); ok {
 		stats["uptime"] = time.Since(startTime).Round(time.Second).String()
 	}
-	
+
 	return stats
 }
 
@@ -2659,20 +2659,20 @@ func (c *AIController) GetRecentActivities(limit int) []*models.AIActivity {
 // GetEventTypeStats returns event type distribution statistics
 func (c *AIController) GetEventTypeStats() map[string]int {
 	stats := make(map[string]int)
-	
+
 	// Query activities grouped by type from last 7 days
 	activities, err := models.GetRecentAIActivities(1000)
 	if err != nil {
 		return stats
 	}
-	
+
 	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
 	for _, activity := range activities {
 		if activity.CreatedAt.After(sevenDaysAgo) {
 			stats[activity.Type]++
 		}
 	}
-	
+
 	return stats
 }
 
@@ -2682,7 +2682,7 @@ func (c *AIController) GetAverageProcessingTime() string {
 	if err != nil || len(activities) == 0 {
 		return "0ms"
 	}
-	
+
 	var total int64
 	var count int
 	for _, activity := range activities {
@@ -2691,11 +2691,11 @@ func (c *AIController) GetAverageProcessingTime() string {
 			count++
 		}
 	}
-	
+
 	if count == 0 {
 		return "0ms"
 	}
-	
+
 	avg := total / int64(count)
 	if avg < 1000 {
 		return fmt.Sprintf("%dms", avg)
@@ -2709,14 +2709,14 @@ func (c *AIController) GetSuccessRate() int {
 	if err != nil || len(activities) == 0 {
 		return 100
 	}
-	
+
 	var successful int
 	for _, activity := range activities {
 		if activity.Success {
 			successful++
 		}
 	}
-	
+
 	return (successful * 100) / len(activities)
 }
 
@@ -2728,11 +2728,11 @@ func (c *AIController) GetQueueEfficiency() int {
 			processed, _ := stats["processed"].(int)
 			failed, _ := stats["failed"].(int)
 			total := processed + failed
-			
+
 			if total == 0 {
 				return 100
 			}
-			
+
 			return (processed * 100) / total
 		}
 	}
@@ -2742,7 +2742,7 @@ func (c *AIController) GetQueueEfficiency() int {
 // triggerDailyReport triggers a daily report generation (admin only)
 func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2753,9 +2753,9 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 	if ai := c.getAIService(); ai != nil {
 		err := ai.EnqueueTask("daily_report", map[string]interface{}{
 			"user_id": user.ID,
-			"type": "manual",
+			"type":    "manual",
 		}, 5)
-		
+
 		if err != nil {
 			c.RenderErrorMsg(w, r, "Failed to queue daily report")
 			return
@@ -2772,7 +2772,7 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 // triggerSecurityScan triggers a security scan (admin only)
 func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2782,10 +2782,10 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 	// Queue security scan task
 	if ai := c.getAIService(); ai != nil {
 		err := ai.EnqueueTask("security_scan", map[string]interface{}{
-			"user_id": user.ID,
+			"user_id":   user.ID,
 			"scan_type": "full",
 		}, 8)
-		
+
 		if err != nil {
 			c.RenderErrorMsg(w, r, "Failed to queue security scan")
 			return
@@ -2801,7 +2801,7 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 // triggerStaleCheck triggers a stale issue/PR check (admin only)
 func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2811,10 +2811,10 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 	// Queue stale check task
 	if ai := c.getAIService(); ai != nil {
 		err := ai.EnqueueTask("stale_management", map[string]interface{}{
-			"user_id": user.ID,
+			"user_id":    user.ID,
 			"days_stale": 30,
 		}, 3)
-		
+
 		if err != nil {
 			c.RenderErrorMsg(w, r, "Failed to queue stale check")
 			return
@@ -2830,7 +2830,7 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 // triggerDependencyCheck triggers a dependency update check (admin only)
 func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2840,10 +2840,10 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 	// Queue dependency check task
 	if ai := c.getAIService(); ai != nil {
 		err := ai.EnqueueTask("dependency_check", map[string]interface{}{
-			"user_id": user.ID,
+			"user_id":        user.ID,
 			"check_security": true,
 		}, 4)
-		
+
 		if err != nil {
 			c.RenderErrorMsg(w, r, "Failed to queue dependency check")
 			return
@@ -2859,7 +2859,7 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 // toggleFeature toggles an AI feature on/off (admin only)
 func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2867,11 +2867,11 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 	}
 
 	feature := r.PathValue("feature")
-	
+
 	// Get current config
 	if ai := c.getAIService(); ai != nil {
 		config := ai.GetConfig()
-		
+
 		// Toggle the feature
 		switch feature {
 		case "issue_triage":
@@ -2890,10 +2890,10 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 			c.RenderErrorMsg(w, r, "Unknown feature")
 			return
 		}
-		
+
 		// Update config
 		ai.UpdateConfig(config)
-		
+
 		// Return success
 		w.Write([]byte(""))
 	} else {
@@ -2904,7 +2904,7 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 // updateAggressiveness updates AI automation level (admin only)
 func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2917,21 +2917,21 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 	if level == "" {
 		level = r.FormValue("value")
 	}
-	
+
 	// Validate level
 	if level != "conservative" && level != "balanced" && level != "aggressive" {
 		c.RenderErrorMsg(w, r, "Invalid automation level")
 		return
 	}
-	
+
 	if ai := c.getAIService(); ai != nil {
 		config := ai.GetConfig()
 		config.AutomationLevel = level
 		ai.UpdateConfig(config)
-		
+
 		// Log the change
 		log.Printf("AIController: Updated automation level to %s by %s", level, user.Name)
-		
+
 		// Return empty success response for HTMX
 		w.WriteHeader(http.StatusOK)
 	} else {
@@ -2942,7 +2942,7 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 // updateDelay updates AI response delay (admin only)
 func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
 		c.RenderErrorMsg(w, r, "Admin access required")
@@ -2955,24 +2955,24 @@ func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
 	if delayStr == "" {
 		delayStr = r.FormValue("value")
 	}
-	
+
 	// Parse as integer seconds
 	seconds, err := strconv.Atoi(delayStr)
 	if err != nil || seconds < 0 || seconds > 300 {
 		c.RenderErrorMsg(w, r, "Invalid delay value (must be 0-300 seconds)")
 		return
 	}
-	
+
 	delay := time.Duration(seconds) * time.Second
-	
+
 	if ai := c.getAIService(); ai != nil {
 		config := ai.GetConfig()
 		config.ResponseDelay = delay
 		ai.UpdateConfig(config)
-		
+
 		// Log the change
 		log.Printf("AIController: Updated response delay to %d seconds by %s", seconds, user.Name)
-		
+
 		// Return empty success response for HTMX
 		w.WriteHeader(http.StatusOK)
 	} else {

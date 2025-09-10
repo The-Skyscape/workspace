@@ -433,9 +433,9 @@ func InitializeHealthMonitoring() {
 	// Register health checkers
 	Monitor.RegisterChecker(&OllamaHealthChecker{})
 	Monitor.RegisterChecker(&DatabaseHealthChecker{})
-	Monitor.RegisterChecker(&VaultHealthChecker{})
+	// Monitor.RegisterChecker(&VaultHealthChecker{}) // Commented out until VaultHealthChecker is implemented
 	Monitor.RegisterChecker(&SandboxHealthChecker{})
-	Monitor.RegisterChecker(&AIQueueHealthChecker{})
+	// Monitor.RegisterChecker(&AIQueueHealthChecker{}) // Commented out until AIQueueHealthChecker is implemented
 	
 	// Start monitoring
 	Monitor.Start()

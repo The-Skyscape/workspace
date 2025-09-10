@@ -106,7 +106,7 @@ func (p *IssueProcessor) applyAnalysis(issue *models.Issue, result *analysis.Iss
 			return fmt.Errorf("failed to update issue: %w", err)
 		}
 		
-		log.Printf("IssueProcessor: Updated issue %d with priority=%s, labels=%v",
+		log.Printf("IssueProcessor: Updated issue %s with priority=%d, labels=%v",
 			issue.ID, issue.Priority, result.Labels)
 	}
 	
