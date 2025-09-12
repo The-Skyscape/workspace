@@ -236,19 +236,19 @@ func (c *ReposController) saveFile(w http.ResponseWriter, r *http.Request) {
 	// Get file path from form
 	filePath := r.FormValue("path")
 	if filePath == "" {
-		c.RenderErrorMsg(w, r, "file path required")
+		c.RenderError(w, r, errors.New("file path required"))
 		return
 	}
 
 	// Validate path
 	if strings.Contains(filePath, "..") {
-		c.RenderErrorMsg(w, r, "invalid file path")
+		c.RenderError(w, r, errors.New("invalid file path"))
 		return
 	}
 
 	fullPath := filepath.Join(repo.Path(), filePath)
 	if !isSubPath(repo.Path(), fullPath) {
-		c.RenderErrorMsg(w, r, "file outside repository")
+		c.RenderError(w, r, errors.New("file outside repository"))
 		return
 	}
 
@@ -286,7 +286,7 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 	content := r.FormValue("content")
 
 	if fileName == "" {
-		c.RenderErrorMsg(w, r, "file name required")
+		c.RenderError(w, r, errors.New("file name required"))
 		return
 	}
 
@@ -300,13 +300,13 @@ func (c *ReposController) createFile(w http.ResponseWriter, r *http.Request) {
 
 	// Validate path
 	if !isSubPath(repo.Path(), fullPath) {
-		c.RenderErrorMsg(w, r, "invalid file path")
+		c.RenderError(w, r, errors.New("invalid file path"))
 		return
 	}
 
 	// Check if file already exists
 	if _, err := os.Stat(fullPath); err == nil {
-		c.RenderErrorMsg(w, r, "file already exists")
+		c.RenderError(w, r, errors.New("file already exists"))
 		return
 	}
 
@@ -346,19 +346,19 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 	// Get file path
 	filePath := r.FormValue("path")
 	if filePath == "" {
-		c.RenderErrorMsg(w, r, "file path required")
+		c.RenderError(w, r, errors.New("file path required"))
 		return
 	}
 
 	// Validate path
 	if strings.Contains(filePath, "..") {
-		c.RenderErrorMsg(w, r, "invalid file path")
+		c.RenderError(w, r, errors.New("invalid file path"))
 		return
 	}
 
 	fullPath := filepath.Join(repo.Path(), filePath)
 	if !isSubPath(repo.Path(), fullPath) {
-		c.RenderErrorMsg(w, r, "file outside repository")
+		c.RenderError(w, r, errors.New("file outside repository"))
 		return
 	}
 
@@ -371,7 +371,7 @@ func (c *ReposController) deleteFile(w http.ResponseWriter, r *http.Request) {
 
 	// Don't allow deleting directories through this endpoint
 	if info.IsDir() {
-		c.RenderErrorMsg(w, r, "cannot delete directories")
+		c.RenderError(w, r, errors.New("cannot delete directories"))
 		return
 	}
 

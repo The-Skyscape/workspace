@@ -18,18 +18,18 @@ func Health() (string, *HealthController) {
 }
 
 type HealthController struct {
-	application.BaseController
+	application.Controller
 }
 
 func (c *HealthController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 
 	// Public health endpoint (no auth required)
 	http.HandleFunc("GET /health", c.healthCheck)
 	http.HandleFunc("GET /health/detailed", c.detailedHealthCheck)
 }
 
-func (c *HealthController) Handle(req *http.Request) application.Controller {
+func (c *HealthController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return c
 }
@@ -48,7 +48,7 @@ var startTime = time.Now()
 // healthCheck provides a simple health check endpoint
 func (c *HealthController) healthCheck(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		status := HealthStatus{
+	status := HealthStatus{
 		Status:    "healthy",
 		Timestamp: time.Now(),
 		Version:   "1.0.0",
@@ -68,7 +68,7 @@ func (c *HealthController) healthCheck(w http.ResponseWriter, r *http.Request) {
 // detailedHealthCheck provides detailed health information
 func (c *HealthController) detailedHealthCheck(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		checks := make(map[string]string)
+	checks := make(map[string]string)
 	status := "healthy"
 
 	// Database check

@@ -22,18 +22,18 @@ func PullRequests() (string, *PullRequestsController) {
 
 // PullRequestsController handles pull request operations
 type PullRequestsController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Handle returns a new controller instance for the request
-func (c PullRequestsController) Handle(req *http.Request) application.Controller {
+func (c PullRequestsController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
 
 // Setup registers routes
 func (c *PullRequestsController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Pull Requests - view on public repos or as admin
@@ -247,7 +247,7 @@ func (c *PullRequestsController) searchPRs(w http.ResponseWriter, r *http.Reques
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.RenderErrorMsg(w, r, "repository ID required")
+		c.RenderError(w, r, errors.New("repository ID required"))
 		return
 	}
 
@@ -265,7 +265,7 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.RenderErrorMsg(w, r, "repository ID required")
+		c.RenderError(w, r, errors.New("repository ID required"))
 		return
 	}
 
@@ -276,7 +276,7 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	compareBranch := strings.TrimSpace(r.FormValue("compare_branch"))
 
 	if title == "" || baseBranch == "" || compareBranch == "" {
-		c.RenderErrorMsg(w, r, "title, base branch, and compare branch are required")
+		c.RenderError(w, r, errors.New("title, base branch, and compare branch are required"))
 		return
 	}
 
@@ -356,7 +356,7 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
@@ -364,33 +364,33 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 	prID := r.PathValue("prID")
 
 	if repoID == "" || prID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and PR ID required")
+		c.RenderError(w, r, errors.New("repository ID and PR ID required"))
 		return
 	}
 
 	// Get PR first
 	pr, err := models.PullRequests.Get(prID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "pull request not found")
+		c.RenderError(w, r, errors.New("pull request not found"))
 		return
 	}
 
 	// Only admins can merge PRs
 	if !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "only admins can merge pull requests")
+		c.RenderError(w, r, errors.New("only admins can merge pull requests"))
 		return
 	}
 
 	// Check if PR is still open
 	if pr.Status != "open" {
-		c.RenderErrorMsg(w, r, "pull request is not open")
+		c.RenderError(w, r, errors.New("pull request is not open"))
 		return
 	}
 
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
@@ -402,7 +402,7 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 	}
 
 	if !canMerge {
-		c.RenderErrorMsg(w, r, "merge conflicts detected - cannot auto-merge")
+		c.RenderError(w, r, errors.New("merge conflicts detected - cannot auto-merge"))
 		return
 	}
 
@@ -418,7 +418,7 @@ func (c *PullRequestsController) mergePR(w http.ResponseWriter, r *http.Request)
 	pr.Status = "merged"
 	err = models.PullRequests.Update(pr)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to update pull request status")
+		c.RenderError(w, r, errors.New("failed to update pull request status"))
 		return
 	}
 
@@ -456,7 +456,7 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
@@ -464,27 +464,27 @@ func (c *PullRequestsController) closePR(w http.ResponseWriter, r *http.Request)
 	prID := r.PathValue("prID")
 
 	if repoID == "" || prID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and PR ID required")
+		c.RenderError(w, r, errors.New("repository ID and PR ID required"))
 		return
 	}
 
 	// Get and update PR
 	pr, err := models.PullRequests.Get(prID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "pull request not found")
+		c.RenderError(w, r, errors.New("pull request not found"))
 		return
 	}
 
 	// Check if user is admin or PR author
 	if !user.IsAdmin && pr.AuthorID != user.ID {
-		c.RenderErrorMsg(w, r, "only the author or admin can close this pull request")
+		c.RenderError(w, r, errors.New("only the author or admin can close this pull request"))
 		return
 	}
 
 	pr.Status = "closed"
 	err = models.PullRequests.Update(pr)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to close pull request")
+		c.RenderError(w, r, errors.New("failed to close pull request"))
 		return
 	}
 
@@ -519,21 +519,21 @@ func (c *PullRequestsController) createPRComment(w http.ResponseWriter, r *http.
 	body := strings.TrimSpace(r.FormValue("body"))
 
 	if repoID == "" || prID == "" || body == "" {
-		c.RenderErrorMsg(w, r, "repository ID, PR ID, and comment body required")
+		c.RenderError(w, r, errors.New("repository ID, PR ID, and comment body required"))
 		return
 	}
 
 	// Verify PR exists
 	pr, err := models.PullRequests.Get(prID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "pull request not found")
+		c.RenderError(w, r, errors.New("pull request not found"))
 		return
 	}
 
 	// Create comment
 	_, err = models.CreatePRComment(prID, repoID, user.ID, body)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to create comment")
+		c.RenderError(w, r, errors.New("failed to create comment"))
 		return
 	}
 

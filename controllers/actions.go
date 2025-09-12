@@ -23,18 +23,18 @@ func Actions() (string, *ActionsController) {
 
 // ActionsController handles action-related operations
 type ActionsController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Handle returns a new controller instance for the request
-func (c ActionsController) Handle(req *http.Request) application.Controller {
+func (c ActionsController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
 
 // Setup registers routes
 func (c *ActionsController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 
 	// Actions - view on public repos or as admin
 	http.Handle("GET /repos/{id}/actions", app.Serve("repo-actions.html", PublicOrAdmin()))
@@ -95,7 +95,7 @@ func (c *ActionsController) RepoBranches() ([]*models.Branch, error) {
 // redirectToInfo redirects from base action URL to info tab
 func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 	c.Redirect(w, r, fmt.Sprintf("/repos/%s/actions/%s/info", repoID, actionID))
@@ -104,19 +104,19 @@ func (c *ActionsController) redirectToInfo(w http.ResponseWriter, r *http.Reques
 // createAction handles action creation
 func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
 	user := auth.GetAuthenticatedUser(r)
 	if user == nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.RenderErrorMsg(w, r, "repository ID required")
+		c.RenderError(w, r, errors.New("repository ID required"))
 		return
 	}
 
@@ -134,9 +134,9 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 	v.CheckRequired("title", title)
 	v.CheckRequired("type", actionType)
 	v.CheckRequired("command", command)
-	
+
 	if err := v.Result(); err != nil {
-		c.RenderValidationError(w, r, err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -170,7 +170,7 @@ func (c *ActionsController) createAction(w http.ResponseWriter, r *http.Request)
 // runAction handles manual action execution
 func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -180,31 +180,31 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and action ID required")
+		c.RenderError(w, r, errors.New("repository ID and action ID required"))
 		return
 	}
 
 	// Get action
 	action, err := models.Actions.Get(actionID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "action not found")
+		c.RenderError(w, r, errors.New("action not found"))
 		return
 	}
 
 	// Run action manually
 	if action.Type != "manual" {
-		c.RenderErrorMsg(w, r, "only manual actions can be executed directly")
+		c.RenderError(w, r, errors.New("only manual actions can be executed directly"))
 		return
 	}
 
 	if !action.CanExecute() {
-		c.RenderErrorMsg(w, r, "action cannot be executed at this time")
+		c.RenderError(w, r, errors.New("action cannot be executed at this time"))
 		return
 	}
 
 	// Execute using the Actions service for parallel execution
 	if err := services.Actions.ExecuteAction(action, "manual"); err != nil {
-		c.RenderErrorMsg(w, r, fmt.Sprintf("Failed to queue action: %v", err))
+		c.RenderError(w, r, fmt.Errorf("Failed to queue action: %v", err))
 		return
 	}
 
@@ -219,7 +219,7 @@ func (c *ActionsController) runAction(w http.ResponseWriter, r *http.Request) {
 // disableAction handles disabling an action
 func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -229,21 +229,21 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and action ID required")
+		c.RenderError(w, r, errors.New("repository ID and action ID required"))
 		return
 	}
 
 	// Get and update action
 	action, err := models.Actions.Get(actionID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "action not found")
+		c.RenderError(w, r, errors.New("action not found"))
 		return
 	}
 
 	action.Status = "disabled"
 	err = models.Actions.Update(action)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to disable action")
+		c.RenderError(w, r, errors.New("failed to disable action"))
 		return
 	}
 
@@ -257,7 +257,7 @@ func (c *ActionsController) disableAction(w http.ResponseWriter, r *http.Request
 // enableAction handles enabling an action
 func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Admin access already verified by route middleware
 
 	auth := c.Use("auth").(*AuthController)
@@ -267,21 +267,21 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and action ID required")
+		c.RenderError(w, r, errors.New("repository ID and action ID required"))
 		return
 	}
 
 	// Get and update action
 	action, err := models.Actions.Get(actionID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "action not found")
+		c.RenderError(w, r, errors.New("action not found"))
 		return
 	}
 
 	action.Status = "active"
 	err = models.Actions.Update(action)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to enable action")
+		c.RenderError(w, r, errors.New("failed to enable action"))
 		return
 	}
 
@@ -295,7 +295,7 @@ func (c *ActionsController) enableAction(w http.ResponseWriter, r *http.Request)
 // downloadArtifact handles artifact download
 func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Access already verified by route middleware (PublicOrAdmin)
 
 	auth := c.Use("auth").(*AuthController)
@@ -332,14 +332,14 @@ func (c *ActionsController) downloadArtifact(w http.ResponseWriter, r *http.Requ
 // getActionLogs handles fetching action logs via HTMX
 func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and action ID required")
+		c.RenderError(w, r, errors.New("repository ID and action ID required"))
 		return
 	}
 
@@ -350,14 +350,14 @@ func (c *ActionsController) getActionLogs(w http.ResponseWriter, r *http.Request
 // getActionArtifacts handles fetching action artifacts via HTMX
 func (c *ActionsController) getActionArtifacts(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-	
+
 	// Access already verified by route middleware
 
 	repoID := r.PathValue("id")
 	actionID := r.PathValue("actionID")
 
 	if repoID == "" || actionID == "" {
-		c.RenderErrorMsg(w, r, "repository ID and action ID required")
+		c.RenderError(w, r, errors.New("repository ID and action ID required"))
 		return
 	}
 

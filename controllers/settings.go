@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,13 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"workspace/models"
+
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/database"
-	"workspace/models"
 )
 
 type SettingsController struct {
-	application.BaseController
+	application.Controller
 }
 
 func Settings() (string, *SettingsController) {
@@ -24,7 +26,7 @@ func Settings() (string, *SettingsController) {
 }
 
 func (s *SettingsController) Setup(app *application.App) {
-	s.BaseController.Setup(app)
+	s.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Load and apply theme from settings
@@ -74,7 +76,7 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("POST /settings/workspace", app.ProtectFunc(s.updateWorkspace, adminRequired))
 }
 
-func (s SettingsController) Handle(req *http.Request) application.Controller {
+func (s SettingsController) Handle(req *http.Request) application.IController {
 	s.Request = req
 	return &s
 }
@@ -91,7 +93,7 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.RenderErrorMsg(w, r, "unauthorized")
+		s.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
@@ -152,13 +154,13 @@ func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request)
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.RenderErrorMsg(w, r, "unauthorized")
+		s.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
 	theme := r.URL.Query().Get("theme")
 	if theme == "" {
-		s.RenderErrorMsg(w, r, "theme not specified")
+		s.RenderError(w, r, errors.New("theme not specified"))
 		return
 	}
 
@@ -209,7 +211,7 @@ func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Reques
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "authentication required")
+		s.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
@@ -253,7 +255,7 @@ func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Reque
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "authentication required")
+		s.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
@@ -263,13 +265,13 @@ func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Reque
 
 	// Validate passwords match
 	if newPassword != confirmPassword {
-		s.RenderErrorMsg(w, r, "passwords do not match")
+		s.RenderError(w, r, errors.New("passwords do not match"))
 		return
 	}
 
 	// Verify current password
 	if !user.VerifyPassword(currentPassword) {
-		s.RenderErrorMsg(w, r, "current password is incorrect")
+		s.RenderError(w, r, errors.New("current password is incorrect"))
 		return
 	}
 
@@ -300,21 +302,21 @@ func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "authentication required")
+		s.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	// Parse multipart form (max 10MB)
 	err = r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "failed to parse upload")
+		s.RenderError(w, r, errors.New("failed to parse upload"))
 		return
 	}
 
 	// Get the uploaded file
 	file, handler, err := r.FormFile("avatar")
 	if err != nil {
-		s.RenderErrorMsg(w, r, "no file uploaded")
+		s.RenderError(w, r, errors.New("no file uploaded"))
 		return
 	}
 	defer file.Close()
@@ -322,7 +324,7 @@ func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request
 	// Validate file type
 	contentType := handler.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "image/") {
-		s.RenderErrorMsg(w, r, "file must be an image")
+		s.RenderError(w, r, errors.New("file must be an image"))
 		return
 	}
 
@@ -342,7 +344,7 @@ func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request
 	// Create the destination file
 	dst, err := os.Create(filePath)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "failed to save avatar")
+		s.RenderError(w, r, errors.New("failed to save avatar"))
 		return
 	}
 	defer dst.Close()
@@ -350,7 +352,7 @@ func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request
 	// Copy the uploaded file to the destination
 	_, err = io.Copy(dst, file)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "failed to save avatar")
+		s.RenderError(w, r, errors.New("failed to save avatar"))
 		return
 	}
 
@@ -358,7 +360,7 @@ func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request
 	user.Avatar = fmt.Sprintf("/avatar/%s", filename)
 	err = auth.Users.Update(user)
 	if err != nil {
-		s.RenderErrorMsg(w, r, "failed to update profile")
+		s.RenderError(w, r, errors.New("failed to update profile"))
 		return
 	}
 
@@ -396,7 +398,7 @@ func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Requ
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.RenderErrorMsg(w, r, "unauthorized")
+		s.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
@@ -476,7 +478,7 @@ func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.RenderErrorMsg(w, r, "unauthorized")
+		s.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
@@ -485,21 +487,21 @@ func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
 	publicKey := strings.TrimSpace(r.FormValue("public_key"))
 
 	if publicKey == "" {
-		s.RenderErrorMsg(w, r, "SSH key is required")
+		s.RenderError(w, r, errors.New("SSH key is required"))
 		return
 	}
 
 	// Check if user has reached the limit (10 keys)
 	count, _ := models.CountUserSSHKeys(user.ID)
 	if count >= 10 {
-		s.RenderErrorMsg(w, r, "Maximum of 10 SSH keys allowed per user")
+		s.RenderError(w, r, errors.New("Maximum of 10 SSH keys allowed per user"))
 		return
 	}
 
 	// Create the SSH key
 	sshKey, err := models.CreateSSHKey(user.ID, name, publicKey)
 	if err != nil {
-		s.RenderErrorMsg(w, r, fmt.Sprintf("Failed to add SSH key: %v", err))
+		s.RenderError(w, r, fmt.Errorf("Failed to add SSH key: %v", err))
 		return
 	}
 
@@ -517,20 +519,20 @@ func (s *SettingsController) deleteSSHKey(w http.ResponseWriter, r *http.Request
 	auth := s.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		s.RenderErrorMsg(w, r, "unauthorized")
+		s.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
 	keyID := r.PathValue("id")
 	if keyID == "" {
-		s.RenderErrorMsg(w, r, "key ID required")
+		s.RenderError(w, r, errors.New("key ID required"))
 		return
 	}
 
 	// Delete the key (function verifies ownership)
 	err = models.DeleteSSHKey(keyID, user.ID)
 	if err != nil {
-		s.RenderErrorMsg(w, r, fmt.Sprintf("Failed to delete SSH key: %v", err))
+		s.RenderError(w, r, fmt.Errorf("Failed to delete SSH key: %v", err))
 		return
 	}
 

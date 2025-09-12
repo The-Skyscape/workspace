@@ -19,7 +19,7 @@ func Home() (string, *HomeController) {
 
 // HomeController is the controller for the home page and dashboard
 type HomeController struct {
-	application.BaseController
+	application.Controller
 }
 
 // RepoStats represents repository statistics
@@ -38,7 +38,7 @@ type OwnerInfo struct {
 
 // Setup is called when the application is started
 func (c *HomeController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 
 	auth := app.Use("auth").(*AuthController)
 
@@ -61,7 +61,7 @@ func (c *HomeController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (c HomeController) Handle(req *http.Request) application.Controller {
+func (c HomeController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
@@ -372,7 +372,7 @@ func (c *HomeController) PublicActivity() ([]*models.Activity, error) {
 // homePage handles the home page - redirects to signup if no users exist
 func (c *HomeController) homePage(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// Check if any users exist
+	// Check if any users exist
 	if models.Auth.Users.Count("") == 0 {
 		// No users, redirect to signup
 		c.Redirect(w, r, "/signup")
@@ -453,7 +453,7 @@ func (c *HomeController) IssueSubmitted() bool {
 // submitPublicIssue handles public issue submission
 func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// Get the public repository
+	// Get the public repository
 	repo, err := c.getPublicRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -471,9 +471,9 @@ func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Reques
 	v.CheckRequired("title", title)
 	v.CheckRequired("email", email)
 	v.CheckEmail("email", email)
-	
+
 	if err := v.Result(); err != nil {
-		c.RenderValidationError(w, r, err)
+		c.RenderError(w, r, err)
 		return
 	}
 
@@ -489,7 +489,7 @@ func (c *HomeController) submitPublicIssue(w http.ResponseWriter, r *http.Reques
 
 	newIssue, err := models.Issues.Insert(issue)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "Failed to submit issue")
+		c.RenderError(w, r, errors.New("Failed to submit issue"))
 		return
 	}
 

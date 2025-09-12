@@ -63,7 +63,7 @@ func main() {
 
 	// Start application immediately
 	application.Serve(views,
-		application.WithMiddleware(routeLimiter.Middleware),
+		application.WithMiddleware(routeLimiter),
 		application.WithController(controllers.Auth()),       // Use custom auth controller
 		application.WithController(controllers.Logs()),       // Add logs controller
 		application.WithController(controllers.Home()),

@@ -15,12 +15,12 @@ func RateLimit() (string, *RateLimitController) {
 
 // RateLimitController wraps authentication endpoints with rate limiting
 type RateLimitController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Setup registers rate-limited authentication endpoints
 func (c *RateLimitController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 
 	auth := app.Use("auth").(*AuthController)
 
@@ -75,7 +75,7 @@ func (c *RateLimitController) Setup(app *application.App) {
 }
 
 // Handle prepares controller for request
-func (c RateLimitController) Handle(req *http.Request) application.Controller {
+func (c RateLimitController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }

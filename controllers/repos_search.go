@@ -154,7 +154,7 @@ func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Requ
 	auth := c.App.Use("auth").(*AuthController)
 	user := auth.GetAuthenticatedUser(r)
 	if user == nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 

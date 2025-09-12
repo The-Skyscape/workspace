@@ -15,12 +15,12 @@ func Logs() (string, *LogsController) {
 
 // LogsController handles application logging and monitoring
 type LogsController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Setup registers routes for logs viewing
 func (c *LogsController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 
 	// Logs viewing page (admin only)
 	http.Handle("GET /logs", app.Serve("logs.html", AdminOnly()))
@@ -31,7 +31,7 @@ func (c *LogsController) Setup(app *application.App) {
 }
 
 // Handle prepares controller for request
-func (c LogsController) Handle(req *http.Request) application.Controller {
+func (c LogsController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }

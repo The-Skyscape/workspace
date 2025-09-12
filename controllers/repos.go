@@ -20,7 +20,7 @@ import (
 // Public methods are accessible from templates via {{repos.MethodName}}
 // Private methods (lowercase) are for internal HTTP handlers only.
 type ReposController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Repos returns the controller prefix and a new instance
@@ -30,7 +30,7 @@ func Repos() (string, *ReposController) {
 
 // Setup registers all repository-related routes
 func (c *ReposController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Initialize Git server for HTTP clone/push/pull operations
@@ -65,7 +65,7 @@ func (c *ReposController) Setup(app *application.App) {
 }
 
 // Handle returns a controller instance configured for the current request
-func (c ReposController) Handle(req *http.Request) application.Controller {
+func (c ReposController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
@@ -219,7 +219,7 @@ func (c *ReposController) getCurrentRepoFromRequest(r *http.Request) (*models.Re
 // createRepository handles POST /repos/create
 func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.App.Use("auth").(*AuthController)
+	auth := c.App.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderError(w, r, err)
@@ -232,7 +232,7 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 	visibility := r.FormValue("visibility")
 
 	if name == "" {
-		c.RenderErrorMsg(w, r, "repository name is required")
+		c.RenderError(w, r, errors.New("repository name is required"))
 		return
 	}
 
@@ -263,7 +263,7 @@ func (c *ReposController) createRepository(w http.ResponseWriter, r *http.Reques
 // updateRepository handles POST /repos/{id}/settings/update
 func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		repo, err := c.getCurrentRepoFromRequest(r)
+	repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return
@@ -284,7 +284,7 @@ func (c *ReposController) updateRepository(w http.ResponseWriter, r *http.Reques
 
 	// Validate
 	if repo.Name == "" {
-		c.RenderErrorMsg(w, r, "repository name is required")
+		c.RenderError(w, r, errors.New("repository name is required"))
 		return
 	}
 
@@ -317,7 +317,7 @@ func (c *ReposController) IsMarkdown(filename string) bool {
 // deleteRepository handles POST /repos/{id}/delete
 func (c *ReposController) deleteRepository(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		repo, err := c.getCurrentRepoFromRequest(r)
+	repo, err := c.getCurrentRepoFromRequest(r)
 	if err != nil {
 		c.RenderError(w, r, err)
 		return

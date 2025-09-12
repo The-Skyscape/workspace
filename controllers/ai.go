@@ -24,11 +24,12 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
+	"errors"
 )
 
 // AIController handles AI chat conversations
 type AIController struct {
-	application.BaseController
+	application.Controller
 	toolRegistry *agents.ToolRegistry
 	provider     agents.Provider
 }
@@ -121,7 +122,7 @@ func (c *AIController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for request handling
-func (c AIController) Handle(req *http.Request) application.Controller {
+func (c AIController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
@@ -237,7 +238,7 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -312,7 +313,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -325,7 +326,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 	conversation, err = models.Conversations.Insert(conversation)
 	if err != nil {
 		log.Printf("AIController: Failed to create conversation: %v", err)
-		c.RenderErrorMsg(w, r, "Failed to create conversation")
+		c.RenderError(w, r, errors.New("Failed to create conversation"))
 		return
 	}
 
@@ -340,14 +341,14 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
 	// Get conversation and verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil || conversation.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "Conversation not found")
+		c.RenderError(w, r, errors.New("Conversation not found"))
 		return
 	}
 
@@ -360,7 +361,7 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 	// Delete conversation
 	if err := models.Conversations.Delete(conversation); err != nil {
 		log.Printf("AIController: Failed to delete conversation: %v", err)
-		c.RenderErrorMsg(w, r, "Failed to delete conversation")
+		c.RenderError(w, r, errors.New("Failed to delete conversation"))
 		return
 	}
 
@@ -375,14 +376,14 @@ func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
 	// Get conversation and verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil || conversation.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "Conversation not found")
+		c.RenderError(w, r, errors.New("Conversation not found"))
 		return
 	}
 
@@ -396,14 +397,14 @@ func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.PathValue("id")
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
 	// Verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil || conversation.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "Conversation not found")
+		c.RenderError(w, r, errors.New("Conversation not found"))
 		return
 	}
 
@@ -425,7 +426,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	content := strings.TrimSpace(r.FormValue("message"))
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -437,14 +438,14 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Validate input
 	if content == "" {
-		c.RenderErrorMsg(w, r, "Message cannot be empty")
+		c.RenderError(w, r, errors.New("Message cannot be empty"))
 		return
 	}
 
 	// Verify ownership
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil || conversation.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "Conversation not found")
+		c.RenderError(w, r, errors.New("Conversation not found"))
 		return
 	}
 
@@ -1853,14 +1854,14 @@ func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 	// Get conversation
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "Conversation not found")
+		c.RenderError(w, r, errors.New("Conversation not found"))
 		return
 	}
 
 	// Check ownership
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || conversation.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "Unauthorized")
+		c.RenderError(w, r, errors.New("Unauthorized"))
 		return
 	}
 
@@ -1904,14 +1905,14 @@ func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
 	// Get conversation
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "Conversation not found")
+		c.RenderError(w, r, errors.New("Conversation not found"))
 		return
 	}
 
 	// Check ownership
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || conversation.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "Unauthorized")
+		c.RenderError(w, r, errors.New("Unauthorized"))
 		return
 	}
 
@@ -2326,7 +2327,7 @@ func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2355,7 +2356,7 @@ func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2560,7 +2561,7 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2610,7 +2611,7 @@ func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2745,7 +2746,7 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2757,11 +2758,11 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 		}, 5)
 
 		if err != nil {
-			c.RenderErrorMsg(w, r, "Failed to queue daily report")
+			c.RenderError(w, r, errors.New("Failed to queue daily report"))
 			return
 		}
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 		return
 	}
 
@@ -2775,7 +2776,7 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2787,11 +2788,11 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 		}, 8)
 
 		if err != nil {
-			c.RenderErrorMsg(w, r, "Failed to queue security scan")
+			c.RenderError(w, r, errors.New("Failed to queue security scan"))
 			return
 		}
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 		return
 	}
 
@@ -2804,7 +2805,7 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2816,11 +2817,11 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 		}, 3)
 
 		if err != nil {
-			c.RenderErrorMsg(w, r, "Failed to queue stale check")
+			c.RenderError(w, r, errors.New("Failed to queue stale check"))
 			return
 		}
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 		return
 	}
 
@@ -2833,7 +2834,7 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2845,11 +2846,11 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 		}, 4)
 
 		if err != nil {
-			c.RenderErrorMsg(w, r, "Failed to queue dependency check")
+			c.RenderError(w, r, errors.New("Failed to queue dependency check"))
 			return
 		}
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 		return
 	}
 
@@ -2862,7 +2863,7 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2887,7 +2888,7 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 		case "security_scan":
 			config.SecurityScan = !config.SecurityScan
 		default:
-			c.RenderErrorMsg(w, r, "Unknown feature")
+			c.RenderError(w, r, errors.New("Unknown feature"))
 			return
 		}
 
@@ -2897,7 +2898,7 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 		// Return success
 		w.Write([]byte(""))
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 	}
 }
 
@@ -2907,7 +2908,7 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2920,7 +2921,7 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 
 	// Validate level
 	if level != "conservative" && level != "balanced" && level != "aggressive" {
-		c.RenderErrorMsg(w, r, "Invalid automation level")
+		c.RenderError(w, r, errors.New("Invalid automation level"))
 		return
 	}
 
@@ -2935,7 +2936,7 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 		// Return empty success response for HTMX
 		w.WriteHeader(http.StatusOK)
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 	}
 }
 
@@ -2945,7 +2946,7 @@ func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
 	if err != nil || !user.IsAdmin {
-		c.RenderErrorMsg(w, r, "Admin access required")
+		c.RenderError(w, r, errors.New("Admin access required"))
 		return
 	}
 
@@ -2959,7 +2960,7 @@ func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
 	// Parse as integer seconds
 	seconds, err := strconv.Atoi(delayStr)
 	if err != nil || seconds < 0 || seconds > 300 {
-		c.RenderErrorMsg(w, r, "Invalid delay value (must be 0-300 seconds)")
+		c.RenderError(w, r, errors.New("Invalid delay value (must be 0-300 seconds)"))
 		return
 	}
 
@@ -2976,6 +2977,6 @@ func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
 		// Return empty success response for HTMX
 		w.WriteHeader(http.StatusOK)
 	} else {
-		c.RenderErrorMsg(w, r, "AI service not available")
+		c.RenderError(w, r, errors.New("AI service not available"))
 	}
 }

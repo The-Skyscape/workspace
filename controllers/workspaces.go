@@ -17,12 +17,12 @@ func Workspaces() (string, *WorkspacesController) {
 
 // WorkspacesController handles development workspace management (VS Code)
 type WorkspacesController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Setup registers all routes for workspace management.
 func (w *WorkspacesController) Setup(app *application.App) {
-	w.BaseController.Setup(app)
+	w.Controller.Setup(app)
 
 	auth := app.Use("auth").(*AuthController)
 
@@ -42,7 +42,7 @@ func (w *WorkspacesController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (w WorkspacesController) Handle(req *http.Request) application.Controller {
+func (w WorkspacesController) Handle(req *http.Request) application.IController {
 	w.Request = req
 	return &w
 }
@@ -50,7 +50,7 @@ func (w WorkspacesController) Handle(req *http.Request) application.Controller {
 // proxyToCodeServer handles requests to the code-server instance
 func (w *WorkspacesController) proxyToCodeServer(wr http.ResponseWriter, r *http.Request) {
 	if !services.Coder.IsRunning() {
-		w.RenderErrorMsg(wr, r, "coder service is not running")
+		w.RenderError(wr, r, errors.New("coder service is not running"))
 		return
 	}
 

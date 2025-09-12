@@ -11,6 +11,11 @@ type RouteRateLimiter struct {
 	limiters map[string]*RateLimiter
 }
 
+// Handle implements the application.Middleware interface
+func (rrl *RouteRateLimiter) Handle(next http.Handler) http.Handler {
+	return rrl.Middleware(next)
+}
+
 // NewRouteRateLimiter creates a new route-based rate limiter
 func NewRouteRateLimiter(limiters map[string]*RateLimiter) *RouteRateLimiter {
 	return &RouteRateLimiter{

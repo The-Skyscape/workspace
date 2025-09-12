@@ -17,7 +17,7 @@ import (
 
 // MonitoringController handles system resource monitoring
 type MonitoringController struct {
-	application.BaseController
+	application.Controller
 	collector *monitoring.Collector
 
 	// Container monitoring state
@@ -39,7 +39,7 @@ func Monitoring() (string, *MonitoringController) {
 
 // Setup registers monitoring routes
 func (m *MonitoringController) Setup(app *application.App) {
-	m.BaseController.Setup(app)
+	m.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Start collecting statistics on startup
@@ -83,7 +83,7 @@ func (m *MonitoringController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for each request
-func (m MonitoringController) Handle(req *http.Request) application.Controller {
+func (m MonitoringController) Handle(req *http.Request) application.IController {
 	m.Request = req
 	return &m
 }

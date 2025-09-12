@@ -181,7 +181,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 	visibility := r.FormValue("visibility")
 
 	if name == "" || gitURL == "" {
-		c.RenderErrorMsg(w, r, "repository name and Git URL are required")
+		c.RenderError(w, r, errors.New("repository name and Git URL are required"))
 		return
 	}
 
@@ -219,7 +219,7 @@ func (c *ReposController) importRepository(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		// Clean up on failure
 		models.Repositories.Delete(repo)
-		c.RenderErrorMsg(w, r, fmt.Sprintf("failed to clone repository: %s", string(output)))
+		c.RenderError(w, r, fmt.Errorf("failed to clone repository: %s", string(output)))
 		return
 	}
 

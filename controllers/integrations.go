@@ -15,11 +15,12 @@ import (
 	"workspace/models"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
+	"errors"
 )
 
 // IntegrationsController handles all external service integrations
 type IntegrationsController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Integrations returns the factory function for IntegrationsController
@@ -29,7 +30,7 @@ func Integrations() (string, *IntegrationsController) {
 
 // Setup registers all integration-related routes
 func (c *IntegrationsController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Integration pages - admin only
@@ -64,7 +65,7 @@ func (c *IntegrationsController) Setup(app *application.App) {
 }
 
 // Handle prepares controller for request
-func (c IntegrationsController) Handle(req *http.Request) application.Controller {
+func (c IntegrationsController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
@@ -160,7 +161,7 @@ func (c *IntegrationsController) configureGitHubOAuth(w http.ResponseWriter, r *
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "unauthorized")
+		c.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
@@ -190,7 +191,7 @@ func (c *IntegrationsController) configureGitHubOAuth(w http.ResponseWriter, r *
 			"enabled":       settings.GitHubEnabled,
 		})
 		if err != nil {
-			c.RenderErrorMsg(w, r, "Failed to store GitHub credentials")
+			c.RenderError(w, r, errors.New("Failed to store GitHub credentials"))
 			return
 		}
 	}
@@ -220,7 +221,7 @@ func (c *IntegrationsController) testGitHubOAuth(w http.ResponseWriter, r *http.
 	// Check if OAuth is configured
 	clientID, clientSecret, err := models.GetGitHubCredentials()
 	if err != nil || clientID == "" || clientSecret == "" {
-		c.RenderErrorMsg(w, r, "GitHub OAuth not configured")
+		c.RenderError(w, r, errors.New("GitHub OAuth not configured"))
 		return
 	}
 
@@ -235,7 +236,7 @@ func (c *IntegrationsController) initiateGitHubOAuth(w http.ResponseWriter, r *h
 	// Get OAuth credentials
 	clientID, _, err := models.GetGitHubCredentials()
 	if err != nil || clientID == "" {
-		c.RenderErrorMsg(w, r, "GitHub OAuth is not configured. Please ask an administrator to configure it in Settings.")
+		c.RenderError(w, r, errors.New("GitHub OAuth is not configured. Please ask an administrator to configure it in Settings."))
 		return
 	}
 
@@ -258,21 +259,21 @@ func (c *IntegrationsController) handleGitHubCallback(w http.ResponseWriter, r *
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	// Get OAuth code from query params
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		c.RenderErrorMsg(w, r, "authorization code missing")
+		c.RenderError(w, r, errors.New("authorization code missing"))
 		return
 	}
 
 	// Get OAuth credentials
 	clientID, clientSecret, err := models.GetGitHubCredentials()
 	if err != nil {
-		c.RenderErrorMsg(w, r, "GitHub OAuth not configured")
+		c.RenderError(w, r, errors.New("GitHub OAuth not configured"))
 		return
 	}
 
@@ -373,7 +374,7 @@ func (c *IntegrationsController) disconnectGitHubAccount(w http.ResponseWriter, 
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
@@ -407,7 +408,7 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.RenderErrorMsg(w, r, "repository ID required")
+		c.RenderError(w, r, errors.New("repository ID required"))
 		return
 	}
 
@@ -418,13 +419,13 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 	autoSync := r.FormValue("auto_sync") == "true"
 
 	if githubURL == "" {
-		c.RenderErrorMsg(w, r, "GitHub URL required")
+		c.RenderError(w, r, errors.New("GitHub URL required"))
 		return
 	}
 
 	// Validate GitHub URL
 	if !strings.Contains(githubURL, "github.com") {
-		c.RenderErrorMsg(w, r, "Invalid URL: must be a GitHub repository URL")
+		c.RenderError(w, r, errors.New("Invalid URL: must be a GitHub repository URL"))
 		return
 	}
 
@@ -440,14 +441,14 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 	// Get the repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
 	// Parse GitHub URL
 	parsedURL, err := url.Parse(githubURL)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "invalid GitHub URL")
+		c.RenderError(w, r, errors.New("invalid GitHub URL"))
 		return
 	}
 
@@ -502,7 +503,7 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 	// Save changes
 	err = models.Repositories.Update(repo)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to save GitHub settings")
+		c.RenderError(w, r, errors.New("failed to save GitHub settings"))
 		return
 	}
 
@@ -529,25 +530,25 @@ func (c *IntegrationsController) syncGitHubRepo(w http.ResponseWriter, r *http.R
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.RenderErrorMsg(w, r, "repository ID required")
+		c.RenderError(w, r, errors.New("repository ID required"))
 		return
 	}
 
 	// Get the repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
 	if repo.GitHubURL == "" {
-		c.RenderErrorMsg(w, r, "GitHub not configured")
+		c.RenderError(w, r, errors.New("GitHub not configured"))
 		return
 	}
 
@@ -605,14 +606,14 @@ func (c *IntegrationsController) disconnectGitHubRepo(w http.ResponseWriter, r *
 
 	repoID := r.PathValue("id")
 	if repoID == "" {
-		c.RenderErrorMsg(w, r, "repository ID required")
+		c.RenderError(w, r, errors.New("repository ID required"))
 		return
 	}
 
 	// Get the repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
@@ -635,7 +636,7 @@ func (c *IntegrationsController) disconnectGitHubRepo(w http.ResponseWriter, r *
 	// Save changes
 	err = models.Repositories.Update(repo)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to clear GitHub settings")
+		c.RenderError(w, r, errors.New("failed to clear GitHub settings"))
 		return
 	}
 
@@ -684,27 +685,27 @@ func (c *IntegrationsController) pushGitHubRepo(w http.ResponseWriter, r *http.R
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	repoID := r.PathValue("id")
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
 	// Check permissions (need write access to push)
 	if !user.IsAdmin && repo.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "permission required to push changes")
+		c.RenderError(w, r, errors.New("permission required to push changes"))
 		return
 	}
 
 	// Get user's GitHub token
 	token, err := models.GetGitHubOAuthToken(user.ID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "GitHub account not connected. Please connect your account in Settings.")
+		c.RenderError(w, r, errors.New("GitHub account not connected. Please connect your account in Settings."))
 		return
 	}
 
@@ -739,27 +740,27 @@ func (c *IntegrationsController) pullGitHubRepo(w http.ResponseWriter, r *http.R
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	repoID := r.PathValue("id")
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
 	// Check permissions (need write access to pull)
 	if !user.IsAdmin && repo.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "permission required to pull changes")
+		c.RenderError(w, r, errors.New("permission required to pull changes"))
 		return
 	}
 
 	// Get user's GitHub token
 	token, err := models.GetGitHubOAuthToken(user.ID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "GitHub account not connected. Please connect your account in Settings.")
+		c.RenderError(w, r, errors.New("GitHub account not connected. Please connect your account in Settings."))
 		return
 	}
 
@@ -794,14 +795,14 @@ func (c *IntegrationsController) getSyncStatus(w http.ResponseWriter, r *http.Re
 	auth := c.Use("auth").(*AuthController)
 	_, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	repoID := r.PathValue("id")
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
@@ -833,26 +834,26 @@ func (c *IntegrationsController) configureGitHubRemote(w http.ResponseWriter, r 
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	repoID := r.PathValue("id")
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "repository not found")
+		c.RenderError(w, r, errors.New("repository not found"))
 		return
 	}
 
 	// Check permissions (need admin access to configure remote)
 	if !user.IsAdmin && repo.UserID != user.ID {
-		c.RenderErrorMsg(w, r, "permission required to configure remote")
+		c.RenderError(w, r, errors.New("permission required to configure remote"))
 		return
 	}
 
 	githubURL := r.FormValue("github_url")
 	if githubURL == "" {
-		c.RenderErrorMsg(w, r, "GitHub URL required")
+		c.RenderError(w, r, errors.New("GitHub URL required"))
 		return
 	}
 
@@ -879,7 +880,7 @@ func (c *IntegrationsController) restartVault(w http.ResponseWriter, r *http.Req
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "unauthorized")
+		c.RenderError(w, r, errors.New("unauthorized"))
 		return
 	}
 
@@ -888,7 +889,7 @@ func (c *IntegrationsController) restartVault(w http.ResponseWriter, r *http.Req
 
 	// Attempt to restart Vault service
 	if err := models.Secrets.Restart(); err != nil {
-		c.RenderErrorMsg(w, r, fmt.Sprintf("Failed to restart Vault: %v", err))
+		c.RenderError(w, r, fmt.Errorf("Failed to restart Vault: %v", err))
 		return
 	}
 
@@ -905,7 +906,7 @@ func (c *IntegrationsController) listGitHubRepos(w http.ResponseWriter, r *http.
 	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
@@ -918,7 +919,7 @@ func (c *IntegrationsController) listGitHubRepos(w http.ResponseWriter, r *http.
 	// Create GitHub client
 	client, err := github.NewGitHubClient(user.ID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "Failed to connect to GitHub. Please reconnect your account.")
+		c.RenderError(w, r, errors.New("Failed to connect to GitHub. Please reconnect your account."))
 		return
 	}
 
@@ -926,7 +927,7 @@ func (c *IntegrationsController) listGitHubRepos(w http.ResponseWriter, r *http.
 	repos, err := client.ListUserRepos(nil)
 	if err != nil {
 		log.Printf("Failed to list GitHub repos for user %s: %v", user.ID, err)
-		c.RenderErrorMsg(w, r, "Failed to load GitHub repositories")
+		c.RenderError(w, r, errors.New("Failed to load GitHub repositories"))
 		return
 	}
 

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"workspace/internal/backup"
@@ -11,7 +12,7 @@ import (
 
 // BackupController handles backup and recovery operations
 type BackupController struct {
-	application.BaseController
+	application.Controller
 }
 
 // Backup is the factory function for the backup controller
@@ -21,7 +22,7 @@ func Backup() (string, *BackupController) {
 
 // Setup registers backup routes
 func (b *BackupController) Setup(app *application.App) {
-	b.BaseController.Setup(app)
+	b.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Admin-only backup management
@@ -54,7 +55,7 @@ func (b *BackupController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for each request
-func (b BackupController) Handle(req *http.Request) application.Controller {
+func (b BackupController) Handle(req *http.Request) application.IController {
 	b.Request = req
 	return &b
 }
@@ -82,7 +83,7 @@ func (b *BackupController) GetBackupList() []backup.BackupInfo {
 // createBackup creates a manual backup
 func (b *BackupController) createBackup(w http.ResponseWriter, r *http.Request) {
 	if backup.Scheduler == nil {
-		b.RenderErrorMsg(w, r, "Backup system not initialized")
+		b.RenderError(w, r, errors.New("Backup system not initialized"))
 		return
 	}
 
@@ -101,14 +102,14 @@ func (b *BackupController) createBackup(w http.ResponseWriter, r *http.Request) 
 // restoreBackup restores from a backup
 func (b *BackupController) restoreBackup(w http.ResponseWriter, r *http.Request) {
 	if backup.Scheduler == nil {
-		b.RenderErrorMsg(w, r, "Backup system not initialized")
+		b.RenderError(w, r, errors.New("Backup system not initialized"))
 		return
 	}
 
 	// Get backup path from form
 	backupPath := r.FormValue("backup_path")
 	if backupPath == "" {
-		b.RenderErrorMsg(w, r, "No backup selected")
+		b.RenderError(w, r, errors.New("No backup selected"))
 		return
 	}
 
@@ -156,7 +157,7 @@ func (b *BackupController) getStatus(w http.ResponseWriter, r *http.Request) {
 // toggleScheduler enables or disables the backup scheduler
 func (b *BackupController) toggleScheduler(w http.ResponseWriter, r *http.Request) {
 	if backup.Scheduler == nil {
-		b.RenderErrorMsg(w, r, "Backup system not initialized")
+		b.RenderError(w, r, errors.New("Backup system not initialized"))
 		return
 	}
 

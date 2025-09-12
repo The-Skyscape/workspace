@@ -4,13 +4,14 @@ import (
 	"errors"
 	"net/http"
 
+	"workspace/models"
+
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/The-Skyscape/devtools/pkg/authentication"
-	"workspace/models"
 )
 
 type UsersController struct {
-	application.BaseController
+	application.Controller
 }
 
 func Users() (string, *UsersController) {
@@ -18,7 +19,7 @@ func Users() (string, *UsersController) {
 }
 
 func (c *UsersController) Setup(app *application.App) {
-	c.BaseController.Setup(app)
+	c.Controller.Setup(app)
 	auth := app.Use("auth").(*AuthController)
 
 	// Admin-only access check
@@ -29,7 +30,7 @@ func (c *UsersController) Setup(app *application.App) {
 			return false
 		}
 		if !user.IsAdmin {
-			c.RenderErrorMsg(w, r, "Admin access required")
+			c.RenderError(w, r, errors.New("Admin access required"))
 			return false
 		}
 		return true
@@ -43,7 +44,7 @@ func (c *UsersController) Setup(app *application.App) {
 	http.Handle("POST /settings/users/{id}/enable", app.ProtectFunc(c.enableUser, adminRequired))
 }
 
-func (c UsersController) Handle(req *http.Request) application.Controller {
+func (c UsersController) Handle(req *http.Request) application.IController {
 	c.Request = req
 	return &c
 }
@@ -126,29 +127,29 @@ func (c *UsersController) GetByID(id string) (*authentication.User, error) {
 // updateUserRole handles changing a user's role
 func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.App.Use("auth").(*AuthController)
+	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	userID := r.PathValue("id")
 	if userID == "" {
-		c.RenderErrorMsg(w, r, "user ID required")
+		c.RenderError(w, r, errors.New("user ID required"))
 		return
 	}
 
 	// Prevent users from changing their own role
 	if userID == currentUser.ID {
-		c.RenderErrorMsg(w, r, "cannot change your own role")
+		c.RenderError(w, r, errors.New("cannot change your own role"))
 		return
 	}
 
 	// Get the user
 	user, err := auth.Users.Get(userID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "user not found")
+		c.RenderError(w, r, errors.New("user not found"))
 		return
 	}
 
@@ -158,7 +159,7 @@ func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request)
 
 	err = auth.Users.Update(user)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to update user role")
+		c.RenderError(w, r, errors.New("failed to update user role"))
 		return
 	}
 
@@ -176,29 +177,29 @@ func (c *UsersController) updateUserRole(w http.ResponseWriter, r *http.Request)
 // disableUser handles disabling a user account
 func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// For now, we'll just change their role to "guest"
+	// For now, we'll just change their role to "guest"
 	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	userID := r.PathValue("id")
 	if userID == "" {
-		c.RenderErrorMsg(w, r, "user ID required")
+		c.RenderError(w, r, errors.New("user ID required"))
 		return
 	}
 
 	// Prevent self-disable
 	if userID == currentUser.ID {
-		c.RenderErrorMsg(w, r, "cannot disable your own account")
+		c.RenderError(w, r, errors.New("cannot disable your own account"))
 		return
 	}
 
 	user, err := auth.Users.Get(userID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "user not found")
+		c.RenderError(w, r, errors.New("user not found"))
 		return
 	}
 
@@ -207,7 +208,7 @@ func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 
 	err = auth.Users.Update(user)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to disable user")
+		c.RenderError(w, r, errors.New("failed to disable user"))
 		return
 	}
 
@@ -220,22 +221,22 @@ func (c *UsersController) disableUser(w http.ResponseWriter, r *http.Request) {
 // enableUser handles enabling a user account
 func (c *UsersController) enableUser(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.App.Use("auth").(*AuthController)
+	auth := c.App.Use("auth").(*AuthController)
 	currentUser, _, err := auth.Authenticate(r)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "authentication required")
+		c.RenderError(w, r, errors.New("authentication required"))
 		return
 	}
 
 	userID := r.PathValue("id")
 	if userID == "" {
-		c.RenderErrorMsg(w, r, "user ID required")
+		c.RenderError(w, r, errors.New("user ID required"))
 		return
 	}
 
 	user, err := auth.Users.Get(userID)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "user not found")
+		c.RenderError(w, r, errors.New("user not found"))
 		return
 	}
 
@@ -244,7 +245,7 @@ func (c *UsersController) enableUser(w http.ResponseWriter, r *http.Request) {
 
 	err = auth.Users.Update(user)
 	if err != nil {
-		c.RenderErrorMsg(w, r, "failed to enable user")
+		c.RenderError(w, r, errors.New("failed to enable user"))
 		return
 	}
 
