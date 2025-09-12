@@ -14,9 +14,9 @@ import (
 
 // SecurityProcessor handles security scanning tasks
 type SecurityProcessor struct {
-	secretPatterns      []*regexp.Regexp
-	vulnerablePatterns  []*regexp.Regexp
-	suspiciousPatterns  []*regexp.Regexp
+	secretPatterns     []*regexp.Regexp
+	vulnerablePatterns []*regexp.Regexp
+	suspiciousPatterns []*regexp.Regexp
 }
 
 // NewSecurityProcessor creates a new security processor
@@ -75,31 +75,31 @@ func (p *SecurityProcessor) Process(ctx context.Context, task *queue.Task) error
 	if !ok {
 		return fmt.Errorf("invalid repo ID in task data")
 	}
-	
+
 	// Get repository
 	repo, err := models.Repos.Get(repoID)
 	if err != nil {
 		return fmt.Errorf("failed to get repo: %w", err)
 	}
-	
+
 	// Perform security scan
 	findings, err := p.scanRepository(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("security scan failed: %w", err)
 	}
-	
+
 	// Create security report
 	if len(findings) > 0 {
 		if err := p.createSecurityReport(repo, findings); err != nil {
 			return fmt.Errorf("failed to create security report: %w", err)
 		}
 	}
-	
-	task.Result = map[string]interface{}{
+
+	task.Result = map[string]any{
 		"findings": findings,
 		"severity": p.calculateSeverity(findings),
 	}
-	
+
 	return nil
 }
 
@@ -122,15 +122,15 @@ type SecurityFinding struct {
 // scanRepository performs security scanning on repository files
 func (p *SecurityProcessor) scanRepository(ctx context.Context, repo *models.Repository) ([]SecurityFinding, error) {
 	var findings []SecurityFinding
-	
+
 	// This is a simplified scan - in production, would scan actual files
 	// For now, scan recent commits and PR descriptions
-	
+
 	// Check recent issues for security keywords
 	issues, _ := models.Issues.Search("WHERE RepoID = ? AND Status = 'open' LIMIT 10", repo.ID)
 	for _, issue := range issues {
 		content := issue.Title + " " + issue.Body
-		
+
 		// Check for exposed secrets
 		for _, pattern := range p.secretPatterns {
 			if pattern.MatchString(content) {
@@ -143,7 +143,7 @@ func (p *SecurityProcessor) scanRepository(ctx context.Context, repo *models.Rep
 				})
 			}
 		}
-		
+
 		// Check for vulnerability patterns
 		for _, pattern := range p.vulnerablePatterns {
 			if pattern.MatchString(content) {
@@ -157,12 +157,12 @@ func (p *SecurityProcessor) scanRepository(ctx context.Context, repo *models.Rep
 			}
 		}
 	}
-	
+
 	// Check recent PRs
 	prs, _ := models.PullRequests.Search("WHERE RepoID = ? AND Status = 'open' LIMIT 10", repo.ID)
 	for _, pr := range prs {
 		content := pr.Title + " " + pr.Description
-		
+
 		// Check for suspicious patterns
 		for _, pattern := range p.suspiciousPatterns {
 			if pattern.MatchString(content) {
@@ -176,7 +176,7 @@ func (p *SecurityProcessor) scanRepository(ctx context.Context, repo *models.Rep
 			}
 		}
 	}
-	
+
 	log.Printf("SecurityProcessor: Found %d security findings in repo %s", len(findings), repo.Name)
 	return findings, nil
 }
@@ -184,18 +184,18 @@ func (p *SecurityProcessor) scanRepository(ctx context.Context, repo *models.Rep
 // createSecurityReport creates an issue with security findings
 func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findings []SecurityFinding) error {
 	var report strings.Builder
-	
+
 	report.WriteString("# 🔒 Security Scan Report\n\n")
 	report.WriteString(fmt.Sprintf("**Repository:** %s\n", repo.Name))
 	report.WriteString(fmt.Sprintf("**Scan Date:** %s\n", time.Now().Format("January 2, 2006 15:04 MST")))
 	report.WriteString(fmt.Sprintf("**Total Findings:** %d\n\n", len(findings)))
-	
+
 	// Group findings by severity
 	critical := []SecurityFinding{}
 	high := []SecurityFinding{}
 	medium := []SecurityFinding{}
 	low := []SecurityFinding{}
-	
+
 	for _, finding := range findings {
 		switch finding.Severity {
 		case "critical":
@@ -208,7 +208,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 			low = append(low, finding)
 		}
 	}
-	
+
 	// Critical findings
 	if len(critical) > 0 {
 		report.WriteString("## 🔴 Critical Findings\n\n")
@@ -219,7 +219,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 			report.WriteString(fmt.Sprintf("- **Remediation:** %s\n\n", f.Remediation))
 		}
 	}
-	
+
 	// High findings
 	if len(high) > 0 {
 		report.WriteString("## 🟠 High Priority Findings\n\n")
@@ -228,7 +228,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Medium findings
 	if len(medium) > 0 {
 		report.WriteString("## 🟡 Medium Priority Findings\n\n")
@@ -237,7 +237,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Low findings
 	if len(low) > 0 {
 		report.WriteString("## 🟢 Low Priority Findings\n\n")
@@ -246,7 +246,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Recommendations
 	report.WriteString("## 💡 Recommendations\n\n")
 	report.WriteString("1. Address all critical findings immediately\n")
@@ -254,10 +254,10 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 	report.WriteString("3. Implement security best practices\n")
 	report.WriteString("4. Consider using automated security tools in CI/CD\n")
 	report.WriteString("5. Conduct regular security audits\n\n")
-	
+
 	report.WriteString("---\n")
 	report.WriteString("*This report was generated automatically by AI security scanning.*\n")
-	
+
 	// Convert severity to priority
 	var priority models.IssuePriority
 	switch p.calculateSeverity(findings) {
@@ -270,7 +270,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 	default:
 		priority = models.PriorityLow
 	}
-	
+
 	// Create issue
 	issue := &models.Issue{
 		Title:    fmt.Sprintf("🔒 Security Scan - %d findings", len(findings)),
@@ -280,7 +280,7 @@ func (p *SecurityProcessor) createSecurityReport(repo *models.Repository, findin
 		RepoID:   repo.ID,
 		AuthorID: "system",
 	}
-	
+
 	_, err := models.Issues.Insert(issue)
 	return err
 }
@@ -290,7 +290,7 @@ func (p *SecurityProcessor) calculateSeverity(findings []SecurityFinding) string
 	hasCritical := false
 	hasHigh := false
 	hasMedium := false
-	
+
 	for _, f := range findings {
 		switch f.Severity {
 		case "critical":
@@ -301,7 +301,7 @@ func (p *SecurityProcessor) calculateSeverity(findings []SecurityFinding) string
 			hasMedium = true
 		}
 	}
-	
+
 	if hasCritical {
 		return "critical"
 	}

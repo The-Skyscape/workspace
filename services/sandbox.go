@@ -407,11 +407,11 @@ func (s *Sandbox) monitorTimeout() {
 }
 
 // GetStatus returns current status information about the sandbox
-func (s *Sandbox) GetStatus() map[string]interface{} {
+func (s *Sandbox) GetStatus() map[string]any {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	status := map[string]interface{}{
+	status := map[string]any{
 		"name":       s.Name,
 		"running":    s.IsRunning(),
 		"start_time": s.startTime,
@@ -432,15 +432,15 @@ func TriggerActionsByEvent(eventType, repoID string, eventData map[string]string
 	// 1. Query the database for actions matching the event type and repository
 	// 2. Check trigger conditions based on eventData
 	// 3. Execute matching actions
-	
+
 	// For now, we'll provide a stub implementation
 	// The actual implementation would need to import models package,
 	// but that would create a circular dependency
 	// This should be handled by the controller that calls this function
-	
-	log.Printf("TriggerActionsByEvent called: type=%s, repo=%s, data=%+v", 
+
+	log.Printf("TriggerActionsByEvent called: type=%s, repo=%s, data=%+v",
 		eventType, repoID, eventData)
-	
+
 	// Return nil to indicate no error
 	// The actual execution logic should be in the controllers
 	return nil

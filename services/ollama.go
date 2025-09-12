@@ -52,11 +52,11 @@ type OllamaMessage struct {
 
 // OllamaChatRequest represents a chat completion request
 type OllamaChatRequest struct {
-	Model    string                 `json:"model"`
-	Messages []OllamaMessage        `json:"messages"`
-	Stream   bool                   `json:"stream"`
-	Options  map[string]interface{} `json:"options,omitempty"`
-	Tools    []OllamaTool           `json:"tools,omitempty"` // Native tool support
+	Model    string          `json:"model"`
+	Messages []OllamaMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
+	Options  map[string]any  `json:"options,omitempty"`
+	Tools    []OllamaTool    `json:"tools,omitempty"` // Native tool support
 }
 
 // OllamaTool represents a tool definition for function calling
@@ -67,9 +67,9 @@ type OllamaTool struct {
 
 // OllamaToolFunction defines a callable function
 type OllamaToolFunction struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 // OllamaToolCall represents a tool invocation in the response
@@ -117,10 +117,10 @@ func NewOllamaService() *OllamaService {
 	if aiModel == "" {
 		aiModel = "gpt-oss" // Default to GPT-OSS for Pro workspaces
 	}
-	
+
 	// Check GPU_ENABLED flag explicitly
 	gpuEnabled := os.Getenv("GPU_ENABLED") == "true"
-	
+
 	// Auto-enable GPU for certain models if not explicitly set
 	if !gpuEnabled && os.Getenv("GPU_ENABLED") == "" {
 		if strings.Contains(aiModel, "gpt-oss") || strings.Contains(aiModel, "llama2") {
@@ -128,7 +128,7 @@ func NewOllamaService() *OllamaService {
 			log.Printf("OllamaService: Auto-enabling GPU for model %s", aiModel)
 		}
 	}
-	
+
 	return &OllamaService{
 		config: &OllamaConfig{
 			Port:          11434,
@@ -415,7 +415,7 @@ func (o *OllamaService) createServiceConfig() *containers.Service {
 			"OLLAMA_HOST": fmt.Sprintf("0.0.0.0:%d", o.config.Port),
 		},
 	}
-	
+
 	// Add GPU support if enabled
 	if o.config.GPUEnabled {
 		log.Printf("OllamaService: GPU support enabled for %s", o.config.DefaultModel)
@@ -428,7 +428,7 @@ func (o *OllamaService) createServiceConfig() *containers.Service {
 	} else {
 		log.Printf("OllamaService: Running in CPU-only mode")
 	}
-	
+
 	return service
 }
 
@@ -493,7 +493,7 @@ func (o *OllamaService) ListModels() ([]string, error) {
 func (o *OllamaService) PullModel(modelName string) error {
 	log.Printf("OllamaService: Pulling model %s...", modelName)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"name":   modelName,
 		"stream": true,
 	}
@@ -516,7 +516,7 @@ func (o *OllamaService) PullModel(modelName string) error {
 	progressCount := 0
 
 	for {
-		var status map[string]interface{}
+		var status map[string]any
 		if err := decoder.Decode(&status); err != nil {
 			if err == io.EOF {
 				break
@@ -858,11 +858,11 @@ func (o *OllamaService) ensureDefaultModel() {
 // Removed determineReasoningEffort - now using fixed "low" setting for efficiency
 
 // GetServiceInfo returns information about the Ollama service
-func (o *OllamaService) GetServiceInfo() map[string]interface{} {
+func (o *OllamaService) GetServiceInfo() map[string]any {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	info := map[string]interface{}{
+	info := map[string]any{
 		"configured":    o.IsConfigured(),
 		"running":       o.IsRunning(),
 		"port":          o.config.Port,
@@ -883,6 +883,6 @@ func (o *OllamaService) GetServiceInfo() map[string]interface{} {
 func (o *OllamaService) IsGPUEnabled() bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	
+
 	return o.config.GPUEnabled
 }

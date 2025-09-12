@@ -23,7 +23,7 @@ func Backup() (string, *BackupController) {
 func (b *BackupController) Setup(app *application.App) {
 	b.BaseController.Setup(app)
 	auth := app.Use("auth").(*AuthController)
-	
+
 	// Admin-only backup management
 	adminRequired := func(app *application.App, w http.ResponseWriter, r *http.Request) bool {
 		user, _, err := auth.Authenticate(r)
@@ -37,17 +37,17 @@ func (b *BackupController) Setup(app *application.App) {
 		}
 		return true
 	}
-	
+
 	// Backup management page
 	http.Handle("GET /settings/backup", app.Serve("settings-backup.html", adminRequired))
-	
+
 	// API endpoints
 	http.Handle("POST /backup/create", app.ProtectFunc(b.createBackup, auth.AdminOnly))
 	http.Handle("POST /backup/restore", app.ProtectFunc(b.restoreBackup, auth.AdminOnly))
 	http.Handle("GET /backup/list", app.ProtectFunc(b.listBackups, auth.AdminOnly))
 	http.Handle("GET /backup/status", app.ProtectFunc(b.getStatus, auth.AdminOnly))
 	http.Handle("POST /backup/toggle", app.ProtectFunc(b.toggleScheduler, auth.AdminOnly))
-	
+
 	// HTMX partials
 	http.Handle("GET /backup/partial/list", app.ProtectFunc(b.getBackupListPartial, auth.AdminOnly))
 	http.Handle("GET /backup/partial/status", app.ProtectFunc(b.getStatusPartial, auth.AdminOnly))
@@ -85,15 +85,15 @@ func (b *BackupController) createBackup(w http.ResponseWriter, r *http.Request) 
 		b.RenderErrorMsg(w, r, "Backup system not initialized")
 		return
 	}
-	
+
 	backupPath, err := backup.Scheduler.TriggerBackup()
 	if err != nil {
 		b.RenderError(w, r, fmt.Errorf("backup failed: %w", err))
 		return
 	}
-	
+
 	// Return success message
-	b.Render(w, r, "backup-success.html", map[string]interface{}{
+	b.Render(w, r, "backup-success.html", map[string]any{
 		"Message": fmt.Sprintf("Backup created successfully: %s", backupPath),
 	})
 }
@@ -104,22 +104,22 @@ func (b *BackupController) restoreBackup(w http.ResponseWriter, r *http.Request)
 		b.RenderErrorMsg(w, r, "Backup system not initialized")
 		return
 	}
-	
+
 	// Get backup path from form
 	backupPath := r.FormValue("backup_path")
 	if backupPath == "" {
 		b.RenderErrorMsg(w, r, "No backup selected")
 		return
 	}
-	
+
 	// Perform restore
 	if err := backup.Scheduler.RestoreBackup(backupPath); err != nil {
 		b.RenderError(w, r, fmt.Errorf("restore failed: %w", err))
 		return
 	}
-	
+
 	// Return success message
-	b.Render(w, r, "backup-success.html", map[string]interface{}{
+	b.Render(w, r, "backup-success.html", map[string]any{
 		"Message": "Backup restored successfully. Please restart the application.",
 	})
 }
@@ -130,13 +130,13 @@ func (b *BackupController) listBackups(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Backup system not initialized", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	backups, err := backup.Scheduler.ListBackups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(backups)
 }
@@ -147,7 +147,7 @@ func (b *BackupController) getStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Backup system not initialized", http.StatusServiceUnavailable)
 		return
 	}
-	
+
 	status := backup.Scheduler.GetStatus()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
@@ -159,13 +159,13 @@ func (b *BackupController) toggleScheduler(w http.ResponseWriter, r *http.Reques
 		b.RenderErrorMsg(w, r, "Backup system not initialized")
 		return
 	}
-	
+
 	// Get current status
 	status := backup.Scheduler.GetStatus()
-	
+
 	// Toggle
 	backup.Scheduler.SetEnabled(!status.Enabled)
-	
+
 	// Return updated status partial
 	b.getStatusPartial(w, r)
 }
@@ -173,8 +173,8 @@ func (b *BackupController) toggleScheduler(w http.ResponseWriter, r *http.Reques
 // getBackupListPartial returns the backup list as HTML partial
 func (b *BackupController) getBackupListPartial(w http.ResponseWriter, r *http.Request) {
 	backups := b.GetBackupList()
-	
-	b.Render(w, r, "backup-list.html", map[string]interface{}{
+
+	b.Render(w, r, "backup-list.html", map[string]any{
 		"Backups": backups,
 	})
 }
@@ -182,8 +182,8 @@ func (b *BackupController) getBackupListPartial(w http.ResponseWriter, r *http.R
 // getStatusPartial returns the scheduler status as HTML partial
 func (b *BackupController) getStatusPartial(w http.ResponseWriter, r *http.Request) {
 	status := b.GetSchedulerStatus()
-	
-	b.Render(w, r, "backup-status.html", map[string]interface{}{
+
+	b.Render(w, r, "backup-status.html", map[string]any{
 		"Status": status,
 	})
 }

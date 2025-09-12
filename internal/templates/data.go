@@ -29,7 +29,7 @@ type GitHubRepoData struct {
 	Private         bool   `json:"private"`
 	Language        string `json:"language"`
 	StargazersCount int    `json:"stargazers_count"`
-	
+
 	// Template compatibility methods - allows lowercase access in templates
 	// This approach maintains proper Go conventions while supporting template usage
 }
@@ -47,5 +47,5 @@ type PaginationData struct {
 	HasPrev     bool
 	NextPage    int
 	PrevPage    int
-	Items       interface{} // Can be any slice of items
+	Items       any // Can be any slice of items
 }

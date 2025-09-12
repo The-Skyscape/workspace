@@ -19,7 +19,7 @@ func (t *GitStatusTool) Description() string {
 	return "Show the status of a repository including modified, staged, and untracked files. Required params: repo_id. Optional params: branch"
 }
 
-func (t *GitStatusTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitStatusTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -30,40 +30,40 @@ func (t *GitStatusTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *GitStatusTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitStatusTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"branch": map[string]interface{}{
+		"branch": map[string]any{
 			"type":        "string",
 			"description": "Branch to check status for",
 		},
 	})
 }
 
-func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitStatusTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Get current branch
 	currentBranch := repo.GetDefaultBranch()
 	if branch, exists := params["branch"]; exists {
@@ -71,36 +71,36 @@ func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (s
 			currentBranch = branchStr
 		}
 	}
-	
+
 	// Get status
 	stdout, stderr, err := repo.Git("status", "--porcelain", "-b")
 	if err != nil {
 		return "", fmt.Errorf("failed to get status: %s", stderr.String())
 	}
-	
+
 	lines := strings.Split(stdout.String(), "\n")
-	
+
 	// Parse branch info from first line
 	var branchInfo string
 	if len(lines) > 0 && strings.HasPrefix(lines[0], "##") {
 		branchInfo = strings.TrimPrefix(lines[0], "## ")
 		lines = lines[1:] // Remove branch line from status
 	}
-	
+
 	// Categorize files
 	var staged, modified, untracked []string
 	for _, line := range lines {
 		if line == "" {
 			continue
 		}
-		
+
 		if len(line) < 3 {
 			continue
 		}
-		
+
 		status := line[:2]
 		file := strings.TrimSpace(line[3:])
-		
+
 		switch {
 		case status[0] != ' ' && status[0] != '?':
 			staged = append(staged, file)
@@ -110,25 +110,25 @@ func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (s
 			untracked = append(untracked, file)
 		}
 	}
-	
+
 	// Get latest commit info
 	commitOut, _, _ := repo.Git("log", "-1", "--oneline")
 	lastCommit := strings.TrimSpace(commitOut.String())
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("## Git Status for %s\n\n", repo.Name))
-	
+
 	if branchInfo != "" {
 		result.WriteString(fmt.Sprintf("**Branch:** %s\n", branchInfo))
 	} else {
 		result.WriteString(fmt.Sprintf("**Branch:** %s\n", currentBranch))
 	}
-	
+
 	if lastCommit != "" {
 		result.WriteString(fmt.Sprintf("**Latest commit:** %s\n\n", lastCommit))
 	}
-	
+
 	if len(staged) == 0 && len(modified) == 0 && len(untracked) == 0 {
 		result.WriteString("✅ Working tree is clean - no changes to commit\n")
 	} else {
@@ -139,7 +139,7 @@ func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (s
 			}
 			result.WriteString("\n")
 		}
-		
+
 		if len(modified) > 0 {
 			result.WriteString(fmt.Sprintf("**Modified files (%d):**\n", len(modified)))
 			for _, file := range modified {
@@ -147,7 +147,7 @@ func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (s
 			}
 			result.WriteString("\n")
 		}
-		
+
 		if len(untracked) > 0 {
 			result.WriteString(fmt.Sprintf("**Untracked files (%d):**\n", len(untracked)))
 			for _, file := range untracked {
@@ -156,7 +156,7 @@ func (t *GitStatusTool) Execute(params map[string]interface{}, userID string) (s
 			result.WriteString("\n")
 		}
 	}
-	
+
 	return result.String(), nil
 }
 
@@ -171,7 +171,7 @@ func (t *GitDiffTool) Description() string {
 	return "Show differences in a repository. Required params: repo_id. Optional params: path (specific file), from (commit/branch), to (commit/branch), staged (bool)"
 }
 
-func (t *GitDiffTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitDiffTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -182,55 +182,55 @@ func (t *GitDiffTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *GitDiffTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitDiffTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"staged": map[string]interface{}{
+		"staged": map[string]any{
 			"type":        "boolean",
 			"description": "Show staged changes instead of unstaged",
 			"default":     false,
 		},
-		"file": map[string]interface{}{
+		"file": map[string]any{
 			"type":        "string",
 			"description": "Specific file to show diff for",
 		},
 	})
 }
 
-func (t *GitDiffTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitDiffTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Build diff command
 	args := []string{"diff"}
-	
+
 	// Check if we want staged changes
 	if staged, exists := params["staged"]; exists {
 		if stagedBool, ok := staged.(bool); ok && stagedBool {
 			args = append(args, "--cached")
 		}
 	}
-	
+
 	// Add from/to refs if specified
 	if from, exists := params["from"]; exists {
 		if fromStr, ok := from.(string); ok && fromStr != "" {
@@ -245,41 +245,41 @@ func (t *GitDiffTool) Execute(params map[string]interface{}, userID string) (str
 			}
 		}
 	}
-	
+
 	// Add specific path if provided
 	if path, exists := params["path"]; exists {
 		if pathStr, ok := path.(string); ok && pathStr != "" {
 			args = append(args, "--", pathStr)
 		}
 	}
-	
+
 	// Get diff
 	stdout, stderr, err := repo.Git(args...)
 	if err != nil && stderr.String() != "" {
 		return "", fmt.Errorf("failed to get diff: %s", stderr.String())
 	}
-	
+
 	diff := stdout.String()
 	if diff == "" {
 		return "No differences found", nil
 	}
-	
+
 	// Get summary stats
 	statsArgs := append([]string{"diff", "--stat"}, args[1:]...)
 	statsOut, _, _ := repo.Git(statsArgs...)
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("## Git Diff for %s\n\n", repo.Name))
-	
+
 	if stats := statsOut.String(); stats != "" && stats != diff {
 		result.WriteString("**Summary:**\n```\n")
 		result.WriteString(stats)
 		result.WriteString("```\n\n")
 	}
-	
+
 	result.WriteString("**Changes:**\n```diff\n")
-	
+
 	// Limit diff output for very large diffs
 	if len(diff) > 50000 {
 		result.WriteString(diff[:50000])
@@ -288,7 +288,7 @@ func (t *GitDiffTool) Execute(params map[string]interface{}, userID string) (str
 		result.WriteString(diff)
 	}
 	result.WriteString("\n```\n")
-	
+
 	return result.String(), nil
 }
 
@@ -303,7 +303,7 @@ func (t *GitCommitTool) Description() string {
 	return "Create a commit with staged changes. Required params: repo_id, message. Optional params: add_all (bool to stage all changes first)"
 }
 
-func (t *GitCommitTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitCommitTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -311,7 +311,7 @@ func (t *GitCommitTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	message, exists := params["message"]
 	if !exists {
 		return fmt.Errorf("message is required")
@@ -319,53 +319,53 @@ func (t *GitCommitTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := message.(string); !ok {
 		return fmt.Errorf("message must be a string")
 	}
-	
+
 	return nil
 }
 
-func (t *GitCommitTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitCommitTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"message": map[string]interface{}{
+		"message": map[string]any{
 			"type":        "string",
 			"description": "Commit message",
 			"required":    true,
 		},
-		"files": map[string]interface{}{
+		"files": map[string]any{
 			"type":        "array",
 			"description": "Files to stage and commit (empty = all)",
-			"items": map[string]interface{}{
+			"items": map[string]any{
 				"type": "string",
 			},
 		},
 	})
 }
 
-func (t *GitCommitTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitCommitTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	message := params["message"].(string)
-	
+
 	// Get user for permissions and commit author
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check write permissions
 	if !user.IsAdmin {
 		return "", fmt.Errorf("access denied: only admins can commit")
 	}
-	
+
 	// Check if we should stage all changes first
 	if addAll, exists := params["add_all"]; exists {
 		if addAllBool, ok := addAll.(bool); ok && addAllBool {
@@ -375,27 +375,27 @@ func (t *GitCommitTool) Execute(params map[string]interface{}, userID string) (s
 			}
 		}
 	}
-	
+
 	// Check if there are changes to commit
 	statusOut, _, _ := repo.Git("status", "--porcelain")
 	if statusOut.String() == "" {
 		return "No changes to commit", nil
 	}
-	
+
 	// Configure user for this commit
 	repo.Git("config", "user.name", user.Name)
 	repo.Git("config", "user.email", user.Email)
-	
+
 	// Create commit
 	stdout, stderr, err := repo.Git("commit", "-m", message)
 	if err != nil {
 		return "", fmt.Errorf("failed to commit: %s", stderr.String())
 	}
-	
+
 	// Get the new commit info
 	commitOut, _, _ := repo.Git("log", "-1", "--oneline")
 	newCommit := strings.TrimSpace(commitOut.String())
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("✅ **Commit Created Successfully**\n\n"))
@@ -403,7 +403,7 @@ func (t *GitCommitTool) Execute(params map[string]interface{}, userID string) (s
 	result.WriteString(fmt.Sprintf("**Commit:** %s\n", newCommit))
 	result.WriteString(fmt.Sprintf("**Author:** %s <%s>\n", user.Name, user.Email))
 	result.WriteString(fmt.Sprintf("\n**Output:**\n```\n%s\n```", stdout.String()))
-	
+
 	return result.String(), nil
 }
 
@@ -418,7 +418,7 @@ func (t *GitBranchTool) Description() string {
 	return "Manage branches in a repository. Required params: repo_id. Optional params: action (list/create/switch/delete), name (for create/switch/delete), from (source branch for create)"
 }
 
-func (t *GitBranchTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitBranchTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -426,14 +426,14 @@ func (t *GitBranchTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	// Validate action-specific params
 	if action, exists := params["action"]; exists {
 		actionStr, ok := action.(string)
 		if !ok {
 			return fmt.Errorf("action must be a string")
 		}
-		
+
 		switch actionStr {
 		case "create", "switch", "delete":
 			if _, exists := params["name"]; !exists {
@@ -445,50 +445,50 @@ func (t *GitBranchTool) ValidateParams(params map[string]interface{}) error {
 			return fmt.Errorf("invalid action: %s (use list/create/switch/delete)", actionStr)
 		}
 	}
-	
+
 	return nil
 }
 
-func (t *GitBranchTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitBranchTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"action": map[string]interface{}{
+		"action": map[string]any{
 			"type":        "string",
 			"enum":        []string{"list", "create", "delete", "switch"},
 			"description": "Branch operation to perform",
 			"default":     "list",
 		},
-		"name": map[string]interface{}{
+		"name": map[string]any{
 			"type":        "string",
 			"description": "Branch name (for create/delete/switch)",
 		},
 	})
 }
 
-func (t *GitBranchTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitBranchTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Get action (default to list)
 	action := "list"
 	if a, exists := params["action"]; exists {
@@ -496,17 +496,17 @@ func (t *GitBranchTool) Execute(params map[string]interface{}, userID string) (s
 			action = actionStr
 		}
 	}
-	
+
 	switch action {
 	case "list":
 		branches, err := repo.GetBranches()
 		if err != nil {
 			return "", fmt.Errorf("failed to list branches: %w", err)
 		}
-		
+
 		var result strings.Builder
 		result.WriteString(fmt.Sprintf("## Branches in %s\n\n", repo.Name))
-		
+
 		if len(branches) == 0 {
 			result.WriteString("No branches found\n")
 		} else {
@@ -522,14 +522,14 @@ func (t *GitBranchTool) Execute(params map[string]interface{}, userID string) (s
 				}
 			}
 		}
-		
+
 		return result.String(), nil
-		
+
 	case "create":
 		if !user.IsAdmin {
 			return "", fmt.Errorf("access denied: only admins can create branches")
 		}
-		
+
 		name := params["name"].(string)
 		from := ""
 		if f, exists := params["from"]; exists {
@@ -537,35 +537,35 @@ func (t *GitBranchTool) Execute(params map[string]interface{}, userID string) (s
 				from = fromStr
 			}
 		}
-		
+
 		err := repo.CreateBranch(name, from)
 		if err != nil {
 			return "", fmt.Errorf("failed to create branch: %w", err)
 		}
-		
+
 		return fmt.Sprintf("✅ Branch '%s' created successfully in %s", name, repo.Name), nil
-		
+
 	case "switch":
 		if !user.IsAdmin {
 			return "", fmt.Errorf("access denied: only admins can switch branches")
 		}
-		
+
 		name := params["name"].(string)
-		
+
 		_, stderr, err := repo.Git("checkout", name)
 		if err != nil {
 			return "", fmt.Errorf("failed to switch branch: %s", stderr.String())
 		}
-		
+
 		return fmt.Sprintf("✅ Switched to branch '%s' in %s", name, repo.Name), nil
-		
+
 	case "delete":
 		if !user.IsAdmin {
 			return "", fmt.Errorf("access denied: only admins can delete branches")
 		}
-		
+
 		name := params["name"].(string)
-		
+
 		_, stderr, err := repo.Git("branch", "-d", name)
 		if err != nil {
 			// Try force delete if normal delete fails
@@ -574,9 +574,9 @@ func (t *GitBranchTool) Execute(params map[string]interface{}, userID string) (s
 				return "", fmt.Errorf("failed to delete branch: %s", stderr.String())
 			}
 		}
-		
+
 		return fmt.Sprintf("✅ Branch '%s' deleted from %s", name, repo.Name), nil
-		
+
 	default:
 		return "", fmt.Errorf("invalid action: %s", action)
 	}
@@ -593,7 +593,7 @@ func (t *GitLogTool) Description() string {
 	return "Show commit history of a repository. Required params: repo_id. Optional params: branch, limit (number of commits), oneline (bool)"
 }
 
-func (t *GitLogTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitLogTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -604,45 +604,45 @@ func (t *GitLogTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *GitLogTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitLogTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"limit": map[string]interface{}{
+		"limit": map[string]any{
 			"type":        "integer",
 			"description": "Number of commits to show",
 			"default":     10,
 		},
-		"branch": map[string]interface{}{
+		"branch": map[string]any{
 			"type":        "string",
 			"description": "Branch to show log for",
 		},
 	})
 }
 
-func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitLogTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Get parameters
 	branch := ""
 	if b, exists := params["branch"]; exists {
@@ -653,7 +653,7 @@ func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (stri
 	if branch == "" {
 		branch = repo.GetDefaultBranch()
 	}
-	
+
 	limit := 10
 	if l, exists := params["limit"]; exists {
 		switch v := l.(type) {
@@ -663,19 +663,19 @@ func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (stri
 			limit = v
 		}
 	}
-	
+
 	// Use repository's GetCommits method for detailed info
 	commits, err := repo.GetCommits(branch, limit)
 	if err != nil {
 		return "", fmt.Errorf("failed to get commits: %w", err)
 	}
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("## Commit History for %s\n", repo.Name))
 	result.WriteString(fmt.Sprintf("**Branch:** %s\n", branch))
 	result.WriteString(fmt.Sprintf("**Showing:** %d commits\n\n", len(commits)))
-	
+
 	if len(commits) == 0 {
 		result.WriteString("No commits found\n")
 	} else {
@@ -686,7 +686,7 @@ func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (stri
 				oneline = onelineBool
 			}
 		}
-		
+
 		if oneline {
 			for _, commit := range commits {
 				result.WriteString(fmt.Sprintf("%s %s\n", commit.ShortHash, commit.Message))
@@ -695,14 +695,14 @@ func (t *GitLogTool) Execute(params map[string]interface{}, userID string) (stri
 			for _, commit := range commits {
 				result.WriteString(fmt.Sprintf("**Commit:** %s\n", commit.ShortHash))
 				result.WriteString(fmt.Sprintf("**Author:** %s <%s>\n", commit.Author, commit.Email))
-				result.WriteString(fmt.Sprintf("**Date:** %s (%s)\n", 
+				result.WriteString(fmt.Sprintf("**Date:** %s (%s)\n",
 					commit.Date.Format("2006-01-02 15:04:05"),
 					commit.RelativeTime()))
 				result.WriteString(fmt.Sprintf("**Message:** %s\n\n", commit.Message))
 			}
 		}
 	}
-	
+
 	return result.String(), nil
 }
 
@@ -717,7 +717,7 @@ func (t *GitPushTool) Description() string {
 	return "Push local commits to remote repository. Required params: repo_id. Optional params: branch, remote (default: origin), force (bool)"
 }
 
-func (t *GitPushTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitPushTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -728,23 +728,23 @@ func (t *GitPushTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *GitPushTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitPushTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"branch": map[string]interface{}{
+		"branch": map[string]any{
 			"type":        "string",
 			"description": "Branch to push (default: current branch)",
 		},
-		"remote": map[string]interface{}{
+		"remote": map[string]any{
 			"type":        "string",
 			"description": "Remote name (default: origin)",
 			"default":     "origin",
 		},
-		"force": map[string]interface{}{
+		"force": map[string]any{
 			"type":        "boolean",
 			"description": "Force push (use with caution)",
 			"default":     false,
@@ -752,26 +752,26 @@ func (t *GitPushTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *GitPushTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitPushTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check write permissions
 	if !user.IsAdmin && repo.UserID != user.ID {
 		return "", fmt.Errorf("access denied: you don't have push permissions")
 	}
-	
+
 	// Get parameters
 	remote := "origin"
 	if r, exists := params["remote"]; exists {
@@ -779,21 +779,21 @@ func (t *GitPushTool) Execute(params map[string]interface{}, userID string) (str
 			remote = remoteStr
 		}
 	}
-	
+
 	branch := ""
 	if b, exists := params["branch"]; exists {
 		if branchStr, ok := b.(string); ok && branchStr != "" {
 			branch = branchStr
 		}
 	}
-	
+
 	force := false
 	if f, exists := params["force"]; exists {
 		if forceBool, ok := f.(bool); ok {
 			force = forceBool
 		}
 	}
-	
+
 	// Build git push command
 	pushCmd := fmt.Sprintf("git push %s", remote)
 	if branch != "" {
@@ -802,7 +802,7 @@ func (t *GitPushTool) Execute(params map[string]interface{}, userID string) (str
 	if force {
 		pushCmd = fmt.Sprintf("%s --force", pushCmd)
 	}
-	
+
 	// Execute in sandbox for safety
 	sandboxName := fmt.Sprintf("git-push-%s-%d", repo.ID, time.Now().Unix())
 	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, pushCmd, 30)
@@ -810,13 +810,13 @@ func (t *GitPushTool) Execute(params map[string]interface{}, userID string) (str
 		return "", fmt.Errorf("failed to create sandbox: %w", err)
 	}
 	defer sandbox.Cleanup()
-	
+
 	// Execute the push
 	output, exitCode, err := sandbox.Execute(pushCmd)
 	if err != nil || exitCode != 0 {
 		return "", fmt.Errorf("git push failed: %w\nOutput: %s", err, output)
 	}
-	
+
 	// Log the activity
 	activity := &models.Activity{
 		Type:        "git_push",
@@ -825,7 +825,7 @@ func (t *GitPushTool) Execute(params map[string]interface{}, userID string) (str
 		Description: fmt.Sprintf("Pushed to %s/%s", remote, branch),
 	}
 	models.Activities.Insert(activity)
-	
+
 	return fmt.Sprintf("✅ Successfully pushed to %s\n\n%s", remote, output), nil
 }
 
@@ -840,7 +840,7 @@ func (t *GitPullTool) Description() string {
 	return "Pull changes from remote repository. Required params: repo_id. Optional params: branch, remote (default: origin), rebase (bool)"
 }
 
-func (t *GitPullTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitPullTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -851,23 +851,23 @@ func (t *GitPullTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *GitPullTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitPullTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"branch": map[string]interface{}{
+		"branch": map[string]any{
 			"type":        "string",
 			"description": "Branch to pull (default: current branch)",
 		},
-		"remote": map[string]interface{}{
+		"remote": map[string]any{
 			"type":        "string",
 			"description": "Remote name (default: origin)",
 			"default":     "origin",
 		},
-		"rebase": map[string]interface{}{
+		"rebase": map[string]any{
 			"type":        "boolean",
 			"description": "Use rebase instead of merge",
 			"default":     false,
@@ -875,26 +875,26 @@ func (t *GitPullTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *GitPullTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitPullTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check write permissions
 	if !user.IsAdmin && repo.UserID != user.ID {
 		return "", fmt.Errorf("access denied: you don't have pull permissions")
 	}
-	
+
 	// Get parameters
 	remote := "origin"
 	if r, exists := params["remote"]; exists {
@@ -902,21 +902,21 @@ func (t *GitPullTool) Execute(params map[string]interface{}, userID string) (str
 			remote = remoteStr
 		}
 	}
-	
+
 	branch := ""
 	if b, exists := params["branch"]; exists {
 		if branchStr, ok := b.(string); ok && branchStr != "" {
 			branch = branchStr
 		}
 	}
-	
+
 	rebase := false
 	if r, exists := params["rebase"]; exists {
 		if rebaseBool, ok := r.(bool); ok {
 			rebase = rebaseBool
 		}
 	}
-	
+
 	// Build git pull command
 	pullCmd := "git pull"
 	if rebase {
@@ -926,7 +926,7 @@ func (t *GitPullTool) Execute(params map[string]interface{}, userID string) (str
 	if branch != "" {
 		pullCmd = fmt.Sprintf("%s %s", pullCmd, branch)
 	}
-	
+
 	// Execute in sandbox
 	sandboxName := fmt.Sprintf("git-pull-%s-%d", repo.ID, time.Now().Unix())
 	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, pullCmd, 30)
@@ -934,13 +934,13 @@ func (t *GitPullTool) Execute(params map[string]interface{}, userID string) (str
 		return "", fmt.Errorf("failed to create sandbox: %w", err)
 	}
 	defer sandbox.Cleanup()
-	
+
 	// Execute the pull
 	output, exitCode, err := sandbox.Execute(pullCmd)
 	if err != nil || exitCode != 0 {
 		return "", fmt.Errorf("git pull failed: %w\nOutput: %s", err, output)
 	}
-	
+
 	// Log the activity
 	activity := &models.Activity{
 		Type:        "git_pull",
@@ -949,7 +949,7 @@ func (t *GitPullTool) Execute(params map[string]interface{}, userID string) (str
 		Description: fmt.Sprintf("Pulled from %s/%s", remote, branch),
 	}
 	models.Activities.Insert(activity)
-	
+
 	return fmt.Sprintf("✅ Successfully pulled from %s\n\n%s", remote, output), nil
 }
 
@@ -964,7 +964,7 @@ func (t *GitMergeTool) Description() string {
 	return "Merge branches or pull requests. Required params: repo_id, source_branch. Optional params: target_branch (default: main), squash (bool), no_ff (bool)"
 }
 
-func (t *GitMergeTool) ValidateParams(params map[string]interface{}) error {
+func (t *GitMergeTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -972,7 +972,7 @@ func (t *GitMergeTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	sourceBranch, exists := params["source_branch"]
 	if !exists {
 		return fmt.Errorf("source_branch is required")
@@ -980,65 +980,65 @@ func (t *GitMergeTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := sourceBranch.(string); !ok {
 		return fmt.Errorf("source_branch must be a string")
 	}
-	
+
 	return nil
 }
 
-func (t *GitMergeTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *GitMergeTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"source_branch": map[string]interface{}{
+		"source_branch": map[string]any{
 			"type":        "string",
 			"description": "Branch to merge from",
 			"required":    true,
 		},
-		"target_branch": map[string]interface{}{
+		"target_branch": map[string]any{
 			"type":        "string",
 			"description": "Branch to merge into (default: main)",
 			"default":     "main",
 		},
-		"squash": map[string]interface{}{
+		"squash": map[string]any{
 			"type":        "boolean",
 			"description": "Squash commits before merging",
 			"default":     false,
 		},
-		"no_ff": map[string]interface{}{
+		"no_ff": map[string]any{
 			"type":        "boolean",
 			"description": "Create merge commit even if fast-forward is possible",
 			"default":     true,
 		},
-		"pr_id": map[string]interface{}{
+		"pr_id": map[string]any{
 			"type":        "string",
 			"description": "Optional PR ID to mark as merged",
 		},
 	})
 }
 
-func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GitMergeTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	sourceBranch := params["source_branch"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check write permissions
 	if !user.IsAdmin && repo.UserID != user.ID {
 		return "", fmt.Errorf("access denied: you don't have merge permissions")
 	}
-	
+
 	// Get parameters
 	targetBranch := "main"
 	if t, exists := params["target_branch"]; exists {
@@ -1046,26 +1046,26 @@ func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (st
 			targetBranch = targetStr
 		}
 	}
-	
+
 	squash := false
 	if s, exists := params["squash"]; exists {
 		if squashBool, ok := s.(bool); ok {
 			squash = squashBool
 		}
 	}
-	
+
 	noFF := true
 	if n, exists := params["no_ff"]; exists {
 		if noFFBool, ok := n.(bool); ok {
 			noFF = noFFBool
 		}
 	}
-	
+
 	// Build merge commands
 	var commands []string
 	commands = append(commands, fmt.Sprintf("git checkout %s", targetBranch))
-	commands = append(commands, "git pull origin " + targetBranch)
-	
+	commands = append(commands, "git pull origin "+targetBranch)
+
 	mergeCmd := fmt.Sprintf("git merge %s", sourceBranch)
 	if squash {
 		mergeCmd = fmt.Sprintf("%s --squash", mergeCmd)
@@ -1075,10 +1075,10 @@ func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (st
 	}
 	mergeCmd = fmt.Sprintf("%s -m 'Merge %s into %s (AI-automated)'", mergeCmd, sourceBranch, targetBranch)
 	commands = append(commands, mergeCmd)
-	
+
 	// Push the merge
 	commands = append(commands, fmt.Sprintf("git push origin %s", targetBranch))
-	
+
 	// Execute in sandbox
 	fullCmd := strings.Join(commands, " && ")
 	sandboxName := fmt.Sprintf("git-merge-%s-%d", repo.ID, time.Now().Unix())
@@ -1087,13 +1087,13 @@ func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (st
 		return "", fmt.Errorf("failed to create sandbox: %w", err)
 	}
 	defer sandbox.Cleanup()
-	
+
 	// Execute the merge
 	output, exitCode, err := sandbox.Execute(fullCmd)
 	if err != nil || exitCode != 0 {
 		return "", fmt.Errorf("merge failed: %w\nOutput: %s", err, output)
 	}
-	
+
 	// If PR ID provided, mark it as merged
 	if prID, exists := params["pr_id"]; exists {
 		if prIDStr, ok := prID.(string); ok && prIDStr != "" {
@@ -1106,7 +1106,7 @@ func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (st
 			}
 		}
 	}
-	
+
 	// Log the activity
 	activity := &models.Activity{
 		Type:        "git_merge",
@@ -1115,6 +1115,6 @@ func (t *GitMergeTool) Execute(params map[string]interface{}, userID string) (st
 		Description: fmt.Sprintf("Merged %s into %s", sourceBranch, targetBranch),
 	}
 	models.Activities.Insert(activity)
-	
+
 	return fmt.Sprintf("✅ Successfully merged %s into %s\n\n%s", sourceBranch, targetBranch, output), nil
 }

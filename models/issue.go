@@ -3,7 +3,7 @@ package models
 import (
 	"strings"
 	"time"
-	
+
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
@@ -11,13 +11,13 @@ type Issue struct {
 	application.Model
 	Title      string
 	Body       string
-	Status     IssueStatus // "open", "closed", "in_progress", "resolved"
-	Column     string      // Kanban column: "todo", "in_progress", "done"
+	Status     IssueStatus   // "open", "closed", "in_progress", "resolved"
+	Column     string        // Kanban column: "todo", "in_progress", "done"
 	Priority   IssuePriority // 1-10, 1 being highest
-	AuthorID   string      // User who created the issue
+	AuthorID   string        // User who created the issue
 	AssigneeID string
 	RepoID     string
-	
+
 	// GitHub Sync Fields
 	GitHubNumber  int       // GitHub issue number
 	GitHubID      int64     // GitHub issue ID
@@ -62,7 +62,7 @@ func (i *Issue) LabelNames() string {
 	if err != nil || len(labels) == 0 {
 		return ""
 	}
-	
+
 	labelNames := make([]string, len(labels))
 	for idx, label := range labels {
 		labelNames[idx] = label.Name
@@ -76,7 +76,7 @@ func (i *Issue) HasLabel(labelName string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	labelName = strings.ToLower(strings.TrimSpace(labelName))
 	for _, label := range labels {
 		if strings.ToLower(label.Name) == labelName {
@@ -93,7 +93,7 @@ func (i *Issue) Tags() ([]*IssueTag, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to legacy IssueTags
 	tags := make([]*IssueTag, len(labels))
 	for idx, label := range labels {
@@ -102,7 +102,7 @@ func (i *Issue) Tags() ([]*IssueTag, error) {
 			Tag:     label.Name,
 		}
 	}
-	
+
 	return tags, nil
 }
 
@@ -119,15 +119,15 @@ func init() {
 // GetRepoIssuesPaginated returns paginated issues for a repository
 func GetRepoIssuesPaginated(repoID string, includeClosed bool, limit, offset int) ([]*Issue, int, error) {
 	condition := "WHERE RepoID = ?"
-	args := []interface{}{repoID}
-	
+	args := []any{repoID}
+
 	if !includeClosed {
 		condition += " AND Status = ?"
 		args = append(args, IssueStatusOpen)
 	}
-	
+
 	condition += " ORDER BY Priority, CreatedAt DESC"
-	
+
 	return Issues.SearchPaginated(condition, limit, offset, args...)
 }
 
@@ -142,13 +142,13 @@ func CreateIssue(title, body string, authorID, repoID string) (*Issue, error) {
 		AuthorID: authorID,
 		RepoID:   repoID,
 	}
-	
+
 	inserted, err := Issues.Insert(issue)
 	if err != nil {
 		return nil, err
 	}
 	issue = inserted
-	
+
 	// Create event for issue creation
 	_, err = CreateEvent(
 		EventIssueCreated,
@@ -162,7 +162,6 @@ func CreateIssue(title, body string, authorID, repoID string) (*Issue, error) {
 		},
 		int(PriorityHigh),
 	)
-	
+
 	return issue, err
 }
-

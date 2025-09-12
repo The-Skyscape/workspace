@@ -23,12 +23,12 @@ const (
 
 // ComponentHealth represents health of a single component
 type ComponentHealth struct {
-	Name        string                 `json:"name"`
-	Status      HealthStatus           `json:"status"`
-	Message     string                 `json:"message,omitempty"`
-	LastCheck   time.Time              `json:"lastCheck"`
-	ResponseTime time.Duration         `json:"responseTime"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Name         string         `json:"name"`
+	Status       HealthStatus   `json:"status"`
+	Message      string         `json:"message,omitempty"`
+	LastCheck    time.Time      `json:"lastCheck"`
+	ResponseTime time.Duration  `json:"responseTime"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // HealthChecker checks the health of a component
@@ -52,7 +52,7 @@ func NewHealthMonitor(checkInterval time.Duration) *HealthMonitor {
 	if checkInterval == 0 {
 		checkInterval = 30 * time.Second
 	}
-	
+
 	return &HealthMonitor{
 		checkers:      make(map[string]HealthChecker),
 		checkInterval: checkInterval,
@@ -77,13 +77,13 @@ func (m *HealthMonitor) Start() {
 	}
 	m.running = true
 	m.mu.Unlock()
-	
+
 	// Initial check
 	m.checkAll()
-	
+
 	// Start monitoring loop
 	go m.monitorLoop()
-	
+
 	log.Println("HealthMonitor: Started monitoring")
 }
 
@@ -96,7 +96,7 @@ func (m *HealthMonitor) Stop() {
 	}
 	m.running = false
 	m.mu.Unlock()
-	
+
 	close(m.stopCh)
 	log.Println("HealthMonitor: Stopped monitoring")
 }
@@ -105,7 +105,7 @@ func (m *HealthMonitor) Stop() {
 func (m *HealthMonitor) monitorLoop() {
 	ticker := time.NewTicker(m.checkInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -124,29 +124,29 @@ func (m *HealthMonitor) checkAll() {
 		checkers = append(checkers, checker)
 	}
 	m.mu.RUnlock()
-	
+
 	var wg sync.WaitGroup
 	for _, checker := range checkers {
 		wg.Add(1)
 		go func(c HealthChecker) {
 			defer wg.Done()
-			
+
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			
+
 			result := c.CheckHealth(ctx)
-			
+
 			m.mu.Lock()
 			m.results[c.Name()] = result
 			m.mu.Unlock()
-			
+
 			// Log unhealthy components
 			if result.Status == HealthUnhealthy {
 				log.Printf("HealthMonitor: Component %s is unhealthy: %s", c.Name(), result.Message)
 			}
 		}(checker)
 	}
-	
+
 	wg.Wait()
 }
 
@@ -154,7 +154,7 @@ func (m *HealthMonitor) checkAll() {
 func (m *HealthMonitor) GetHealth() map[string]ComponentHealth {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	results := make(map[string]ComponentHealth)
 	for k, v := range m.results {
 		results[k] = v
@@ -166,14 +166,14 @@ func (m *HealthMonitor) GetHealth() map[string]ComponentHealth {
 func (m *HealthMonitor) GetOverallHealth() HealthStatus {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if len(m.results) == 0 {
 		return HealthUnknown
 	}
-	
+
 	hasUnhealthy := false
 	hasDegraded := false
-	
+
 	for _, result := range m.results {
 		switch result.Status {
 		case HealthUnhealthy:
@@ -182,7 +182,7 @@ func (m *HealthMonitor) GetOverallHealth() HealthStatus {
 			hasDegraded = true
 		}
 	}
-	
+
 	if hasUnhealthy {
 		return HealthUnhealthy
 	}
@@ -206,29 +206,29 @@ func (c *OllamaHealthChecker) CheckHealth(ctx context.Context) ComponentHealth {
 		Status:    HealthUnknown,
 		LastCheck: start,
 	}
-	
+
 	// Check if Ollama service is initialized
 	if services.Ollama == nil {
 		health.Status = HealthUnhealthy
 		health.Message = "Ollama service not initialized"
 		return health
 	}
-	
+
 	// Check Ollama status
 	status := services.Ollama.GetStatus()
 	health.ResponseTime = time.Since(start)
-	
+
 	if status.Running {
 		health.Status = HealthHealthy
 		health.Message = fmt.Sprintf("Ollama running on port %d", status.Port)
-		health.Metadata = map[string]interface{}{
+		health.Metadata = map[string]any{
 			"port":   status.Port,
 			"models": status.Models,
 		}
 	} else {
 		health.Status = HealthUnhealthy
 		health.Message = "Ollama service not running"
-		
+
 		// Attempt to restart
 		log.Println("HealthMonitor: Attempting to restart Ollama service")
 		if err := services.Ollama.Start(); err != nil {
@@ -238,7 +238,7 @@ func (c *OllamaHealthChecker) CheckHealth(ctx context.Context) ComponentHealth {
 			health.Message = "Ollama service restarted"
 		}
 	}
-	
+
 	return health
 }
 
@@ -256,13 +256,13 @@ func (c *DatabaseHealthChecker) CheckHealth(ctx context.Context) ComponentHealth
 		Status:    HealthUnknown,
 		LastCheck: start,
 	}
-	
+
 	// Simple database ping would go here
 	// For SQLite, we can check if the file exists and is accessible
 	health.ResponseTime = time.Since(start)
 	health.Status = HealthHealthy
 	health.Message = "Database accessible"
-	
+
 	return health
 }
 
@@ -283,25 +283,25 @@ func (c *VaultHealthChecker) CheckHealth(ctx context.Context) ComponentHealth {
 		Status:    HealthUnknown,
 		LastCheck: start,
 	}
-	
+
 	// Check if Vault service is running
 	if services.Vault == nil {
 		health.Status = HealthUnhealthy
 		health.Message = "Vault service not initialized"
 		return health
 	}
-	
+
 	status := services.Vault.GetStatus()
 	health.ResponseTime = time.Since(start)
-	
+
 	if status.Running {
 		health.Status = HealthHealthy
 		health.Message = "Vault service running"
-		health.Metadata = map[string]interface{}{
+		health.Metadata = map[string]any{
 			"sealed": status.Sealed,
 			"port":   status.Port,
 		}
-		
+
 		if status.Sealed {
 			health.Status = HealthDegraded
 			health.Message = "Vault is sealed"
@@ -310,7 +310,7 @@ func (c *VaultHealthChecker) CheckHealth(ctx context.Context) ComponentHealth {
 		health.Status = HealthUnhealthy
 		health.Message = "Vault service not running"
 	}
-	
+
 	return health
 }
 */
@@ -329,17 +329,17 @@ func (c *SandboxHealthChecker) CheckHealth(ctx context.Context) ComponentHealth 
 		Status:    HealthUnknown,
 		LastCheck: start,
 	}
-	
+
 	// Check if we can create a sandbox
 	sandboxes := services.ListSandboxes()
 	health.ResponseTime = time.Since(start)
-	
+
 	health.Status = HealthHealthy
 	health.Message = fmt.Sprintf("%d sandboxes active", len(sandboxes))
-	health.Metadata = map[string]interface{}{
+	health.Metadata = map[string]any{
 		"activeSandboxes": len(sandboxes),
 	}
-	
+
 	return health
 }
 
@@ -360,26 +360,26 @@ func (c *AIQueueHealthChecker) CheckHealth(ctx context.Context) ComponentHealth 
 		Status:    HealthUnknown,
 		LastCheck: start,
 	}
-	
+
 	// Check AI queue service
 	if services.AIQueueService == nil {
 		health.Status = HealthUnhealthy
 		health.Message = "AI queue service not initialized"
 		return health
 	}
-	
+
 	status := services.AIQueueService.GetStatus()
 	health.ResponseTime = time.Since(start)
-	
+
 	if status.Running {
 		health.Status = HealthHealthy
 		health.Message = fmt.Sprintf("Queue running with %d pending tasks", status.QueueSize)
-		health.Metadata = map[string]interface{}{
+		health.Metadata = map[string]any{
 			"queueSize":      status.QueueSize,
 			"processedCount": status.ProcessedCount,
 			"failedCount":    status.FailedCount,
 		}
-		
+
 		// Check if queue is backed up
 		if status.QueueSize > 100 {
 			health.Status = HealthDegraded
@@ -389,7 +389,7 @@ func (c *AIQueueHealthChecker) CheckHealth(ctx context.Context) ComponentHealth 
 		health.Status = HealthUnhealthy
 		health.Message = "AI queue service not running"
 	}
-	
+
 	return health
 }
 */
@@ -399,13 +399,13 @@ func HealthHandler(monitor *HealthMonitor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		health := monitor.GetHealth()
 		overall := monitor.GetOverallHealth()
-		
-		response := map[string]interface{}{
+
+		response := map[string]any{
 			"status":     overall,
 			"components": health,
 			"timestamp":  time.Now(),
 		}
-		
+
 		// Set appropriate status code
 		switch overall {
 		case HealthHealthy:
@@ -417,7 +417,7 @@ func HealthHandler(monitor *HealthMonitor) http.HandlerFunc {
 		default:
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
@@ -429,16 +429,16 @@ var Monitor *HealthMonitor
 // InitializeHealthMonitoring sets up health monitoring
 func InitializeHealthMonitoring() {
 	Monitor = NewHealthMonitor(30 * time.Second)
-	
+
 	// Register health checkers
 	Monitor.RegisterChecker(&OllamaHealthChecker{})
 	Monitor.RegisterChecker(&DatabaseHealthChecker{})
 	// Monitor.RegisterChecker(&VaultHealthChecker{}) // Commented out until VaultHealthChecker is implemented
 	Monitor.RegisterChecker(&SandboxHealthChecker{})
 	// Monitor.RegisterChecker(&AIQueueHealthChecker{}) // Commented out until AIQueueHealthChecker is implemented
-	
+
 	// Start monitoring
 	Monitor.Start()
-	
+
 	log.Println("Health monitoring initialized")
 }

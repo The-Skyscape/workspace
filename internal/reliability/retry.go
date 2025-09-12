@@ -38,7 +38,7 @@ func DefaultRetryConfig() RetryConfig {
 func Retry(ctx context.Context, config RetryConfig, fn func() error) error {
 	var lastErr error
 	delay := config.InitialDelay
-	
+
 	for attempt := 1; attempt <= config.MaxAttempts; attempt++ {
 		// Check context before attempting
 		select {
@@ -46,40 +46,40 @@ func Retry(ctx context.Context, config RetryConfig, fn func() error) error {
 			return ctx.Err()
 		default:
 		}
-		
+
 		// Execute the function
 		err := fn()
 		if err == nil {
 			return nil
 		}
-		
+
 		lastErr = err
-		
+
 		// Check if error is retryable
 		if config.RetryableErrors != nil && !config.RetryableErrors(err) {
 			return fmt.Errorf("non-retryable error: %w", err)
 		}
-		
+
 		// Don't retry if this was the last attempt
 		if attempt == config.MaxAttempts {
 			break
 		}
-		
+
 		// Calculate next delay
 		if config.Jitter {
 			// Add jitter to prevent thundering herd
 			jitter := time.Duration(rand.Float64() * float64(delay) * 0.3)
 			delay = delay + jitter
 		}
-		
+
 		// Cap at max delay
 		if delay > config.MaxDelay {
 			delay = config.MaxDelay
 		}
-		
-		log.Printf("Retry: Attempt %d/%d failed, retrying in %v: %v", 
+
+		log.Printf("Retry: Attempt %d/%d failed, retrying in %v: %v",
 			attempt, config.MaxAttempts, delay, err)
-		
+
 		// Wait with context cancellation
 		select {
 		case <-time.After(delay):
@@ -87,11 +87,11 @@ func Retry(ctx context.Context, config RetryConfig, fn func() error) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-		
+
 		// Exponential backoff for next iteration
 		delay = time.Duration(float64(delay) * config.Multiplier)
 	}
-	
+
 	return fmt.Errorf("max attempts (%d) exceeded: %w", config.MaxAttempts, lastErr)
 }
 
@@ -117,7 +117,7 @@ func (op *RetryOperation) Execute(ctx context.Context, fn func() error) error {
 	op.StartTime = time.Now()
 	op.Attempts = 0
 	op.Success = false
-	
+
 	err := Retry(ctx, op.Config, func() error {
 		op.Attempts++
 		op.LastAttempt = time.Now()
@@ -128,24 +128,24 @@ func (op *RetryOperation) Execute(ctx context.Context, fn func() error) error {
 		}
 		return nil
 	})
-	
+
 	op.EndTime = time.Now()
-	
+
 	if err == nil {
 		op.Success = true
 		op.LastError = nil
 	} else {
 		op.LastError = err
 	}
-	
+
 	return err
 }
 
 // GetStats returns statistics about the operation
-func (op *RetryOperation) GetStats() map[string]interface{} {
+func (op *RetryOperation) GetStats() map[string]any {
 	duration := op.EndTime.Sub(op.StartTime)
-	
-	return map[string]interface{}{
+
+	return map[string]any{
 		"name":        op.Name,
 		"attempts":    op.Attempts,
 		"success":     op.Success,
@@ -162,7 +162,7 @@ func ExponentialBackoff(attempt int, baseDelay time.Duration, maxDelay time.Dura
 	if attempt <= 0 {
 		return baseDelay
 	}
-	
+
 	delay := time.Duration(math.Pow(2, float64(attempt-1))) * baseDelay
 	if delay > maxDelay {
 		return maxDelay
@@ -184,11 +184,11 @@ func FibonacciBackoff(attempt int, baseDelay time.Duration, maxDelay time.Durati
 	if attempt <= 0 {
 		return baseDelay
 	}
-	
+
 	// Calculate Fibonacci number for attempt
 	fib := fibonacci(attempt)
 	delay := time.Duration(fib) * baseDelay
-	
+
 	if delay > maxDelay {
 		return maxDelay
 	}
@@ -238,22 +238,22 @@ func IsRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Check for explicit retryable error
 	if _, ok := err.(RetryableError); ok {
 		return true
 	}
-	
+
 	// Check for explicit permanent error
 	if _, ok := err.(PermanentError); ok {
 		return false
 	}
-	
+
 	// Check for context errors (not retryable)
 	if err == context.Canceled || err == context.DeadlineExceeded {
 		return false
 	}
-	
+
 	// Default to retryable for other errors
 	return true
 }

@@ -25,31 +25,31 @@ func (p *DependencyProcessor) Process(ctx context.Context, task *queue.Task) err
 	if !ok {
 		return fmt.Errorf("invalid repo ID in task data")
 	}
-	
+
 	// Get repository
 	repo, err := models.Repos.Get(repoID)
 	if err != nil {
 		return fmt.Errorf("failed to get repo: %w", err)
 	}
-	
+
 	// Check for outdated dependencies
 	updates, err := p.checkDependencies(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("dependency check failed: %w", err)
 	}
-	
+
 	// Create update report if needed
 	if len(updates) > 0 {
 		if err := p.createUpdateReport(repo, updates); err != nil {
 			return fmt.Errorf("failed to create update report: %w", err)
 		}
 	}
-	
-	task.Result = map[string]interface{}{
+
+	task.Result = map[string]any{
 		"updates_available": len(updates),
-		"updates":          updates,
+		"updates":           updates,
 	}
-	
+
 	return nil
 }
 
@@ -72,13 +72,13 @@ type DependencyUpdate struct {
 // checkDependencies checks for outdated dependencies
 func (p *DependencyProcessor) checkDependencies(ctx context.Context, repo *models.Repository) ([]DependencyUpdate, error) {
 	var updates []DependencyUpdate
-	
+
 	// This is a simplified check - in production would check actual package files
 	// For demonstration, we'll simulate finding some updates
-	
+
 	// Simulate checking different package managers
 	lang := p.detectLanguage(repo)
-	
+
 	switch lang {
 	case "go":
 		updates = append(updates, p.checkGoModules(repo)...)
@@ -98,7 +98,7 @@ func (p *DependencyProcessor) checkDependencies(ctx context.Context, repo *model
 			ReleaseNotes:   "Bug fixes and performance improvements",
 		})
 	}
-	
+
 	log.Printf("DependencyProcessor: Found %d dependency updates for repo %s", len(updates), repo.Name)
 	return updates, nil
 }
@@ -107,7 +107,7 @@ func (p *DependencyProcessor) checkDependencies(ctx context.Context, repo *model
 func (p *DependencyProcessor) detectLanguage(repo *models.Repository) string {
 	// Check for language-specific files in repo description or recent activity
 	desc := strings.ToLower(repo.Description)
-	
+
 	if strings.Contains(desc, "go") || strings.Contains(desc, "golang") {
 		return "go"
 	}
@@ -117,7 +117,7 @@ func (p *DependencyProcessor) detectLanguage(repo *models.Repository) string {
 	if strings.Contains(desc, "python") || strings.Contains(desc, "django") || strings.Contains(desc, "flask") {
 		return "python"
 	}
-	
+
 	return "unknown"
 }
 
@@ -199,18 +199,18 @@ func (p *DependencyProcessor) checkPythonPackages(repo *models.Repository) []Dep
 // createUpdateReport creates an issue or PR with dependency updates
 func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, updates []DependencyUpdate) error {
 	var report strings.Builder
-	
+
 	report.WriteString("# 📦 Dependency Update Report\n\n")
 	report.WriteString(fmt.Sprintf("**Repository:** %s\n", repo.Name))
 	report.WriteString(fmt.Sprintf("**Date:** %s\n", time.Now().Format("January 2, 2006")))
 	report.WriteString(fmt.Sprintf("**Updates Available:** %d\n\n", len(updates)))
-	
+
 	// Group updates by type
 	security := []DependencyUpdate{}
 	major := []DependencyUpdate{}
 	minor := []DependencyUpdate{}
 	patch := []DependencyUpdate{}
-	
+
 	for _, update := range updates {
 		if update.Security {
 			security = append(security, update)
@@ -225,7 +225,7 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 			}
 		}
 	}
-	
+
 	// Security updates
 	if len(security) > 0 {
 		report.WriteString("## 🔒 Security Updates (Recommended)\n\n")
@@ -237,7 +237,7 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Major updates
 	if len(major) > 0 {
 		report.WriteString("## 🚀 Major Updates (Breaking Changes)\n\n")
@@ -249,7 +249,7 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Minor updates
 	if len(minor) > 0 {
 		report.WriteString("## ✨ Minor Updates (New Features)\n\n")
@@ -261,7 +261,7 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Patch updates
 	if len(patch) > 0 {
 		report.WriteString("## 🐛 Patch Updates (Bug Fixes)\n\n")
@@ -273,22 +273,22 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 		}
 		report.WriteString("\n")
 	}
-	
+
 	// Recommendations
 	report.WriteString("## 💡 Recommendations\n\n")
-	
+
 	if len(security) > 0 {
 		report.WriteString("1. **Apply security updates immediately** - These address known vulnerabilities\n")
 	}
-	
+
 	report.WriteString("2. **Test updates in development** - Ensure compatibility before production\n")
 	report.WriteString("3. **Review breaking changes** - Major updates may require code changes\n")
 	report.WriteString("4. **Update incrementally** - Apply one update at a time for easier debugging\n")
 	report.WriteString("5. **Check release notes** - Understand what's changing in each update\n\n")
-	
+
 	// Update commands
 	report.WriteString("## 🛠️ Update Commands\n\n")
-	
+
 	lang := p.detectLanguage(repo)
 	switch lang {
 	case "go":
@@ -310,10 +310,10 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 		report.WriteString("pip install --upgrade -r requirements.txt\n")
 		report.WriteString("```\n")
 	}
-	
+
 	report.WriteString("\n---\n")
 	report.WriteString("*This report was generated automatically by AI dependency scanning.*\n")
-	
+
 	// Determine priority based on security updates
 	priority := "low"
 	if len(security) > 0 {
@@ -321,7 +321,7 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 	} else if len(major) > 0 {
 		priority = "medium"
 	}
-	
+
 	// Create issue
 	var issuePriority models.IssuePriority
 	switch priority {
@@ -334,16 +334,16 @@ func (p *DependencyProcessor) createUpdateReport(repo *models.Repository, update
 	default:
 		issuePriority = models.PriorityLow
 	}
-	
+
 	issue := &models.Issue{
-		Title:       fmt.Sprintf("📦 Dependency Updates Available (%d packages)", len(updates)),
-		Body:        report.String(),
-		Status:      models.IssueStatusOpen,
-		Priority:    issuePriority,
-		RepoID:      repo.ID,
-		AuthorID:    "system",
+		Title:    fmt.Sprintf("📦 Dependency Updates Available (%d packages)", len(updates)),
+		Body:     report.String(),
+		Status:   models.IssueStatusOpen,
+		Priority: issuePriority,
+		RepoID:   repo.ID,
+		AuthorID: "system",
 	}
-	
+
 	_, err := models.Issues.Insert(issue)
 	return err
 }

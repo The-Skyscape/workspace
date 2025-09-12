@@ -13,7 +13,7 @@ func ConvertOllamaToAgentMessages(ollamaMessages []services.OllamaMessage) []Mes
 			Role:    msg.Role,
 			Content: msg.Content,
 		}
-		
+
 		// Convert tool calls if present
 		if len(msg.ToolCalls) > 0 {
 			messages[i].ToolCalls = make([]ToolCall, len(msg.ToolCalls))
@@ -40,7 +40,7 @@ func ConvertAgentToOllamaMessages(agentMessages []Message) []services.OllamaMess
 			Role:    msg.Role,
 			Content: msg.Content,
 		}
-		
+
 		// Convert tool calls if present
 		if len(msg.ToolCalls) > 0 {
 			ollamaMessages[i].ToolCalls = make([]services.OllamaToolCall, len(msg.ToolCalls))
@@ -86,37 +86,37 @@ func ConvertAgentToOllamaToolCall(agentCall ToolCall) services.OllamaToolCall {
 // ConvertRegistryToAgentTools converts tool registry definitions to agent tool format
 func ConvertRegistryToAgentTools(registry *ToolRegistry, supportedTools []string) []Tool {
 	var tools []Tool
-	
+
 	// Create a map for quick lookup
 	supportedMap := make(map[string]bool)
 	for _, name := range supportedTools {
 		supportedMap[name] = true
 	}
-	
+
 	// Get tool definitions from registry
 	toolDefs := registry.GenerateOllamaTools()
-	
+
 	for _, def := range toolDefs {
-		if funcDef, ok := def["function"].(map[string]interface{}); ok {
+		if funcDef, ok := def["function"].(map[string]any); ok {
 			name := funcDef["name"].(string)
-			
+
 			// Only include if supported
 			if !supportedMap[name] {
 				continue
 			}
-			
+
 			tool := Tool{
 				Type: "function",
 				Function: ToolFunction{
 					Name:        name,
 					Description: funcDef["description"].(string),
-					Parameters:  funcDef["parameters"].(map[string]interface{}),
+					Parameters:  funcDef["parameters"].(map[string]any),
 				},
 			}
 			tools = append(tools, tool)
 		}
 	}
-	
+
 	return tools
 }
 
@@ -153,8 +153,8 @@ func FormatToolResultMessage(toolName string, result string) Message {
 }
 
 // ParseJSONArguments safely parses tool call arguments
-func ParseJSONArguments(args json.RawMessage) (map[string]interface{}, error) {
-	var params map[string]interface{}
+func ParseJSONArguments(args json.RawMessage) (map[string]any, error) {
+	var params map[string]any
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, err
 	}

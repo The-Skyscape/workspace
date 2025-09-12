@@ -32,12 +32,12 @@ func (s State) String() string {
 
 // CircuitBreaker implements the circuit breaker pattern for AI operations
 type CircuitBreaker struct {
-	name            string
-	maxFailures     int
-	resetTimeout    time.Duration
-	halfOpenMax     int
-	onStateChange   func(from, to State)
-	
+	name          string
+	maxFailures   int
+	resetTimeout  time.Duration
+	halfOpenMax   int
+	onStateChange func(from, to State)
+
 	mu              sync.RWMutex
 	state           State
 	failures        int
@@ -68,7 +68,7 @@ func NewCircuitBreaker(config Config) *CircuitBreaker {
 	if config.HalfOpenMax == 0 {
 		config.HalfOpenMax = 3
 	}
-	
+
 	return &CircuitBreaker{
 		name:          config.Name,
 		maxFailures:   config.MaxFailures,
@@ -84,21 +84,21 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
 	if err := cb.canExecute(); err != nil {
 		return err
 	}
-	
+
 	// Execute the function
 	err := fn()
-	
+
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	cb.totalRequests++
-	
+
 	if err != nil {
 		cb.onFailure()
 		cb.totalFailures++
 		return fmt.Errorf("circuit breaker %s: %w", cb.name, err)
 	}
-	
+
 	cb.onSuccess()
 	cb.totalSuccesses++
 	return nil
@@ -120,11 +120,11 @@ func (cb *CircuitBreaker) ExecuteWithFallback(ctx context.Context, fn func() err
 func (cb *CircuitBreaker) canExecute() error {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	
+
 	switch cb.state {
 	case StateClosed:
 		return nil
-		
+
 	case StateOpen:
 		// Check if we should transition to half-open
 		if time.Since(cb.lastFailureTime) > cb.resetTimeout {
@@ -139,10 +139,10 @@ func (cb *CircuitBreaker) canExecute() error {
 			return nil
 		}
 		return fmt.Errorf("circuit breaker %s is open", cb.name)
-		
+
 	case StateHalfOpen:
 		return nil
-		
+
 	default:
 		return fmt.Errorf("circuit breaker %s in unknown state", cb.name)
 	}
@@ -153,7 +153,7 @@ func (cb *CircuitBreaker) onSuccess() {
 	switch cb.state {
 	case StateClosed:
 		cb.failures = 0
-		
+
 	case StateHalfOpen:
 		cb.successCount++
 		if cb.successCount >= cb.halfOpenMax {
@@ -161,7 +161,7 @@ func (cb *CircuitBreaker) onSuccess() {
 			cb.failures = 0
 			cb.successCount = 0
 		}
-		
+
 	case StateOpen:
 		// Shouldn't happen, but reset if it does
 		cb.setState(StateHalfOpen)
@@ -173,16 +173,16 @@ func (cb *CircuitBreaker) onSuccess() {
 func (cb *CircuitBreaker) onFailure() {
 	cb.failures++
 	cb.lastFailureTime = time.Now()
-	
+
 	switch cb.state {
 	case StateClosed:
 		if cb.failures >= cb.maxFailures {
 			cb.setState(StateOpen)
 		}
-		
+
 	case StateHalfOpen:
 		cb.setState(StateOpen)
-		
+
 	case StateOpen:
 		// Already open, just update failure time
 	}
@@ -193,12 +193,12 @@ func (cb *CircuitBreaker) setState(newState State) {
 	if cb.state == newState {
 		return
 	}
-	
+
 	oldState := cb.state
 	cb.state = newState
-	
+
 	log.Printf("CircuitBreaker %s: State changed from %s to %s", cb.name, oldState, newState)
-	
+
 	if cb.onStateChange != nil {
 		cb.onStateChange(oldState, newState)
 	}
@@ -212,16 +212,16 @@ func (cb *CircuitBreaker) GetState() State {
 }
 
 // GetStats returns circuit breaker statistics
-func (cb *CircuitBreaker) GetStats() map[string]interface{} {
+func (cb *CircuitBreaker) GetStats() map[string]any {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	
+
 	successRate := float64(0)
 	if cb.totalRequests > 0 {
 		successRate = float64(cb.totalSuccesses) / float64(cb.totalRequests) * 100
 	}
-	
-	return map[string]interface{}{
+
+	return map[string]any{
 		"name":            cb.name,
 		"state":           cb.state.String(),
 		"failures":        cb.failures,
@@ -237,7 +237,7 @@ func (cb *CircuitBreaker) GetStats() map[string]interface{} {
 func (cb *CircuitBreaker) Reset() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	cb.setState(StateClosed)
 	cb.failures = 0
 	cb.successCount = 0
@@ -264,15 +264,15 @@ func (m *CircuitBreakerManager) GetOrCreate(name string, config Config) *Circuit
 		return cb
 	}
 	m.mu.RUnlock()
-	
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if cb, exists := m.breakers[name]; exists {
 		return cb
 	}
-	
+
 	config.Name = name
 	cb := NewCircuitBreaker(config)
 	m.breakers[name] = cb
@@ -291,7 +291,7 @@ func (m *CircuitBreakerManager) Get(name string) (*CircuitBreaker, bool) {
 func (m *CircuitBreakerManager) GetAll() map[string]*CircuitBreaker {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	result := make(map[string]*CircuitBreaker)
 	for k, v := range m.breakers {
 		result[k] = v
@@ -300,11 +300,11 @@ func (m *CircuitBreakerManager) GetAll() map[string]*CircuitBreaker {
 }
 
 // GetStats returns statistics for all circuit breakers
-func (m *CircuitBreakerManager) GetStats() []map[string]interface{} {
+func (m *CircuitBreakerManager) GetStats() []map[string]any {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
-	stats := make([]map[string]interface{}, 0, len(m.breakers))
+
+	stats := make([]map[string]any, 0, len(m.breakers))
 	for _, cb := range m.breakers {
 		stats = append(stats, cb.GetStats())
 	}
@@ -315,7 +315,7 @@ func (m *CircuitBreakerManager) GetStats() []map[string]interface{} {
 func (m *CircuitBreakerManager) ResetAll() {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	for _, cb := range m.breakers {
 		cb.Reset()
 	}

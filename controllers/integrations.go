@@ -55,7 +55,7 @@ func (c *IntegrationsController) Setup(app *application.App) {
 	http.Handle("GET /auth/github", app.ProtectFunc(c.initiateGitHubOAuth, auth.Required))
 	http.Handle("GET /auth/github/callback", app.ProtectFunc(c.handleGitHubCallback, auth.Required))
 	http.Handle("POST /auth/github/disconnect", app.ProtectFunc(c.disconnectGitHubAccount, auth.Required))
-	
+
 	// GitHub repository listing for import
 	http.Handle("GET /github/repos", app.ProtectFunc(c.listGitHubRepos, auth.Required))
 
@@ -157,7 +157,7 @@ func (c *IntegrationsController) getGitHubCallbackURLForRequest(r *http.Request)
 // configureGitHubOAuth handles GitHub OAuth app configuration
 func (c *IntegrationsController) configureGitHubOAuth(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "unauthorized")
@@ -184,7 +184,7 @@ func (c *IntegrationsController) configureGitHubOAuth(w http.ResponseWriter, r *
 
 	// Store OAuth app credentials in vault
 	if clientID != "" && clientSecret != "" {
-		err = models.Secrets.StoreSecret("github/oauth_app", map[string]interface{}{
+		err = models.Secrets.StoreSecret("github/oauth_app", map[string]any{
 			"client_id":     clientID,
 			"client_secret": clientSecret,
 			"enabled":       settings.GitHubEnabled,
@@ -217,7 +217,7 @@ func (c *IntegrationsController) configureGitHubOAuth(w http.ResponseWriter, r *
 // testGitHubOAuth tests the GitHub OAuth configuration
 func (c *IntegrationsController) testGitHubOAuth(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// Check if OAuth is configured
+	// Check if OAuth is configured
 	clientID, clientSecret, err := models.GetGitHubCredentials()
 	if err != nil || clientID == "" || clientSecret == "" {
 		c.RenderErrorMsg(w, r, "GitHub OAuth not configured")
@@ -232,7 +232,7 @@ func (c *IntegrationsController) testGitHubOAuth(w http.ResponseWriter, r *http.
 // initiateGitHubOAuth starts the GitHub OAuth flow
 func (c *IntegrationsController) initiateGitHubOAuth(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// Get OAuth credentials
+	// Get OAuth credentials
 	clientID, _, err := models.GetGitHubCredentials()
 	if err != nil || clientID == "" {
 		c.RenderErrorMsg(w, r, "GitHub OAuth is not configured. Please ask an administrator to configure it in Settings.")
@@ -255,7 +255,7 @@ func (c *IntegrationsController) initiateGitHubOAuth(w http.ResponseWriter, r *h
 // handleGitHubCallback handles the OAuth callback from GitHub
 func (c *IntegrationsController) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -284,7 +284,7 @@ func (c *IntegrationsController) handleGitHubCallback(w http.ResponseWriter, r *
 	}
 
 	// Store user's OAuth token and username in vault
-	err = models.Secrets.StoreSecret(fmt.Sprintf("github/users/%s", user.ID), map[string]interface{}{
+	err = models.Secrets.StoreSecret(fmt.Sprintf("github/users/%s", user.ID), map[string]any{
 		"token":    token,
 		"username": username,
 	})
@@ -370,7 +370,7 @@ func (c *IntegrationsController) exchangeGitHubCode(code, clientID, clientSecret
 // disconnectGitHubAccount disconnects the user's GitHub account
 func (c *IntegrationsController) disconnectGitHubAccount(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -402,7 +402,7 @@ func (c *IntegrationsController) CurrentRepo() (*models.Repository, error) {
 // setupGitHubRepo handles GitHub repository integration setup
 func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -475,7 +475,7 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 	repo.AutoSync = autoSync
 
 	// Store integration details in vault
-	err = models.StoreGitHubRepoIntegration(repo.ID, map[string]interface{}{
+	err = models.StoreGitHubRepoIntegration(repo.ID, map[string]any{
 		"github_url":     githubURL,
 		"github_token":   githubToken,
 		"sync_direction": syncDirection,
@@ -526,7 +526,7 @@ func (c *IntegrationsController) setupGitHubRepo(w http.ResponseWriter, r *http.
 // syncGitHubRepo handles manual GitHub sync (both code and issues/PRs)
 func (c *IntegrationsController) syncGitHubRepo(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -600,7 +600,7 @@ func (c *IntegrationsController) syncGitHubRepo(w http.ResponseWriter, r *http.R
 // disconnectGitHubRepo handles GitHub disconnection
 func (c *IntegrationsController) disconnectGitHubRepo(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, _ := auth.Authenticate(r)
 
 	repoID := r.PathValue("id")
@@ -681,7 +681,7 @@ func (c *IntegrationsController) IsRepoSynced() bool {
 // pushGitHubRepo handles pushing commits to GitHub
 func (c *IntegrationsController) pushGitHubRepo(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -736,7 +736,7 @@ func (c *IntegrationsController) pushGitHubRepo(w http.ResponseWriter, r *http.R
 // pullGitHubRepo handles pulling changes from GitHub
 func (c *IntegrationsController) pullGitHubRepo(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -791,7 +791,7 @@ func (c *IntegrationsController) pullGitHubRepo(w http.ResponseWriter, r *http.R
 // getSyncStatus returns the sync status as JSON for HTMX
 func (c *IntegrationsController) getSyncStatus(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	_, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -817,7 +817,7 @@ func (c *IntegrationsController) getSyncStatus(w http.ResponseWriter, r *http.Re
 	}
 
 	// Render status partial
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Ahead":  ahead,
 		"Behind": behind,
 		"Status": status,
@@ -830,7 +830,7 @@ func (c *IntegrationsController) getSyncStatus(w http.ResponseWriter, r *http.Re
 // configureGitHubRemote sets up the Git remote for a repository
 func (c *IntegrationsController) configureGitHubRemote(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
@@ -876,7 +876,7 @@ func (c *IntegrationsController) configureGitHubRemote(w http.ResponseWriter, r 
 // restartVault attempts to restart the Vault service
 func (c *IntegrationsController) restartVault(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "unauthorized")
@@ -902,26 +902,26 @@ func (c *IntegrationsController) restartVault(w http.ResponseWriter, r *http.Req
 // listGitHubRepos lists the authenticated user's GitHub repositories
 func (c *IntegrationsController) listGitHubRepos(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		auth := c.Use("auth").(*AuthController)
+	auth := c.Use("auth").(*AuthController)
 	user, _, err := auth.Authenticate(r)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "authentication required")
 		return
 	}
-	
+
 	// Check if user has connected GitHub
 	if !c.HasGitHubConnected() {
 		c.Render(w, r, "github-not-connected.html", nil)
 		return
 	}
-	
+
 	// Create GitHub client
 	client, err := github.NewGitHubClient(user.ID)
 	if err != nil {
 		c.RenderErrorMsg(w, r, "Failed to connect to GitHub. Please reconnect your account.")
 		return
 	}
-	
+
 	// List repositories with default options
 	repos, err := client.ListUserRepos(nil)
 	if err != nil {
@@ -929,7 +929,7 @@ func (c *IntegrationsController) listGitHubRepos(w http.ResponseWriter, r *http.
 		c.RenderErrorMsg(w, r, "Failed to load GitHub repositories")
 		return
 	}
-	
+
 	// Render the repository list partial
 	c.Render(w, r, "github-repos-import.html", repos)
 }

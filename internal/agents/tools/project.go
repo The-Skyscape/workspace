@@ -18,7 +18,7 @@ func (t *CreateIssueTool) Description() string {
 	return "Create a new issue in a repository. Required params: repo_id, title, body. Optional params: tags (array of strings)"
 }
 
-func (t *CreateIssueTool) ValidateParams(params map[string]interface{}) error {
+func (t *CreateIssueTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -26,7 +26,7 @@ func (t *CreateIssueTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	title, exists := params["title"]
 	if !exists {
 		return fmt.Errorf("title is required")
@@ -34,7 +34,7 @@ func (t *CreateIssueTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := title.(string); !ok {
 		return fmt.Errorf("title must be a string")
 	}
-	
+
 	body, exists := params["body"]
 	if !exists {
 		return fmt.Errorf("body is required")
@@ -42,64 +42,64 @@ func (t *CreateIssueTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := body.(string); !ok {
 		return fmt.Errorf("body must be a string")
 	}
-	
+
 	return nil
 }
 
-func (t *CreateIssueTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *CreateIssueTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"title": map[string]interface{}{
+		"title": map[string]any{
 			"type":        "string",
 			"description": "Issue title",
 			"required":    true,
 		},
-		"body": map[string]interface{}{
+		"body": map[string]any{
 			"type":        "string",
 			"description": "Issue description",
 			"required":    true,
 		},
-		"labels": map[string]interface{}{
+		"labels": map[string]any{
 			"type":        "array",
 			"description": "Labels to apply to the issue",
-			"items": map[string]interface{}{
+			"items": map[string]any{
 				"type": "string",
 			},
 		},
 	})
 }
 
-func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *CreateIssueTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	title := params["title"].(string)
 	body := params["body"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check write permissions
 	if !user.IsAdmin {
 		return "", fmt.Errorf("access denied: only admins can create issues")
 	}
-	
+
 	// Process tags if provided
 	var tagsList []string
 	if tags, exists := params["tags"]; exists {
 		switch v := tags.(type) {
-		case []interface{}:
+		case []any:
 			// Convert to string array
 			for _, tag := range v {
 				if tagStr, ok := tag.(string); ok {
@@ -110,7 +110,7 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 			tagsList = v
 		}
 	}
-	
+
 	// Create issue
 	issue := &models.Issue{
 		Title:      title,
@@ -121,12 +121,12 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 		RepoID:     repoID,
 		SyncStatus: "local_only",
 	}
-	
+
 	issue, err = models.Issues.Insert(issue)
 	if err != nil {
 		return "", fmt.Errorf("failed to create issue: %w", err)
 	}
-	
+
 	// Add tags using IssueTag model
 	for _, tag := range tagsList {
 		if tag != "" {
@@ -137,13 +137,13 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 			}
 		}
 	}
-	
+
 	// Continue with the response
 	issue, err = models.Issues.Get(issue.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to create issue: %w", err)
 	}
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("✅ **Issue Created Successfully**\n\n"))
@@ -151,13 +151,13 @@ func (t *CreateIssueTool) Execute(params map[string]interface{}, userID string) 
 	result.WriteString(fmt.Sprintf("**Repository:** %s\n", repo.Name))
 	result.WriteString(fmt.Sprintf("**Status:** Open\n"))
 	result.WriteString(fmt.Sprintf("**Author:** %s\n", user.Name))
-	
+
 	if len(tagsList) > 0 {
 		result.WriteString(fmt.Sprintf("**Tags:** %s\n", strings.Join(tagsList, ", ")))
 	}
-	
+
 	result.WriteString(fmt.Sprintf("\n**Description:**\n%s\n", body))
-	
+
 	return result.String(), nil
 }
 
@@ -172,7 +172,7 @@ func (t *ListIssuesTool) Description() string {
 	return "List issues in a repository. Required params: repo_id. Optional params: status (open/closed/all), limit (number)"
 }
 
-func (t *ListIssuesTool) ValidateParams(params map[string]interface{}) error {
+func (t *ListIssuesTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -183,14 +183,14 @@ func (t *ListIssuesTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *ListIssuesTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *ListIssuesTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"state": map[string]interface{}{
+		"state": map[string]any{
 			"type":        "string",
 			"enum":        []string{"open", "closed", "all"},
 			"description": "Filter by issue state",
@@ -199,26 +199,26 @@ func (t *ListIssuesTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *ListIssuesTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Get status filter
 	status := "open"
 	includeClosed := false
@@ -230,7 +230,7 @@ func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (
 			}
 		}
 	}
-	
+
 	// Get limit
 	limit := 20
 	if l, exists := params["limit"]; exists {
@@ -241,13 +241,13 @@ func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (
 			limit = v
 		}
 	}
-	
+
 	// Get issues
 	issues, _, err := models.GetRepoIssuesPaginated(repoID, includeClosed, limit, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to list issues: %w", err)
 	}
-	
+
 	// Filter by specific status if needed
 	if status == "closed" {
 		filtered := make([]*models.Issue, 0)
@@ -258,13 +258,13 @@ func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (
 		}
 		issues = filtered
 	}
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("## Issues in %s\n", repo.Name))
 	result.WriteString(fmt.Sprintf("**Filter:** %s\n", status))
 	result.WriteString(fmt.Sprintf("**Found:** %d issues\n\n", len(issues)))
-	
+
 	if len(issues) == 0 {
 		result.WriteString("No issues found.\n")
 	} else {
@@ -273,25 +273,25 @@ func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (
 			if issue.Status == "closed" {
 				statusIcon = "✅"
 			}
-			
+
 			// Get author name
 			author := "Unknown"
 			if authorUser, err := models.Auth.GetUser(issue.AuthorID); err == nil {
 				author = authorUser.Name
 			}
-			
+
 			result.WriteString(fmt.Sprintf("%s **#%s: %s**\n", statusIcon, issue.ID, issue.Title))
-			result.WriteString(fmt.Sprintf("   Author: %s | Created: %s\n", 
-				author, 
+			result.WriteString(fmt.Sprintf("   Author: %s | Created: %s\n",
+				author,
 				issue.CreatedAt.Format("Jan 2, 2006")))
-			
+
 			// Show tags if any
 			// Get tags from IssueTag model
 			tags, _ := models.GetIssueTags(issue.ID)
 			if len(tags) > 0 {
 				result.WriteString(fmt.Sprintf("   Tags: %s\n", strings.Join(tags, ", ")))
 			}
-			
+
 			// Show truncated body
 			bodyPreview := issue.Body
 			if len(bodyPreview) > 100 {
@@ -303,7 +303,7 @@ func (t *ListIssuesTool) Execute(params map[string]interface{}, userID string) (
 			result.WriteString("\n")
 		}
 	}
-	
+
 	return result.String(), nil
 }
 
@@ -318,7 +318,7 @@ func (t *UpdateIssueTool) Description() string {
 	return "Update an existing issue. Required params: issue_id. Optional params: title, body, status (open/closed), tags"
 }
 
-func (t *UpdateIssueTool) ValidateParams(params map[string]interface{}) error {
+func (t *UpdateIssueTool) ValidateParams(params map[string]any) error {
 	issueID, exists := params["issue_id"]
 	if !exists {
 		return fmt.Errorf("issue_id is required")
@@ -326,7 +326,7 @@ func (t *UpdateIssueTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := issueID.(string); !ok {
 		return fmt.Errorf("issue_id must be a string")
 	}
-	
+
 	// At least one field to update must be provided
 	hasUpdate := false
 	for _, field := range []string{"title", "body", "status", "tags"} {
@@ -338,61 +338,61 @@ func (t *UpdateIssueTool) ValidateParams(params map[string]interface{}) error {
 	if !hasUpdate {
 		return fmt.Errorf("at least one field to update must be provided (title, body, status, or tags)")
 	}
-	
+
 	return nil
 }
 
-func (t *UpdateIssueTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *UpdateIssueTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"issue_number": map[string]interface{}{
+		"issue_number": map[string]any{
 			"type":        "integer",
 			"description": "Issue number to update",
 			"required":    true,
 		},
-		"state": map[string]interface{}{
+		"state": map[string]any{
 			"type":        "string",
 			"enum":        []string{"open", "closed"},
 			"description": "New state for the issue",
 		},
-		"title": map[string]interface{}{
+		"title": map[string]any{
 			"type":        "string",
 			"description": "New title for the issue",
 		},
-		"body": map[string]interface{}{
+		"body": map[string]any{
 			"type":        "string",
 			"description": "New body for the issue",
 		},
 	})
 }
 
-func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *UpdateIssueTool) Execute(params map[string]any, userID string) (string, error) {
 	issueID := params["issue_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Check admin permissions
 	if !user.IsAdmin {
 		return "", fmt.Errorf("access denied: only admins can update issues")
 	}
-	
+
 	// Get issue
 	issue, err := models.Issues.Get(issueID)
 	if err != nil {
 		return "", fmt.Errorf("issue not found: %s", issueID)
 	}
-	
+
 	// Track what was updated
 	var updates []string
-	
+
 	// Update fields if provided
 	if title, exists := params["title"]; exists {
 		if titleStr, ok := title.(string); ok && titleStr != "" {
@@ -400,14 +400,14 @@ func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) 
 			updates = append(updates, "title")
 		}
 	}
-	
+
 	if body, exists := params["body"]; exists {
 		if bodyStr, ok := body.(string); ok && bodyStr != "" {
 			issue.Body = bodyStr
 			updates = append(updates, "body")
 		}
 	}
-	
+
 	if status, exists := params["status"]; exists {
 		if statusStr, ok := status.(string); ok {
 			switch statusStr {
@@ -426,10 +426,10 @@ func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) 
 			}
 		}
 	}
-	
+
 	if tags, exists := params["tags"]; exists {
 		switch v := tags.(type) {
-		case []interface{}:
+		case []any:
 			strTags := make([]string, len(v))
 			for i, tag := range v {
 				if tagStr, ok := tag.(string); ok {
@@ -445,21 +445,21 @@ func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) 
 			updates = append(updates, "tags")
 		}
 	}
-	
+
 	// Save updates
 	issue.UpdatedAt = time.Now()
 	err = models.Issues.Update(issue)
 	if err != nil {
 		return "", fmt.Errorf("failed to update issue: %w", err)
 	}
-	
+
 	// Get repository for response
 	repo, _ := models.Repositories.Get(issue.RepoID)
 	repoName := "Unknown"
 	if repo != nil {
 		repoName = repo.Name
 	}
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("✅ **Issue Updated Successfully**\n\n"))
@@ -467,7 +467,7 @@ func (t *UpdateIssueTool) Execute(params map[string]interface{}, userID string) 
 	result.WriteString(fmt.Sprintf("**Repository:** %s\n", repoName))
 	result.WriteString(fmt.Sprintf("**Status:** %s\n", issue.Status))
 	result.WriteString(fmt.Sprintf("**Updated Fields:** %s\n", strings.Join(updates, ", ")))
-	
+
 	return result.String(), nil
 }
 
@@ -482,7 +482,7 @@ func (t *CreatePRTool) Description() string {
 	return "Create a new pull request. Required params: repo_id, title, body, base_branch, compare_branch"
 }
 
-func (t *CreatePRTool) ValidateParams(params map[string]interface{}) error {
+func (t *CreatePRTool) ValidateParams(params map[string]any) error {
 	requiredFields := []string{"repo_id", "title", "body", "base_branch", "compare_branch"}
 	for _, field := range requiredFields {
 		value, exists := params[field]
@@ -493,38 +493,38 @@ func (t *CreatePRTool) ValidateParams(params map[string]interface{}) error {
 			return fmt.Errorf("%s must be a string", field)
 		}
 	}
-	
+
 	// Check that base and compare branches are different
 	if params["base_branch"] == params["compare_branch"] {
 		return fmt.Errorf("base_branch and compare_branch must be different")
 	}
-	
+
 	return nil
 }
 
-func (t *CreatePRTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *CreatePRTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"title": map[string]interface{}{
+		"title": map[string]any{
 			"type":        "string",
 			"description": "Pull request title",
 			"required":    true,
 		},
-		"body": map[string]interface{}{
+		"body": map[string]any{
 			"type":        "string",
 			"description": "Pull request description",
 			"required":    true,
 		},
-		"head": map[string]interface{}{
+		"head": map[string]any{
 			"type":        "string",
 			"description": "Head branch (source)",
 			"required":    true,
 		},
-		"base": map[string]interface{}{
+		"base": map[string]any{
 			"type":        "string",
 			"description": "Base branch (target)",
 			"required":    true,
@@ -532,36 +532,36 @@ func (t *CreatePRTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *CreatePRTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *CreatePRTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	title := params["title"].(string)
 	body := params["body"].(string)
 	baseBranch := params["base_branch"].(string)
 	compareBranch := params["compare_branch"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check write permissions
 	if !user.IsAdmin {
 		return "", fmt.Errorf("access denied: only admins can create pull requests")
 	}
-	
+
 	// Verify branches exist
 	branches, err := repo.GetBranches()
 	if err != nil {
 		return "", fmt.Errorf("failed to get branches: %w", err)
 	}
-	
+
 	baseExists := false
 	compareExists := false
 	for _, branch := range branches {
@@ -572,20 +572,20 @@ func (t *CreatePRTool) Execute(params map[string]interface{}, userID string) (st
 			compareExists = true
 		}
 	}
-	
+
 	if !baseExists {
 		return "", fmt.Errorf("base branch '%s' does not exist", baseBranch)
 	}
 	if !compareExists {
 		return "", fmt.Errorf("compare branch '%s' does not exist", compareBranch)
 	}
-	
+
 	// Check for differences between branches
 	stdout, _, err := repo.Git("log", "--oneline", baseBranch+".."+compareBranch)
 	if err != nil || stdout.String() == "" {
 		return "", fmt.Errorf("no differences between %s and %s", baseBranch, compareBranch)
 	}
-	
+
 	// Create pull request
 	pr := &models.PullRequest{
 		Title:         title,
@@ -597,15 +597,15 @@ func (t *CreatePRTool) Execute(params map[string]interface{}, userID string) (st
 		Status:        "open",
 		SyncStatus:    "local_only",
 	}
-	
+
 	pr, err = models.PullRequests.Insert(pr)
 	if err != nil {
 		return "", fmt.Errorf("failed to create pull request: %w", err)
 	}
-	
+
 	// Get commit count
 	commitCount := len(strings.Split(strings.TrimSpace(stdout.String()), "\n"))
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("✅ **Pull Request Created Successfully**\n\n"))
@@ -616,7 +616,7 @@ func (t *CreatePRTool) Execute(params map[string]interface{}, userID string) (st
 	result.WriteString(fmt.Sprintf("**Author:** %s\n", user.Name))
 	result.WriteString(fmt.Sprintf("**Status:** Open\n"))
 	result.WriteString(fmt.Sprintf("\n**Description:**\n%s\n", body))
-	
+
 	return result.String(), nil
 }
 
@@ -631,7 +631,7 @@ func (t *ListPRsTool) Description() string {
 	return "List pull requests in a repository. Required params: repo_id. Optional params: status (open/closed/merged/all), limit (number)"
 }
 
-func (t *ListPRsTool) ValidateParams(params map[string]interface{}) error {
+func (t *ListPRsTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -642,14 +642,14 @@ func (t *ListPRsTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *ListPRsTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *ListPRsTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"state": map[string]interface{}{
+		"state": map[string]any{
 			"type":        "string",
 			"enum":        []string{"open", "closed", "merged", "all"},
 			"description": "Filter by PR state",
@@ -658,26 +658,26 @@ func (t *ListPRsTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *ListPRsTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Get status filter
 	status := "open"
 	includeClosed := false
@@ -689,7 +689,7 @@ func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (str
 			}
 		}
 	}
-	
+
 	// Get limit
 	limit := 20
 	if l, exists := params["limit"]; exists {
@@ -700,13 +700,13 @@ func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (str
 			limit = v
 		}
 	}
-	
+
 	// Get pull requests
 	prs, _, err := models.GetRepoPRsPaginated(repoID, includeClosed, limit, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to list pull requests: %w", err)
 	}
-	
+
 	// Filter by specific status if needed
 	if status != "all" && status != "open" {
 		filtered := make([]*models.PullRequest, 0)
@@ -717,13 +717,13 @@ func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (str
 		}
 		prs = filtered
 	}
-	
+
 	// Build response
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("## Pull Requests in %s\n", repo.Name))
 	result.WriteString(fmt.Sprintf("**Filter:** %s\n", status))
 	result.WriteString(fmt.Sprintf("**Found:** %d pull requests\n\n", len(prs)))
-	
+
 	if len(prs) == 0 {
 		result.WriteString("No pull requests found.\n")
 	} else {
@@ -737,19 +737,19 @@ func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (str
 			case "draft":
 				statusIcon = "⚪"
 			}
-			
+
 			// Get author name
 			author := "Unknown"
 			if authorUser, err := models.Auth.GetUser(pr.AuthorID); err == nil {
 				author = authorUser.Name
 			}
-			
+
 			result.WriteString(fmt.Sprintf("%s **#%s: %s**\n", statusIcon, pr.ID, pr.Title))
 			result.WriteString(fmt.Sprintf("   %s ← %s\n", pr.BaseBranch, pr.CompareBranch))
-			result.WriteString(fmt.Sprintf("   Author: %s | Created: %s\n", 
-				author, 
+			result.WriteString(fmt.Sprintf("   Author: %s | Created: %s\n",
+				author,
 				pr.CreatedAt.Format("Jan 2, 2006")))
-			
+
 			// Show truncated body
 			bodyPreview := pr.Body
 			if len(bodyPreview) > 100 {
@@ -761,6 +761,6 @@ func (t *ListPRsTool) Execute(params map[string]interface{}, userID string) (str
 			result.WriteString("\n")
 		}
 	}
-	
+
 	return result.String(), nil
 }

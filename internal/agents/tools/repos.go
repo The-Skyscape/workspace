@@ -17,7 +17,7 @@ func (t *ListReposTool) Description() string {
 	return "List all repositories. Optional params: visibility (public/private/all). Default is 'all' to see everything. When searching for a specific repo, always use 'all' visibility."
 }
 
-func (t *ListReposTool) ValidateParams(params map[string]interface{}) error {
+func (t *ListReposTool) ValidateParams(params map[string]any) error {
 	// Check visibility parameter if provided
 	if vis, exists := params["visibility"]; exists {
 		visStr, ok := vis.(string)
@@ -31,11 +31,11 @@ func (t *ListReposTool) ValidateParams(params map[string]interface{}) error {
 	return nil
 }
 
-func (t *ListReposTool) Schema() map[string]interface{} {
-	return map[string]interface{}{
+func (t *ListReposTool) Schema() map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"visibility": map[string]interface{}{
+		"properties": map[string]any{
+			"visibility": map[string]any{
 				"type":        "string",
 				"enum":        []string{"public", "private", "all"},
 				"description": "Filter by repository visibility (default: all). Use 'all' to see everything.",
@@ -46,22 +46,22 @@ func (t *ListReposTool) Schema() map[string]interface{} {
 	}
 }
 
-func (t *ListReposTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *ListReposTool) Execute(params map[string]any, userID string) (string, error) {
 	// Get user to check admin status
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	visibility := "all"
 	if vis, exists := params["visibility"]; exists {
 		if visStr, ok := vis.(string); ok && visStr != "" {
 			visibility = visStr
 		}
 	}
-	
+
 	var repos []*models.Repository
-	
+
 	// Query based on admin status and visibility
 	if user.IsAdmin {
 		// Admins can see all repos
@@ -77,24 +77,24 @@ func (t *ListReposTool) Execute(params map[string]interface{}, userID string) (s
 		// Non-admins can only see public repos
 		repos, err = models.Repositories.Search("WHERE Visibility = ? ORDER BY UpdatedAt DESC", "public")
 	}
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to list repositories: %w", err)
 	}
-	
+
 	if len(repos) == 0 {
 		return "No repositories found.", nil
 	}
-	
+
 	// Format the output - concise but complete list
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("Found %d repositories:\n\n", len(repos)))
-	
+
 	for i, repo := range repos {
 		// Concise format: just name, ID, and visibility
 		result.WriteString(fmt.Sprintf("%d. %s (%s, %s)\n", i+1, repo.Name, repo.ID, repo.Visibility))
 	}
-	
+
 	return result.String(), nil
 }
 
@@ -109,24 +109,24 @@ func (t *GetRepoTool) Description() string {
 	return "Get detailed information about a specific repository by its ID (e.g., 'congo', 'sky-castle')"
 }
 
-func (t *GetRepoTool) ValidateParams(params map[string]interface{}) error {
+func (t *GetRepoTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
 	}
-	
+
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	return nil
 }
 
-func (t *GetRepoTool) Schema() map[string]interface{} {
-	return map[string]interface{}{
+func (t *GetRepoTool) Schema() map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"repo_id": map[string]interface{}{
+		"properties": map[string]any{
+			"repo_id": map[string]any{
 				"type":        "string",
 				"description": "The repository ID (as shown in list_repos, e.g., 'congo', 'sky-castle', 'test')",
 			},
@@ -135,26 +135,26 @@ func (t *GetRepoTool) Schema() map[string]interface{} {
 	}
 }
 
-func (t *GetRepoTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GetRepoTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user to check permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Format detailed information - keep concise
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("Repository: %s (ID: %s)\n", repo.Name, repo.ID))
@@ -166,7 +166,7 @@ func (t *GetRepoTool) Execute(params map[string]interface{}, userID string) (str
 		result.WriteString(fmt.Sprintf("Language: %s\n", repo.PrimaryLanguage))
 	}
 	result.WriteString(fmt.Sprintf("Updated: %s\n", repo.UpdatedAt.Format("Jan 2, 2006")))
-	
+
 	return result.String(), nil
 }
 
@@ -181,16 +181,16 @@ func (t *CreateRepoTool) Description() string {
 	return "Create a new repository. Required params: name. Optional params: description, visibility (public/private)"
 }
 
-func (t *CreateRepoTool) ValidateParams(params map[string]interface{}) error {
+func (t *CreateRepoTool) ValidateParams(params map[string]any) error {
 	name, exists := params["name"]
 	if !exists {
 		return fmt.Errorf("name is required")
 	}
-	
+
 	if _, ok := name.(string); !ok {
 		return fmt.Errorf("name must be a string")
 	}
-	
+
 	// Validate visibility if provided
 	if vis, exists := params["visibility"]; exists {
 		visStr, ok := vis.(string)
@@ -201,24 +201,24 @@ func (t *CreateRepoTool) ValidateParams(params map[string]interface{}) error {
 			return fmt.Errorf("visibility must be 'public' or 'private'")
 		}
 	}
-	
+
 	return nil
 }
 
-func (t *CreateRepoTool) Schema() map[string]interface{} {
-	return map[string]interface{}{
+func (t *CreateRepoTool) Schema() map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{
+		"properties": map[string]any{
+			"name": map[string]any{
 				"type":        "string",
 				"description": "The name of the repository to create",
 				"required":    true,
 			},
-			"description": map[string]interface{}{
+			"description": map[string]any{
 				"type":        "string",
 				"description": "A description of the repository",
 			},
-			"visibility": map[string]interface{}{
+			"visibility": map[string]any{
 				"type":        "string",
 				"enum":        []string{"public", "private"},
 				"description": "Repository visibility",
@@ -229,18 +229,18 @@ func (t *CreateRepoTool) Schema() map[string]interface{} {
 	}
 }
 
-func (t *CreateRepoTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *CreateRepoTool) Execute(params map[string]any, userID string) (string, error) {
 	// Get user to check admin status
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Only admins can create repositories
 	if !user.IsAdmin {
 		return "", fmt.Errorf("only administrators can create repositories")
 	}
-	
+
 	name := params["name"].(string)
 	description := ""
 	if desc, exists := params["description"]; exists {
@@ -248,20 +248,20 @@ func (t *CreateRepoTool) Execute(params map[string]interface{}, userID string) (
 			description = descStr
 		}
 	}
-	
+
 	visibility := "private" // Default to private
 	if vis, exists := params["visibility"]; exists {
 		if visStr, ok := vis.(string); ok && visStr != "" {
 			visibility = visStr
 		}
 	}
-	
+
 	// Create the repository
 	repo, err := models.CreateRepository(name, description, visibility, userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to create repository: %w", err)
 	}
-	
+
 	// Format success message
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("✅ Successfully created repository: **%s**\n\n", repo.Name))
@@ -269,7 +269,7 @@ func (t *CreateRepoTool) Execute(params map[string]interface{}, userID string) (
 	result.WriteString(fmt.Sprintf("**Description:** %s\n", description))
 	result.WriteString(fmt.Sprintf("**Visibility:** %s\n", visibility))
 	result.WriteString(fmt.Sprintf("\nYou can access it at: `/repos/%s`\n", repo.ID))
-	
+
 	return result.String(), nil
 }
 
@@ -284,16 +284,16 @@ func (t *GetRepoLinkTool) Description() string {
 	return "Generate a link to a repository page. Required params: repo_id. Optional params: view (files/issues/commits/settings)"
 }
 
-func (t *GetRepoLinkTool) ValidateParams(params map[string]interface{}) error {
+func (t *GetRepoLinkTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
 	}
-	
+
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	// Validate view if provided
 	if view, exists := params["view"]; exists {
 		viewStr, ok := view.(string)
@@ -312,20 +312,20 @@ func (t *GetRepoLinkTool) ValidateParams(params map[string]interface{}) error {
 			return fmt.Errorf("view must be one of: files, issues, commits, settings, activity")
 		}
 	}
-	
+
 	return nil
 }
 
-func (t *GetRepoLinkTool) Schema() map[string]interface{} {
-	return map[string]interface{}{
+func (t *GetRepoLinkTool) Schema() map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"repo_id": map[string]interface{}{
+		"properties": map[string]any{
+			"repo_id": map[string]any{
 				"type":        "string",
 				"description": "The repository ID",
 				"required":    true,
 			},
-			"view": map[string]interface{}{
+			"view": map[string]any{
 				"type":        "string",
 				"enum":        []string{"files", "issues", "commits", "settings"},
 				"description": "The specific view to link to",
@@ -336,26 +336,26 @@ func (t *GetRepoLinkTool) Schema() map[string]interface{} {
 	}
 }
 
-func (t *GetRepoLinkTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *GetRepoLinkTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
-	
+
 	// Get user to check permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository to check it exists and permissions
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if repo.Visibility == "private" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: repository is private")
 	}
-	
+
 	// Build the link
 	basePath := fmt.Sprintf("/repos/%s", repo.ID)
 	view := ""
@@ -364,10 +364,10 @@ func (t *GetRepoLinkTool) Execute(params map[string]interface{}, userID string) 
 			view = viewStr
 		}
 	}
-	
+
 	link := basePath
 	linkDescription := "main page"
-	
+
 	switch view {
 	case "files":
 		link = fmt.Sprintf("%s/files", basePath)
@@ -388,10 +388,10 @@ func (t *GetRepoLinkTool) Execute(params map[string]interface{}, userID string) 
 		link = fmt.Sprintf("%s/activity", basePath)
 		linkDescription = "activity log"
 	}
-	
+
 	// Format the response
-	result := fmt.Sprintf("Here's the link to the %s for repository **%s**:\n\n[%s](%s)\n", 
+	result := fmt.Sprintf("Here's the link to the %s for repository **%s**:\n\n[%s](%s)\n",
 		linkDescription, repo.Name, link, link)
-	
+
 	return result, nil
 }

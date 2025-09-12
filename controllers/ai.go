@@ -473,7 +473,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		// Return the streaming template immediately
 		// The template will connect to /stream endpoint which does the actual work
 		messages, _ := conversation.GetMessages()
-		c.Render(w, r, "ai-messages-enhanced.html", map[string]interface{}{
+		c.Render(w, r, "ai-messages-enhanced.html", map[string]any{
 			"Messages":       messages,
 			"ConversationID": conversationID,
 		})
@@ -1220,7 +1220,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 			// Extract and update working context from tool calls
 			for i, tc := range initialResponse.ToolCalls {
-				var params map[string]interface{}
+				var params map[string]any
 				json.Unmarshal(tc.Function.Arguments, &params)
 				if i < len(toolResults) {
 					contextUpdate := c.extractContextFromToolCall(tc.Function.Name, params, toolResults[i])
@@ -1597,7 +1597,7 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 		}
 
 		// Parse arguments from JSON
-		var params map[string]interface{}
+		var params map[string]any
 		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
 			log.Printf("AIController: Failed to parse tool arguments: %v", err)
 			result := fmt.Sprintf("❌ Tool %s failed: Invalid arguments", tc.Function.Name)
@@ -1702,7 +1702,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 		log.Printf("AIController: [Tool %d/%d] Executing '%s'", i+1, len(toolCalls), tc.Function.Name)
 
 		// Parse arguments from json.RawMessage
-		var params map[string]interface{}
+		var params map[string]any
 		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
 			log.Printf("AIController: [Tool %d/%d] ERROR - Failed to parse arguments for '%s': %v",
 				i+1, len(toolCalls), tc.Function.Name, err)
@@ -1885,7 +1885,7 @@ func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render panel
-	c.Render(w, r, "ai-todos.html", map[string]interface{}{
+	c.Render(w, r, "ai-todos.html", map[string]any{
 		"ConversationID":  conversationID,
 		"Todos":           todos,
 		"HasTodos":        len(todos) > 0,
@@ -2111,7 +2111,7 @@ func (c *AIController) compressToolOutput(toolName string, output string) string
 }
 
 // updateWorkingContext updates the conversation's working context with new information
-func (c *AIController) updateWorkingContext(conversationID string, updates map[string]interface{}) {
+func (c *AIController) updateWorkingContext(conversationID string, updates map[string]any) {
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil {
 		log.Printf("AIController: Failed to get conversation for context update: %v", err)
@@ -2126,8 +2126,8 @@ func (c *AIController) updateWorkingContext(conversationID string, updates map[s
 }
 
 // extractContextFromToolCall extracts contextual information from tool calls
-func (c *AIController) extractContextFromToolCall(toolName string, params map[string]interface{}, result string) map[string]interface{} {
-	context := make(map[string]interface{})
+func (c *AIController) extractContextFromToolCall(toolName string, params map[string]any, result string) map[string]any {
+	context := make(map[string]any)
 
 	switch toolName {
 	case "get_repo", "list_repos":
@@ -2172,7 +2172,7 @@ func (c *AIController) extractContextFromToolCall(toolName string, params map[st
 }
 
 // resolveContextualReferences enhances user messages with context
-func (c *AIController) resolveContextualReferences(message string, workingContext map[string]interface{}) string {
+func (c *AIController) resolveContextualReferences(message string, workingContext map[string]any) string {
 	lowerMessage := strings.ToLower(message)
 	contextHints := []string{}
 
@@ -2390,7 +2390,7 @@ func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request)
 }
 
 // GetQueueStats returns AI queue statistics for templates
-func (c *AIController) GetQueueStats() map[string]interface{} {
+func (c *AIController) GetQueueStats() map[string]any {
 	// Use the new internal AI service
 	if ai := c.getAIService(); ai != nil {
 		return ai.GetQueueStats()
@@ -2466,8 +2466,8 @@ func (c *AIController) GetFeatureStatus() map[string]bool {
 }
 
 // GetCurrentConfig returns the current AI configuration for templates
-func (c *AIController) GetCurrentConfig() map[string]interface{} {
-	config := map[string]interface{}{
+func (c *AIController) GetCurrentConfig() map[string]any {
+	config := map[string]any{
 		"model":            "Llama 3.2:3b",
 		"automation_level": "balanced",
 		"response_delay":   30,
@@ -2493,11 +2493,11 @@ func (c *AIController) getAIService() *aiService.Service {
 }
 
 // GetActiveAlerts returns active AI alerts for the template
-func (c *AIController) GetActiveAlerts() map[string]interface{} {
+func (c *AIController) GetActiveAlerts() map[string]any {
 	// Check for critical issues that need attention
 	criticalIssues, _ := models.Issues.Search("WHERE Status = 'open' AND Priority = 'critical' LIMIT 10")
 	if len(criticalIssues) > 0 {
-		return map[string]interface{}{
+		return map[string]any{
 			"Count": len(criticalIssues),
 			"Items": criticalIssues,
 		}
@@ -2565,12 +2565,12 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create recommendations based on repository state
-	recommendations := []map[string]interface{}{}
+	recommendations := []map[string]any{}
 
 	// Check for unassigned issues
 	unassignedIssues, _ := models.Issues.Search("WHERE Status = 'open' AND AssigneeID IS NULL LIMIT 5")
 	if len(unassignedIssues) > 0 {
-		recommendations = append(recommendations, map[string]interface{}{
+		recommendations = append(recommendations, map[string]any{
 			"title":       "Unassigned Issues",
 			"description": fmt.Sprintf("%d issues need assignment", len(unassignedIssues)),
 			"action":      "Enable AI triage to auto-assign",
@@ -2581,7 +2581,7 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 	// Check for PRs without reviews
 	unreviewedPRs, _ := models.PullRequests.Search("WHERE Status = 'open' AND ReviewStatus IS NULL LIMIT 5")
 	if len(unreviewedPRs) > 0 {
-		recommendations = append(recommendations, map[string]interface{}{
+		recommendations = append(recommendations, map[string]any{
 			"title":       "Pending Reviews",
 			"description": fmt.Sprintf("%d PRs awaiting review", len(unreviewedPRs)),
 			"action":      "Enable AI review assistance",
@@ -2592,7 +2592,7 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 	// Check for stale branches
 	repos, _ := models.Repos.Search("WHERE UserID = ?", user.ID)
 	if len(repos) > 0 {
-		recommendations = append(recommendations, map[string]interface{}{
+		recommendations = append(recommendations, map[string]any{
 			"title":       "Repository Health",
 			"description": fmt.Sprintf("Monitoring %d repositories", len(repos)),
 			"action":      "All systems operational",
@@ -2620,8 +2620,8 @@ func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetEventQueueStats returns event queue statistics for the metrics dashboard
-func (c *AIController) GetEventQueueStats() map[string]interface{} {
-	stats := map[string]interface{}{
+func (c *AIController) GetEventQueueStats() map[string]any {
+	stats := map[string]any{
 		"running":   false,
 		"workers":   0,
 		"processed": 0,
@@ -2751,7 +2751,7 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 
 	// Queue daily report task if AI service is available
 	if ai := c.getAIService(); ai != nil {
-		err := ai.EnqueueTask("daily_report", map[string]interface{}{
+		err := ai.EnqueueTask("daily_report", map[string]any{
 			"user_id": user.ID,
 			"type":    "manual",
 		}, 5)
@@ -2781,7 +2781,7 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 
 	// Queue security scan task
 	if ai := c.getAIService(); ai != nil {
-		err := ai.EnqueueTask("security_scan", map[string]interface{}{
+		err := ai.EnqueueTask("security_scan", map[string]any{
 			"user_id":   user.ID,
 			"scan_type": "full",
 		}, 8)
@@ -2810,7 +2810,7 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 
 	// Queue stale check task
 	if ai := c.getAIService(); ai != nil {
-		err := ai.EnqueueTask("stale_management", map[string]interface{}{
+		err := ai.EnqueueTask("stale_management", map[string]any{
 			"user_id":    user.ID,
 			"days_stale": 30,
 		}, 3)
@@ -2839,7 +2839,7 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 
 	// Queue dependency check task
 	if ai := c.getAIService(); ai != nil {
-		err := ai.EnqueueTask("dependency_check", map[string]interface{}{
+		err := ai.EnqueueTask("dependency_check", map[string]any{
 			"user_id":        user.ID,
 			"check_security": true,
 		}, 4)

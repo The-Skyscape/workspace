@@ -12,16 +12,16 @@ import (
 type EventType string
 
 const (
-	EventIssueCreated    EventType = "issue_created"
-	EventIssueUpdated    EventType = "issue_updated"
-	EventIssueClosed     EventType = "issue_closed"
-	EventPRCreated       EventType = "pr_created"
-	EventPRUpdated       EventType = "pr_updated"
-	EventPRMerged        EventType = "pr_merged"
-	EventCommitPushed    EventType = "commit_pushed"
-	EventTestFailed      EventType = "test_failed"
-	EventDeploymentDone  EventType = "deployment_done"
-	EventBuildCompleted  EventType = "build_completed"
+	EventIssueCreated   EventType = "issue_created"
+	EventIssueUpdated   EventType = "issue_updated"
+	EventIssueClosed    EventType = "issue_closed"
+	EventPRCreated      EventType = "pr_created"
+	EventPRUpdated      EventType = "pr_updated"
+	EventPRMerged       EventType = "pr_merged"
+	EventCommitPushed   EventType = "commit_pushed"
+	EventTestFailed     EventType = "test_failed"
+	EventDeploymentDone EventType = "deployment_done"
+	EventBuildCompleted EventType = "build_completed"
 )
 
 // Event represents an event that can trigger AI actions
@@ -30,7 +30,7 @@ type Event struct {
 	RepositoryID string
 	UserID       string
 	EntityID     string
-	Metadata     map[string]interface{}
+	Metadata     map[string]any
 	Timestamp    time.Time
 }
 
@@ -49,7 +49,7 @@ func NewEventHandler(q *queue.Queue) *EventHandler {
 // Handle processes an event and enqueues appropriate AI tasks
 func (h *EventHandler) Handle(ctx context.Context, event Event) error {
 	log.Printf("EventHandler: Processing %s event for entity %s", event.Type, event.EntityID)
-	
+
 	switch event.Type {
 	case EventIssueCreated:
 		return h.handleIssueCreated(ctx, event)
@@ -82,20 +82,20 @@ func (h *EventHandler) handleIssueCreated(ctx context.Context, event Event) erro
 		UserID:     event.UserID,
 		EntityType: "issue",
 		EntityID:   event.EntityID,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"issue_id": event.EntityID,
 			"action":   "triage",
 		},
-		CreatedAt: time.Now(),
+		CreatedAt:  time.Now(),
 		MaxRetries: 3,
 	}
-	
+
 	if err := h.queue.Enqueue(task); err != nil {
 		return fmt.Errorf("failed to enqueue issue triage task: %w", err)
 	}
-	
+
 	log.Printf("EventHandler: Enqueued issue triage task for issue %s", event.EntityID)
-	
+
 	// Also check if this is a bug report and needs immediate attention
 	if metadata, ok := event.Metadata["labels"].([]string); ok {
 		for _, label := range metadata {
@@ -107,7 +107,7 @@ func (h *EventHandler) handleIssueCreated(ctx context.Context, event Event) erro
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -122,20 +122,20 @@ func (h *EventHandler) handlePRCreated(ctx context.Context, event Event) error {
 		UserID:     event.UserID,
 		EntityType: "pr",
 		EntityID:   event.EntityID,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"pr_id":  event.EntityID,
 			"action": "review",
 		},
-		CreatedAt: time.Now(),
+		CreatedAt:  time.Now(),
 		MaxRetries: 3,
 	}
-	
+
 	if err := h.queue.Enqueue(task); err != nil {
 		return fmt.Errorf("failed to enqueue PR review task: %w", err)
 	}
-	
+
 	log.Printf("EventHandler: Enqueued PR review task for PR %s", event.EntityID)
-	
+
 	// Check if this is a documentation-only PR (might be auto-approved)
 	if files, ok := event.Metadata["files"].([]string); ok {
 		allDocs := true
@@ -155,7 +155,7 @@ func (h *EventHandler) handlePRCreated(ctx context.Context, event Event) error {
 				UserID:     event.UserID,
 				EntityType: "pr",
 				EntityID:   event.EntityID,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"pr_id":  event.EntityID,
 					"reason": "documentation_only",
 				},
@@ -164,7 +164,7 @@ func (h *EventHandler) handlePRCreated(ctx context.Context, event Event) error {
 			h.queue.Enqueue(approveTask)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -179,18 +179,18 @@ func (h *EventHandler) handleCommitPushed(ctx context.Context, event Event) erro
 		UserID:     event.UserID,
 		EntityType: "commit",
 		EntityID:   event.EntityID,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"commit_sha": event.EntityID,
 			"branch":     event.Metadata["branch"],
 			"action":     "ci_check",
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	if err := h.queue.Enqueue(task); err != nil {
 		return fmt.Errorf("failed to enqueue CI check task: %w", err)
 	}
-	
+
 	// If this is on main/master branch, might need deployment
 	if branch, ok := event.Metadata["branch"].(string); ok {
 		if branch == "main" || branch == "master" {
@@ -202,7 +202,7 @@ func (h *EventHandler) handleCommitPushed(ctx context.Context, event Event) erro
 				UserID:     event.UserID,
 				EntityType: "commit",
 				EntityID:   event.EntityID,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"commit_sha":  event.EntityID,
 					"branch":      branch,
 					"environment": "staging",
@@ -212,7 +212,7 @@ func (h *EventHandler) handleCommitPushed(ctx context.Context, event Event) erro
 			h.queue.Enqueue(deployTask)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -220,7 +220,7 @@ func (h *EventHandler) handleCommitPushed(ctx context.Context, event Event) erro
 func (h *EventHandler) handleTestFailed(ctx context.Context, event Event) error {
 	// Create issue for test failure
 	failedTests := event.Metadata["failed_tests"].([]string)
-	
+
 	task := &queue.Task{
 		ID:         fmt.Sprintf("test-failure-%s-%d", event.EntityID, time.Now().Unix()),
 		Type:       "create_issue_for_failure",
@@ -229,7 +229,7 @@ func (h *EventHandler) handleTestFailed(ctx context.Context, event Event) error 
 		UserID:     event.UserID,
 		EntityType: "test_run",
 		EntityID:   event.EntityID,
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"run_id":       event.EntityID,
 			"failed_tests": failedTests,
 			"branch":       event.Metadata["branch"],
@@ -237,13 +237,13 @@ func (h *EventHandler) handleTestFailed(ctx context.Context, event Event) error 
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	if err := h.queue.Enqueue(task); err != nil {
 		return fmt.Errorf("failed to enqueue test failure task: %w", err)
 	}
-	
+
 	log.Printf("EventHandler: Enqueued issue creation for %d test failures", len(failedTests))
-	
+
 	return nil
 }
 
@@ -251,7 +251,7 @@ func (h *EventHandler) handleTestFailed(ctx context.Context, event Event) error 
 func (h *EventHandler) handleDeploymentDone(ctx context.Context, event Event) error {
 	success := event.Metadata["success"].(bool)
 	environment := event.Metadata["environment"].(string)
-	
+
 	if !success {
 		// Deployment failed - high priority investigation
 		task := &queue.Task{
@@ -262,16 +262,16 @@ func (h *EventHandler) handleDeploymentDone(ctx context.Context, event Event) er
 			UserID:     event.UserID,
 			EntityType: "deployment",
 			EntityID:   event.EntityID,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"deployment_id": event.EntityID,
 				"environment":   environment,
 				"error":         event.Metadata["error"],
 			},
 			CreatedAt: time.Now(),
 		}
-		
+
 		h.queue.Enqueue(task)
-		
+
 		// If production failed, might need to rollback
 		if environment == "production" {
 			rollbackTask := &queue.Task{
@@ -282,7 +282,7 @@ func (h *EventHandler) handleDeploymentDone(ctx context.Context, event Event) er
 				UserID:     event.UserID,
 				EntityType: "deployment",
 				EntityID:   event.EntityID,
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"deployment_id": event.EntityID,
 					"environment":   environment,
 				},
@@ -300,17 +300,17 @@ func (h *EventHandler) handleDeploymentDone(ctx context.Context, event Event) er
 			UserID:     event.UserID,
 			EntityType: "deployment",
 			EntityID:   event.EntityID,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"deployment_id": event.EntityID,
 				"environment":   environment,
 				"version":       event.Metadata["version"],
 			},
 			CreatedAt: time.Now(),
 		}
-		
+
 		h.queue.Enqueue(task)
 	}
-	
+
 	return nil
 }
 
@@ -325,18 +325,18 @@ func (h *EventHandler) handlePRMerged(ctx context.Context, event Event) error {
 		UserID:     event.UserID,
 		EntityType: "pr",
 		EntityID:   event.EntityID,
-		Data: map[string]interface{}{
-			"pr_id":      event.EntityID,
-			"merged_by":  event.UserID,
-			"merged_at":  time.Now(),
+		Data: map[string]any{
+			"pr_id":     event.EntityID,
+			"merged_by": event.UserID,
+			"merged_at": time.Now(),
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	if err := h.queue.Enqueue(task); err != nil {
 		return fmt.Errorf("failed to enqueue PR merged task: %w", err)
 	}
-	
+
 	// Check if this closes any issues
 	if issues, ok := event.Metadata["closes_issues"].([]string); ok {
 		for _, issueID := range issues {
@@ -348,24 +348,24 @@ func (h *EventHandler) handlePRMerged(ctx context.Context, event Event) error {
 				UserID:     event.UserID,
 				EntityType: "issue",
 				EntityID:   issueID,
-				Data: map[string]interface{}{
-					"issue_id":   issueID,
-					"closed_by":  event.UserID,
-					"pr_id":      event.EntityID,
+				Data: map[string]any{
+					"issue_id":  issueID,
+					"closed_by": event.UserID,
+					"pr_id":     event.EntityID,
 				},
 				CreatedAt: time.Now(),
 			}
 			h.queue.Enqueue(closeTask)
 		}
 	}
-	
+
 	return nil
 }
 
 // handleBuildCompleted handles build completion events
 func (h *EventHandler) handleBuildCompleted(ctx context.Context, event Event) error {
 	success := event.Metadata["success"].(bool)
-	
+
 	if !success {
 		// Build failed - analyze and possibly create issue
 		task := &queue.Task{
@@ -376,14 +376,14 @@ func (h *EventHandler) handleBuildCompleted(ctx context.Context, event Event) er
 			UserID:     event.UserID,
 			EntityType: "build",
 			EntityID:   event.EntityID,
-			Data: map[string]interface{}{
+			Data: map[string]any{
 				"build_id": event.EntityID,
 				"error":    event.Metadata["error"],
 				"branch":   event.Metadata["branch"],
 			},
 			CreatedAt: time.Now(),
 		}
-		
+
 		h.queue.Enqueue(task)
 	} else {
 		// Build succeeded - might trigger deployment
@@ -397,7 +397,7 @@ func (h *EventHandler) handleBuildCompleted(ctx context.Context, event Event) er
 					UserID:     event.UserID,
 					EntityType: "build",
 					EntityID:   event.EntityID,
-					Data: map[string]interface{}{
+					Data: map[string]any{
 						"build_id":    event.EntityID,
 						"branch":      branch,
 						"environment": "staging",
@@ -408,7 +408,7 @@ func (h *EventHandler) handleBuildCompleted(ctx context.Context, event Event) er
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -416,24 +416,24 @@ func (h *EventHandler) handleBuildCompleted(ctx context.Context, event Event) er
 func isDocumentationFile(filename string) bool {
 	docExtensions := []string{".md", ".txt", ".rst", ".adoc"}
 	docDirs := []string{"docs/", "documentation/", "README"}
-	
+
 	for _, ext := range docExtensions {
 		if len(filename) > len(ext) && filename[len(filename)-len(ext):] == ext {
 			return true
 		}
 	}
-	
+
 	for _, dir := range docDirs {
 		if len(filename) > len(dir) && filename[:len(dir)] == dir {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // TriggerEvent is a helper function to trigger an event
-func TriggerEvent(ctx context.Context, handler *EventHandler, eventType EventType, repoID, userID, entityID string, metadata map[string]interface{}) error {
+func TriggerEvent(ctx context.Context, handler *EventHandler, eventType EventType, repoID, userID, entityID string, metadata map[string]any) error {
 	event := Event{
 		Type:         eventType,
 		RepositoryID: repoID,
@@ -442,6 +442,6 @@ func TriggerEvent(ctx context.Context, handler *EventHandler, eventType EventTyp
 		Metadata:     metadata,
 		Timestamp:    time.Now(),
 	}
-	
+
 	return handler.Handle(ctx, event)
 }

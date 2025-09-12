@@ -8,16 +8,16 @@ import (
 
 // RateLimiter provides rate limiting functionality for HTTP endpoints
 type RateLimiter struct {
-	attempts map[string]*attemptInfo
-	mu       sync.RWMutex
-	maxAttempts int
-	window      time.Duration
+	attempts      map[string]*attemptInfo
+	mu            sync.RWMutex
+	maxAttempts   int
+	window        time.Duration
 	blockDuration time.Duration
 }
 
 type attemptInfo struct {
-	count     int
-	firstTime time.Time
+	count        int
+	firstTime    time.Time
 	blockedUntil time.Time
 }
 
@@ -29,10 +29,10 @@ func NewRateLimiter(maxAttempts int, window time.Duration, blockDuration time.Du
 		window:        window,
 		blockDuration: blockDuration,
 	}
-	
+
 	// Start cleanup goroutine
 	go rl.cleanup()
-	
+
 	return rl
 }
 
@@ -40,12 +40,12 @@ func NewRateLimiter(maxAttempts int, window time.Duration, blockDuration time.Du
 func (rl *RateLimiter) Middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := rl.getClientIP(r)
-		
+
 		if !rl.Allow(ip) {
 			http.Error(w, "Too many attempts. Please try again later.", http.StatusTooManyRequests)
 			return
 		}
-		
+
 		next(w, r)
 	}
 }
@@ -54,10 +54,10 @@ func (rl *RateLimiter) Middleware(next http.HandlerFunc) http.HandlerFunc {
 func (rl *RateLimiter) Allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	
+
 	now := time.Now()
 	info, exists := rl.attempts[ip]
-	
+
 	if !exists {
 		// First attempt
 		rl.attempts[ip] = &attemptInfo{
@@ -66,12 +66,12 @@ func (rl *RateLimiter) Allow(ip string) bool {
 		}
 		return true
 	}
-	
+
 	// Check if blocked
 	if !info.blockedUntil.IsZero() && now.Before(info.blockedUntil) {
 		return false
 	}
-	
+
 	// Check if window has expired
 	if now.Sub(info.firstTime) > rl.window {
 		// Reset window
@@ -80,16 +80,16 @@ func (rl *RateLimiter) Allow(ip string) bool {
 		info.blockedUntil = time.Time{}
 		return true
 	}
-	
+
 	// Increment count
 	info.count++
-	
+
 	// Check if limit exceeded
 	if info.count > rl.maxAttempts {
 		info.blockedUntil = now.Add(rl.blockDuration)
 		return false
 	}
-	
+
 	return true
 }
 
@@ -97,10 +97,10 @@ func (rl *RateLimiter) Allow(ip string) bool {
 func (rl *RateLimiter) RecordFailure(ip string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	
+
 	now := time.Now()
 	info, exists := rl.attempts[ip]
-	
+
 	if !exists {
 		rl.attempts[ip] = &attemptInfo{
 			count:     1,
@@ -108,7 +108,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 		}
 		return
 	}
-	
+
 	// For failed attempts, we count more aggressively
 	info.count += 2 // Failed attempts count double
 }
@@ -117,7 +117,7 @@ func (rl *RateLimiter) RecordFailure(ip string) {
 func (rl *RateLimiter) Reset(ip string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	
+
 	delete(rl.attempts, ip)
 }
 
@@ -125,18 +125,18 @@ func (rl *RateLimiter) Reset(ip string) {
 func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		rl.mu.Lock()
 		now := time.Now()
-		
+
 		for ip, info := range rl.attempts {
 			// Remove entries older than 1 hour
 			if now.Sub(info.firstTime) > time.Hour {
 				delete(rl.attempts, ip)
 			}
 		}
-		
+
 		rl.mu.Unlock()
 	}
 }
@@ -156,50 +156,50 @@ func (rl *RateLimiter) getClientIP(r *http.Request) string {
 			return forwarded
 		}
 	}
-	
+
 	// Check X-Real-IP header
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		return realIP
 	}
-	
+
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
 }
 
 // GetStats returns current rate limiting statistics
-func (rl *RateLimiter) GetStats() map[string]interface{} {
+func (rl *RateLimiter) GetStats() map[string]any {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
-	
+
 	blocked := 0
 	total := len(rl.attempts)
 	now := time.Now()
-	
+
 	for _, info := range rl.attempts {
 		if !info.blockedUntil.IsZero() && now.Before(info.blockedUntil) {
 			blocked++
 		}
 	}
-	
-	return map[string]interface{}{
-		"total_tracked": total,
-		"currently_blocked": blocked,
-		"max_attempts": rl.maxAttempts,
-		"window_seconds": rl.window.Seconds(),
+
+	return map[string]any{
+		"total_tracked":          total,
+		"currently_blocked":      blocked,
+		"max_attempts":           rl.maxAttempts,
+		"window_seconds":         rl.window.Seconds(),
 		"block_duration_seconds": rl.blockDuration.Seconds(),
 	}
 }
 
 // AuthRateLimiter is the global rate limiter for authentication endpoints
 var AuthRateLimiter = NewRateLimiter(
-	5,                    // max 5 attempts
-	15 * time.Minute,     // within 15 minutes
-	30 * time.Minute,     // block for 30 minutes
+	5,              // max 5 attempts
+	15*time.Minute, // within 15 minutes
+	30*time.Minute, // block for 30 minutes
 )
 
 // SignupRateLimiter is a stricter rate limiter for signup to prevent spam
 var SignupRateLimiter = NewRateLimiter(
-	3,                    // max 3 signups
-	time.Hour,            // within 1 hour
-	time.Hour,            // block for 1 hour
+	3,         // max 3 signups
+	time.Hour, // within 1 hour
+	time.Hour, // block for 1 hour
 )

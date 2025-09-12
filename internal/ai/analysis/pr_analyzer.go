@@ -11,12 +11,12 @@ import (
 // PRAnalyzer performs intelligent analysis on pull requests
 type PRAnalyzer struct {
 	// Patterns for detecting different types of changes
-	securityPatterns   []*regexp.Regexp
+	securityPatterns    []*regexp.Regexp
 	performancePatterns []*regexp.Regexp
-	breakingPatterns   []*regexp.Regexp
-	docPatterns        []*regexp.Regexp
-	testPatterns       []*regexp.Regexp
-	configPatterns     []*regexp.Regexp
+	breakingPatterns    []*regexp.Regexp
+	docPatterns         []*regexp.Regexp
+	testPatterns        []*regexp.Regexp
+	configPatterns      []*regexp.Regexp
 }
 
 // PRAnalysis contains the results of PR analysis
@@ -71,12 +71,12 @@ type FileDetail struct {
 
 // DependencyChange represents a change to dependencies
 type DependencyChange struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"` // added, removed, updated
+	Name       string `json:"name"`
+	Type       string `json:"type"` // added, removed, updated
 	OldVersion string `json:"old_version,omitempty"`
 	NewVersion string `json:"new_version,omitempty"`
-	Risk      string `json:"risk"`
-	Notes     string `json:"notes"`
+	Risk       string `json:"risk"`
+	Notes      string `json:"notes"`
 }
 
 // APIChange represents a change to an API endpoint or interface
@@ -136,61 +136,61 @@ func NewPRAnalyzer() *PRAnalyzer {
 }
 
 // Analyze performs comprehensive analysis on a pull request
-func (a *PRAnalyzer) Analyze(ctx context.Context, pr interface{}) (*PRAnalysis, error) {
+func (a *PRAnalyzer) Analyze(ctx context.Context, pr any) (*PRAnalysis, error) {
 	// Type assertion for PR model
 	prData := extractPRData(pr)
-	
+
 	result := &PRAnalysis{
-		FileAnalysis:      make(map[string]FileDetail),
-		Categories:        []string{},
-		ChecklistItems:    []ChecklistItem{},
-		Issues:            []Issue{},
-		Suggestions:       []string{},
-		PerformanceNotes:  []string{},
-		DependencyChanges: []DependencyChange{},
-		APIChanges:        []APIChange{},
+		FileAnalysis:        make(map[string]FileDetail),
+		Categories:          []string{},
+		ChecklistItems:      []ChecklistItem{},
+		Issues:              []Issue{},
+		Suggestions:         []string{},
+		PerformanceNotes:    []string{},
+		DependencyChanges:   []DependencyChange{},
+		APIChanges:          []APIChange{},
 		AutoApprovalReasons: []string{},
 	}
-	
+
 	// Analyze PR size and complexity
 	a.analyzeComplexity(prData, result)
-	
+
 	// Analyze file changes
 	a.analyzeFiles(prData, result)
-	
+
 	// Detect categories
 	a.detectCategories(prData, result)
-	
+
 	// Perform security analysis
 	a.analyzeSecurityRisks(prData, result)
-	
+
 	// Analyze performance impact
 	a.analyzePerformanceImpact(prData, result)
-	
+
 	// Check test coverage
 	a.analyzeTestCoverage(prData, result)
-	
+
 	// Analyze dependencies
 	a.analyzeDependencies(prData, result)
-	
+
 	// Detect API changes
 	a.analyzeAPIChanges(prData, result)
-	
+
 	// Build review checklist
 	a.buildChecklist(prData, result)
-	
+
 	// Calculate risk level
 	a.calculateRiskLevel(result)
-	
+
 	// Determine auto-approval eligibility
 	a.checkAutoApproval(result)
-	
+
 	// Generate recommendation
 	a.generateRecommendation(result)
-	
+
 	// Estimate review time
 	a.estimateReviewTime(prData, result)
-	
+
 	return result, nil
 }
 
@@ -198,7 +198,7 @@ func (a *PRAnalyzer) Analyze(ctx context.Context, pr interface{}) (*PRAnalysis, 
 func (a *PRAnalyzer) analyzeComplexity(pr prInfo, result *PRAnalysis) {
 	totalChanges := pr.Additions + pr.Deletions
 	fileCount := pr.ChangedFiles
-	
+
 	if totalChanges < 50 && fileCount <= 3 {
 		result.Complexity = "trivial"
 	} else if totalChanges < 200 && fileCount <= 10 {
@@ -216,7 +216,7 @@ func (a *PRAnalyzer) analyzeComplexity(pr prInfo, result *PRAnalysis) {
 func (a *PRAnalyzer) analyzeFiles(pr prInfo, result *PRAnalysis) {
 	// Simulate file analysis based on PR description and patterns
 	files := a.extractFileList(pr)
-	
+
 	for _, file := range files {
 		detail := FileDetail{
 			Language:     a.detectLanguage(file),
@@ -225,7 +225,7 @@ func (a *PRAnalyzer) analyzeFiles(pr prInfo, result *PRAnalysis) {
 			Issues:       []string{},
 			Improvements: []string{},
 		}
-		
+
 		// Check for security patterns in filename
 		for _, pattern := range a.securityPatterns {
 			if pattern.MatchString(file) {
@@ -235,7 +235,7 @@ func (a *PRAnalyzer) analyzeFiles(pr prInfo, result *PRAnalysis) {
 				break
 			}
 		}
-		
+
 		// Check if test file
 		for _, pattern := range a.testPatterns {
 			if pattern.MatchString(file) {
@@ -243,7 +243,7 @@ func (a *PRAnalyzer) analyzeFiles(pr prInfo, result *PRAnalysis) {
 				break
 			}
 		}
-		
+
 		result.FileAnalysis[file] = detail
 	}
 }
@@ -251,20 +251,20 @@ func (a *PRAnalyzer) analyzeFiles(pr prInfo, result *PRAnalysis) {
 // detectCategories identifies the types of changes in the PR
 func (a *PRAnalyzer) detectCategories(pr prInfo, result *PRAnalysis) {
 	description := strings.ToLower(pr.Title + " " + pr.Description)
-	
+
 	categoryMap := map[string][]string{
-		"bug": {"fix", "bug", "issue", "problem", "error", "crash", "fault"},
-		"feature": {"feature", "add", "new", "implement", "introduce"},
-		"enhancement": {"enhance", "improve", "optimize", "better", "upgrade"},
+		"bug":           {"fix", "bug", "issue", "problem", "error", "crash", "fault"},
+		"feature":       {"feature", "add", "new", "implement", "introduce"},
+		"enhancement":   {"enhance", "improve", "optimize", "better", "upgrade"},
 		"documentation": {"doc", "readme", "comment", "documentation"},
-		"refactoring": {"refactor", "cleanup", "reorganize", "restructure"},
-		"performance": {"performance", "speed", "fast", "optimize", "cache"},
-		"security": {"security", "vulnerability", "cve", "patch", "exploit"},
-		"dependency": {"dependency", "upgrade", "update", "package", "library"},
-		"testing": {"test", "spec", "coverage", "unit", "integration"},
-		"ci/cd": {"ci", "cd", "pipeline", "workflow", "action", "deploy"},
+		"refactoring":   {"refactor", "cleanup", "reorganize", "restructure"},
+		"performance":   {"performance", "speed", "fast", "optimize", "cache"},
+		"security":      {"security", "vulnerability", "cve", "patch", "exploit"},
+		"dependency":    {"dependency", "upgrade", "update", "package", "library"},
+		"testing":       {"test", "spec", "coverage", "unit", "integration"},
+		"ci/cd":         {"ci", "cd", "pipeline", "workflow", "action", "deploy"},
 	}
-	
+
 	for category, keywords := range categoryMap {
 		for _, keyword := range keywords {
 			if strings.Contains(description, keyword) {
@@ -273,7 +273,7 @@ func (a *PRAnalyzer) detectCategories(pr prInfo, result *PRAnalysis) {
 			}
 		}
 	}
-	
+
 	// Ensure we have at least one category
 	if len(result.Categories) == 0 {
 		result.Categories = append(result.Categories, "other")
@@ -283,7 +283,7 @@ func (a *PRAnalyzer) detectCategories(pr prInfo, result *PRAnalysis) {
 // analyzeSecurityRisks checks for security implications
 func (a *PRAnalyzer) analyzeSecurityRisks(pr prInfo, result *PRAnalysis) {
 	description := pr.Title + " " + pr.Description
-	
+
 	securityIssues := 0
 	for _, pattern := range a.securityPatterns {
 		if pattern.MatchString(description) {
@@ -291,7 +291,7 @@ func (a *PRAnalyzer) analyzeSecurityRisks(pr prInfo, result *PRAnalysis) {
 			result.HasSecurity = true
 		}
 	}
-	
+
 	if securityIssues > 0 {
 		result.Issues = append(result.Issues, Issue{
 			Type:        "Security Review Required",
@@ -299,8 +299,8 @@ func (a *PRAnalyzer) analyzeSecurityRisks(pr prInfo, result *PRAnalysis) {
 			Description: "This PR contains security-related changes that require careful review",
 			Suggestion:  "Ensure proper security review by a qualified team member",
 		})
-		
-		result.Suggestions = append(result.Suggestions, 
+
+		result.Suggestions = append(result.Suggestions,
 			"Request review from security team",
 			"Ensure secrets are not exposed in code or logs",
 			"Verify authentication and authorization logic",
@@ -311,14 +311,14 @@ func (a *PRAnalyzer) analyzeSecurityRisks(pr prInfo, result *PRAnalysis) {
 // analyzePerformanceImpact evaluates performance implications
 func (a *PRAnalyzer) analyzePerformanceImpact(pr prInfo, result *PRAnalysis) {
 	description := pr.Title + " " + pr.Description
-	
+
 	perfPatterns := 0
 	for _, pattern := range a.performancePatterns {
 		if pattern.MatchString(description) {
 			perfPatterns++
 		}
 	}
-	
+
 	if perfPatterns > 2 {
 		result.PerformanceImpact = "significant"
 		result.PerformanceNotes = append(result.PerformanceNotes,
@@ -340,7 +340,7 @@ func (a *PRAnalyzer) analyzePerformanceImpact(pr prInfo, result *PRAnalysis) {
 func (a *PRAnalyzer) analyzeTestCoverage(pr prInfo, result *PRAnalysis) {
 	hasTests := false
 	testFiles := 0
-	
+
 	for file := range result.FileAnalysis {
 		for _, pattern := range a.testPatterns {
 			if pattern.MatchString(file) {
@@ -350,7 +350,7 @@ func (a *PRAnalyzer) analyzeTestCoverage(pr prInfo, result *PRAnalysis) {
 			}
 		}
 	}
-	
+
 	if testFiles > 0 {
 		result.TestCoverage = fmt.Sprintf("Tests included (%d test files modified)", testFiles)
 	} else if hasTests {
@@ -364,7 +364,7 @@ func (a *PRAnalyzer) analyzeTestCoverage(pr prInfo, result *PRAnalysis) {
 // analyzeDependencies checks for dependency changes
 func (a *PRAnalyzer) analyzeDependencies(pr prInfo, result *PRAnalysis) {
 	description := strings.ToLower(pr.Title + " " + pr.Description)
-	
+
 	// Check for dependency-related keywords
 	depKeywords := []string{"dependency", "package", "library", "module", "upgrade", "update", "version"}
 	for _, keyword := range depKeywords {
@@ -383,7 +383,7 @@ func (a *PRAnalyzer) analyzeDependencies(pr prInfo, result *PRAnalysis) {
 // analyzeAPIChanges detects API modifications
 func (a *PRAnalyzer) analyzeAPIChanges(pr prInfo, result *PRAnalysis) {
 	description := strings.ToLower(pr.Title + " " + pr.Description)
-	
+
 	// Check for API-related keywords
 	apiKeywords := []string{"api", "endpoint", "route", "handler", "controller"}
 	for _, keyword := range apiKeywords {
@@ -396,13 +396,13 @@ func (a *PRAnalyzer) analyzeAPIChanges(pr prInfo, result *PRAnalysis) {
 					break
 				}
 			}
-			
+
 			result.APIChanges = append(result.APIChanges, APIChange{
 				Type:        "modified",
 				Breaking:    breaking,
 				Description: "API changes detected - verify backward compatibility",
 			})
-			
+
 			if breaking {
 				result.Issues = append(result.Issues, Issue{
 					Type:        "Breaking Change",
@@ -423,14 +423,14 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 		Description: "Code follows project conventions",
 		Passed:      true, // Default to passed, would check actual patterns
 	})
-	
+
 	result.ChecklistItems = append(result.ChecklistItems, ChecklistItem{
 		Description: "No obvious bugs or errors",
 		Passed:      len(result.Issues) == 0,
 		Failed:      len(result.Issues) > 3,
 		Warning:     len(result.Issues) > 0 && len(result.Issues) <= 3,
 	})
-	
+
 	// Documentation check
 	hasDocChanges := false
 	for _, cat := range result.Categories {
@@ -439,14 +439,14 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 			break
 		}
 	}
-	
+
 	result.ChecklistItems = append(result.ChecklistItems, ChecklistItem{
 		Description: "Documentation updated if needed",
 		Passed:      hasDocChanges || result.Complexity == "trivial",
 		Warning:     !hasDocChanges && result.Complexity != "trivial",
 		Details:     "Consider updating documentation for this change",
 	})
-	
+
 	// Test coverage check
 	result.ChecklistItems = append(result.ChecklistItems, ChecklistItem{
 		Description: "Tests included or updated",
@@ -454,7 +454,7 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 		Warning:     !strings.Contains(result.TestCoverage, "Tests included"),
 		Details:     result.TestCoverage,
 	})
-	
+
 	// Security check
 	result.ChecklistItems = append(result.ChecklistItems, ChecklistItem{
 		Description: "No security vulnerabilities introduced",
@@ -462,7 +462,7 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 		Warning:     result.HasSecurity,
 		Details:     "Security-sensitive changes require careful review",
 	})
-	
+
 	// Performance check
 	result.ChecklistItems = append(result.ChecklistItems, ChecklistItem{
 		Description: "Performance impact considered",
@@ -470,7 +470,7 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 		Warning:     result.PerformanceImpact != "minimal",
 		Details:     fmt.Sprintf("Performance impact: %s", result.PerformanceImpact),
 	})
-	
+
 	// Breaking changes check
 	hasBreaking := false
 	for _, api := range result.APIChanges {
@@ -479,7 +479,7 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 			break
 		}
 	}
-	
+
 	result.ChecklistItems = append(result.ChecklistItems, ChecklistItem{
 		Description: "No unexpected breaking changes",
 		Passed:      !hasBreaking,
@@ -491,7 +491,7 @@ func (a *PRAnalyzer) buildChecklist(pr prInfo, result *PRAnalysis) {
 // calculateRiskLevel determines overall risk
 func (a *PRAnalyzer) calculateRiskLevel(result *PRAnalysis) {
 	riskScore := 0
-	
+
 	// Complexity contributes to risk
 	switch result.Complexity {
 	case "trivial":
@@ -505,12 +505,12 @@ func (a *PRAnalyzer) calculateRiskLevel(result *PRAnalysis) {
 	case "very complex":
 		riskScore += 8
 	}
-	
+
 	// Security issues are high risk
 	if result.HasSecurity {
 		riskScore += 10
 	}
-	
+
 	// Breaking changes are risky
 	for _, api := range result.APIChanges {
 		if api.Breaking {
@@ -518,10 +518,10 @@ func (a *PRAnalyzer) calculateRiskLevel(result *PRAnalysis) {
 			break
 		}
 	}
-	
+
 	// Issues add to risk
 	riskScore += len(result.Issues) * 2
-	
+
 	// Determine risk level
 	if riskScore <= 2 {
 		result.RiskLevel = "low"
@@ -538,23 +538,23 @@ func (a *PRAnalyzer) calculateRiskLevel(result *PRAnalysis) {
 func (a *PRAnalyzer) checkAutoApproval(result *PRAnalysis) {
 	// Start optimistic
 	result.AutoApprovalEligible = true
-	
+
 	// Disqualifiers
 	if result.RiskLevel == "high" || result.RiskLevel == "critical" {
 		result.AutoApprovalEligible = false
 		return
 	}
-	
+
 	if result.HasSecurity {
 		result.AutoApprovalEligible = false
 		return
 	}
-	
+
 	if result.Complexity == "complex" || result.Complexity == "very complex" {
 		result.AutoApprovalEligible = false
 		return
 	}
-	
+
 	// Check for breaking changes
 	for _, api := range result.APIChanges {
 		if api.Breaking {
@@ -562,14 +562,14 @@ func (a *PRAnalyzer) checkAutoApproval(result *PRAnalysis) {
 			return
 		}
 	}
-	
+
 	// Check if only safe categories
 	safeCategories := map[string]bool{
 		"documentation": true,
 		"testing":       true,
 		"ci/cd":         true,
 	}
-	
+
 	allSafe := true
 	for _, cat := range result.Categories {
 		if !safeCategories[cat] {
@@ -577,7 +577,7 @@ func (a *PRAnalyzer) checkAutoApproval(result *PRAnalysis) {
 			break
 		}
 	}
-	
+
 	if result.AutoApprovalEligible && allSafe {
 		result.AutoApprovalReasons = append(result.AutoApprovalReasons,
 			"Only contains safe change categories",
@@ -602,7 +602,7 @@ func (a *PRAnalyzer) generateRecommendation(result *PRAnalysis) {
 		result.Recommendation = "This PR appears safe and can be auto-approved after automated checks pass."
 		return
 	}
-	
+
 	switch result.RiskLevel {
 	case "low":
 		result.Recommendation = "This PR has low risk and can be approved after a quick review."
@@ -620,11 +620,11 @@ func (a *PRAnalyzer) generateRecommendation(result *PRAnalysis) {
 // estimateReviewTime estimates time needed for review
 func (a *PRAnalyzer) estimateReviewTime(pr prInfo, result *PRAnalysis) {
 	baseMinutes := 5
-	
+
 	// Add time based on lines changed
 	totalChanges := pr.Additions + pr.Deletions
 	baseMinutes += totalChanges / 50 // Roughly 50 lines per minute
-	
+
 	// Add time based on complexity
 	switch result.Complexity {
 	case "trivial":
@@ -638,12 +638,12 @@ func (a *PRAnalyzer) estimateReviewTime(pr prInfo, result *PRAnalysis) {
 	case "very complex":
 		baseMinutes += 60
 	}
-	
+
 	// Add time for security review
 	if result.HasSecurity {
 		baseMinutes += 30
 	}
-	
+
 	// Add time for breaking changes
 	for _, api := range result.APIChanges {
 		if api.Breaking {
@@ -651,7 +651,7 @@ func (a *PRAnalyzer) estimateReviewTime(pr prInfo, result *PRAnalysis) {
 			break
 		}
 	}
-	
+
 	// Format the time estimate
 	if baseMinutes < 15 {
 		result.EstimatedReviewTime = "~10 minutes"
@@ -679,7 +679,7 @@ type prInfo struct {
 	Files        []string
 }
 
-func extractPRData(pr interface{}) prInfo {
+func extractPRData(pr any) prInfo {
 	// This would extract data from the actual PR model
 	// For now, return placeholder data
 	info := prInfo{
@@ -689,7 +689,7 @@ func extractPRData(pr interface{}) prInfo {
 		Deletions:    50,
 		ChangedFiles: 5,
 	}
-	
+
 	// Extract from actual model if possible
 	if prModel, ok := pr.(interface {
 		GetTitle() string
@@ -704,7 +704,7 @@ func extractPRData(pr interface{}) prInfo {
 		info.Deletions = prModel.GetDeletions()
 		info.ChangedFiles = prModel.GetChangedFiles()
 	}
-	
+
 	return info
 }
 
@@ -718,17 +718,17 @@ func (a *PRAnalyzer) extractFileList(pr prInfo) []string {
 		"README.md",
 		"go.mod",
 	}
-	
+
 	if pr.ChangedFiles > 0 {
 		return files[:min(pr.ChangedFiles, len(files))]
 	}
-	
+
 	return files
 }
 
 func (a *PRAnalyzer) detectLanguage(filename string) string {
 	ext := strings.ToLower(filepath.Ext(filename))
-	
+
 	langMap := map[string]string{
 		".go":   "Go",
 		".js":   "JavaScript",
@@ -748,11 +748,11 @@ func (a *PRAnalyzer) detectLanguage(filename string) string {
 		".json": "JSON",
 		".md":   "Markdown",
 	}
-	
+
 	if lang, ok := langMap[ext]; ok {
 		return lang
 	}
-	
+
 	return "Unknown"
 }
 

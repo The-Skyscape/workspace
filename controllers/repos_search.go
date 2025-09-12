@@ -145,7 +145,7 @@ func getContextLines(lines []string, lineNum, contextSize int) []string {
 // Searches repository names and descriptions
 func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// Parse parameters using new helpers
+	// Parse parameters using new helpers
 	p := c.Params()
 	query := p.String("q", "")
 	filter := p.String("filter", "") // "all", "public", "private"
@@ -172,7 +172,7 @@ func (c *ReposController) searchRepositories(w http.ResponseWriter, r *http.Requ
 // This should be made private as it takes a user parameter (HATEOAS violation)
 func (c *ReposController) searchUserRepositories(user *authentication.User, query, filter string) ([]*models.Repository, error) {
 	var conditions []string
-	var args []interface{}
+	var args []any
 
 	// Base condition: user's repositories or public ones
 	if user.IsAdmin {

@@ -210,36 +210,36 @@ func (r *Repository) Path() string {
 // EnsureGitRepository ensures the Git repository directory exists and is initialized
 func (r *Repository) EnsureGitRepository() error {
 	repoPath := r.Path()
-	
+
 	// Check if directory exists
 	if _, err := os.Stat(repoPath); os.IsNotExist(err) {
 		// Create directory
 		if err := os.MkdirAll(repoPath, 0755); err != nil {
 			return errors.Wrap(err, "failed to create repository directory")
 		}
-		
+
 		// Initialize as bare repository (matching gitkit's behavior)
 		cmd := exec.Command("git", "init", "--bare")
 		cmd.Dir = repoPath
 		if err := cmd.Run(); err != nil {
 			return errors.Wrap(err, "failed to initialize git repository")
 		}
-		
+
 		log.Printf("Initialized bare Git repository at %s", repoPath)
 	}
-	
+
 	return nil
 }
 
 // CloneFromGitHub clones a GitHub repository as a bare repository with full history
 func (r *Repository) CloneFromGitHub(cloneURL string) error {
 	repoPath := r.Path()
-	
+
 	// Remove directory if it exists (to ensure clean clone)
 	if err := os.RemoveAll(repoPath); err != nil {
 		log.Printf("Warning: Failed to remove existing directory: %v", err)
 	}
-	
+
 	// Clone as bare repository directly
 	// This gets all branches, tags, and complete history
 	log.Printf("Cloning from GitHub: %s to %s", cloneURL, repoPath)
@@ -248,7 +248,7 @@ func (r *Repository) CloneFromGitHub(cloneURL string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to clone from GitHub: %s", string(output))
 	}
-	
+
 	// Rename origin to github for consistency
 	// Note: git clone --bare doesn't set up remotes the same way as regular clone
 	// We need to update the config to have a proper remote
@@ -258,14 +258,14 @@ func (r *Repository) CloneFromGitHub(cloneURL string) error {
 		// Not critical, just log it
 		log.Printf("Warning: Failed to set GitHub remote URL: %v", err)
 	}
-	
+
 	// Set fetch refspec for the github remote
 	cmd = exec.Command("git", "config", "remote.github.fetch", "+refs/heads/*:refs/remotes/github/*")
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
 		log.Printf("Warning: Failed to set GitHub fetch refspec: %v", err)
 	}
-	
+
 	log.Printf("Successfully cloned repository from GitHub with full history")
 	return nil
 }
@@ -422,8 +422,8 @@ func (r *Repository) UpdateLastActivity() error {
 }
 
 // GetStats returns comprehensive statistics for the repository
-func (r *Repository) GetStats() (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
+func (r *Repository) GetStats() (map[string]any, error) {
+	stats := make(map[string]any)
 
 	// Basic stats
 	stats["name"] = r.Name
@@ -552,7 +552,7 @@ func (c *Contributor) GravatarURL() string {
 		// Return a default avatar for unknown emails
 		return fmt.Sprintf("https://www.gravatar.com/avatar/?d=identicon&s=40")
 	}
-	
+
 	// Generate MD5 hash of the lowercase email
 	email := strings.ToLower(strings.TrimSpace(c.Email))
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(email)))

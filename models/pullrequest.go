@@ -2,7 +2,7 @@ package models
 
 import (
 	"time"
-	
+
 	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
@@ -17,16 +17,16 @@ type PullRequest struct {
 	HeadBranch    string // Alias for CompareBranch
 	CompareBranch string
 	Status        string // "draft", "open", "merged", "closed", "approved", "changes_requested"
-	
+
 	// Merge fields
-	MergedAt      time.Time
-	MergedBy      string
-	
+	MergedAt time.Time
+	MergedBy string
+
 	// Diff statistics
-	Additions     int
-	Deletions     int
-	ChangedFiles  int
-	
+	Additions    int
+	Deletions    int
+	ChangedFiles int
+
 	// GitHub Sync Fields
 	GitHubNumber   int       // GitHub PR number
 	GitHubID       int64     // GitHub PR ID
@@ -54,14 +54,13 @@ func init() {
 // GetRepoPRsPaginated returns paginated pull requests for a repository
 func GetRepoPRsPaginated(repoID string, includeClosed bool, limit, offset int) ([]*PullRequest, int, error) {
 	condition := "WHERE RepoID = ?"
-	args := []interface{}{repoID}
-	
+	args := []any{repoID}
+
 	if !includeClosed {
 		condition += " AND Status = 'open'"
 	}
-	
+
 	condition += " ORDER BY CreatedAt DESC"
-	
+
 	return PullRequests.SearchPaginated(condition, limit, offset, args...)
 }
-

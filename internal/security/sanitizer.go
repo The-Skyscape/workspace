@@ -95,7 +95,7 @@ func (s *Sanitizer) SanitizeSQL(input string) (string, error) {
 
 	// Escape single quotes for SQL strings
 	sanitized := strings.ReplaceAll(input, "'", "''")
-	
+
 	return sanitized, nil
 }
 
@@ -111,8 +111,8 @@ func (s *Sanitizer) SanitizeCommand(input string) (string, error) {
 	// Only allow alphanumeric, spaces, and basic punctuation
 	var result strings.Builder
 	for _, r := range input {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || 
-		   r == ' ' || r == '.' || r == '-' || r == '_' || r == '/' {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) ||
+			r == ' ' || r == '.' || r == '-' || r == '_' || r == '/' {
 			result.WriteRune(r)
 		}
 	}
@@ -167,7 +167,7 @@ func (s *Sanitizer) SanitizeURL(input string) (string, error) {
 
 	// Check for javascript: and data: URLs
 	if strings.HasPrefix(strings.ToLower(input), "javascript:") ||
-	   strings.HasPrefix(strings.ToLower(input), "data:") {
+		strings.HasPrefix(strings.ToLower(input), "data:") {
 		return "", fmt.Errorf("potentially malicious URL scheme")
 	}
 
@@ -186,9 +186,9 @@ func (s *Sanitizer) SanitizeURL(input string) (string, error) {
 func (s *Sanitizer) SanitizeEmail(input string) (string, error) {
 	// Basic email validation regex
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	
+
 	input = strings.TrimSpace(strings.ToLower(input))
-	
+
 	if !emailRegex.MatchString(input) {
 		return "", fmt.Errorf("invalid email address")
 	}
@@ -206,25 +206,25 @@ func (s *Sanitizer) SanitizeFilename(input string) string {
 	// Remove path separators
 	input = strings.ReplaceAll(input, "/", "")
 	input = strings.ReplaceAll(input, "\\", "")
-	
+
 	// Remove special characters that could cause issues
 	input = strings.ReplaceAll(input, "..", "")
 	input = strings.ReplaceAll(input, "~", "")
-	
+
 	// Replace spaces with underscores
 	input = strings.ReplaceAll(input, " ", "_")
-	
+
 	// Only allow alphanumeric, dash, underscore, and dot
 	var result strings.Builder
 	for _, r := range input {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || 
-		   r == '-' || r == '_' || r == '.' {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) ||
+			r == '-' || r == '_' || r == '.' {
 			result.WriteRune(r)
 		}
 	}
 
 	filename := result.String()
-	
+
 	// Prevent empty filename
 	if filename == "" {
 		filename = "unnamed"
@@ -277,13 +277,13 @@ func (s *Sanitizer) ValidateInput(input string, inputType string) (string, error
 }
 
 // SanitizeMap sanitizes all values in a map
-func (s *Sanitizer) SanitizeMap(input map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	
+func (s *Sanitizer) SanitizeMap(input map[string]any) map[string]any {
+	result := make(map[string]any)
+
 	for key, value := range input {
 		// Sanitize the key
 		sanitizedKey := s.SanitizeString(key, 100)
-		
+
 		// Sanitize the value based on type
 		switch v := value.(type) {
 		case string:
@@ -294,14 +294,14 @@ func (s *Sanitizer) SanitizeMap(input map[string]interface{}) map[string]interfa
 				sanitized[i] = s.SanitizeString(str, 0)
 			}
 			result[sanitizedKey] = sanitized
-		case map[string]interface{}:
+		case map[string]any:
 			result[sanitizedKey] = s.SanitizeMap(v)
 		default:
 			// Keep other types as-is (numbers, booleans, etc.)
 			result[sanitizedKey] = value
 		}
 	}
-	
+
 	return result
 }
 

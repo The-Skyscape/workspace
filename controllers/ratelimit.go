@@ -81,11 +81,11 @@ func (c RateLimitController) Handle(req *http.Request) application.Controller {
 }
 
 // GetRateLimitStats returns current rate limiting statistics
-func (c *RateLimitController) GetRateLimitStats() map[string]interface{} {
+func (c *RateLimitController) GetRateLimitStats() map[string]any {
 	authStats := middleware.AuthRateLimiter.GetStats()
 	signupStats := middleware.SignupRateLimiter.GetStats()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"auth":   authStats,
 		"signup": signupStats,
 	}

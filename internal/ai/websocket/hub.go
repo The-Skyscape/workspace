@@ -22,9 +22,9 @@ const (
 
 // Message represents a WebSocket message
 type Message struct {
-	Type      MessageType    `json:"type"`
-	Timestamp time.Time      `json:"timestamp"`
-	Data      interface{}    `json:"data"`
+	Type      MessageType `json:"type"`
+	Timestamp time.Time   `json:"timestamp"`
+	Data      any         `json:"data"`
 }
 
 // Client represents a WebSocket client
@@ -76,15 +76,15 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			
+
 			log.Printf("WebSocket: Client %s connected", client.ID)
-			
+
 			// Send welcome message
 			welcome := Message{
 				Type:      MessageTypeHeartbeat,
 				Timestamp: time.Now(),
-				Data: map[string]interface{}{
-					"message": "Connected to AI activity stream",
+				Data: map[string]any{
+					"message":   "Connected to AI activity stream",
 					"client_id": client.ID,
 				},
 			}
@@ -119,7 +119,7 @@ func (h *Hub) Run() {
 			heartbeat := Message{
 				Type:      MessageTypeHeartbeat,
 				Timestamp: time.Now(),
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"message": "ping",
 				},
 			}
@@ -135,12 +135,12 @@ func (h *Hub) BroadcastMessage(msg Message) {
 		log.Printf("WebSocket: Failed to marshal message: %v", err)
 		return
 	}
-	
+
 	h.broadcast <- data
 }
 
 // BroadcastActivity sends an activity update to all clients
-func (h *Hub) BroadcastActivity(activity interface{}) {
+func (h *Hub) BroadcastActivity(activity any) {
 	msg := Message{
 		Type:      MessageTypeActivity,
 		Timestamp: time.Now(),
@@ -150,7 +150,7 @@ func (h *Hub) BroadcastActivity(activity interface{}) {
 }
 
 // BroadcastQueueStats sends queue statistics to all clients
-func (h *Hub) BroadcastQueueStats(stats map[string]interface{}) {
+func (h *Hub) BroadcastQueueStats(stats map[string]any) {
 	msg := Message{
 		Type:      MessageTypeQueueStats,
 		Timestamp: time.Now(),
@@ -160,7 +160,7 @@ func (h *Hub) BroadcastQueueStats(stats map[string]interface{}) {
 }
 
 // BroadcastTaskUpdate sends a task update to all clients
-func (h *Hub) BroadcastTaskUpdate(task interface{}) {
+func (h *Hub) BroadcastTaskUpdate(task any) {
 	msg := Message{
 		Type:      MessageTypeTaskUpdate,
 		Timestamp: time.Now(),
@@ -176,10 +176,10 @@ func (h *Hub) SendToUser(userID string, msg Message) {
 		log.Printf("WebSocket: Failed to marshal message: %v", err)
 		return
 	}
-	
+
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	for client := range h.clients {
 		if client.UserID == userID {
 			select {
@@ -198,10 +198,10 @@ func (h *Hub) SendToRepo(repoID string, msg Message) {
 		log.Printf("WebSocket: Failed to marshal message: %v", err)
 		return
 	}
-	
+
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	for client := range h.clients {
 		if client.RepoID == repoID || client.RepoID == "" {
 			select {
@@ -220,7 +220,7 @@ func (h *Hub) sendToClient(client *Client, msg Message) {
 		log.Printf("WebSocket: Failed to marshal message: %v", err)
 		return
 	}
-	
+
 	select {
 	case client.Send <- data:
 	default:
@@ -243,13 +243,13 @@ func (c *Client) ReadPump() {
 		c.Hub.unregister <- c
 		c.Conn.Close()
 	}()
-	
+
 	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.Conn.SetPongHandler(func(string) error {
 		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
-	
+
 	for {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
@@ -258,9 +258,9 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
-		
+
 		// Handle incoming messages (e.g., filter requests)
-		var msg map[string]interface{}
+		var msg map[string]any
 		if err := json.Unmarshal(message, &msg); err == nil {
 			c.handleMessage(msg)
 		}
@@ -274,7 +274,7 @@ func (c *Client) WritePump() {
 		ticker.Stop()
 		c.Conn.Close()
 	}()
-	
+
 	for {
 		select {
 		case message, ok := <-c.Send:
@@ -283,24 +283,24 @@ func (c *Client) WritePump() {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			
+
 			w, err := c.Conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return
 			}
 			w.Write(message)
-			
+
 			// Add queued messages to the current WebSocket message
 			n := len(c.Send)
 			for i := 0; i < n; i++ {
 				w.Write([]byte{'\n'})
 				w.Write(<-c.Send)
 			}
-			
+
 			if err := w.Close(); err != nil {
 				return
 			}
-			
+
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -311,7 +311,7 @@ func (c *Client) WritePump() {
 }
 
 // handleMessage processes incoming messages from the client
-func (c *Client) handleMessage(msg map[string]interface{}) {
+func (c *Client) handleMessage(msg map[string]any) {
 	// Handle filter changes, subscriptions, etc.
 	if action, ok := msg["action"].(string); ok {
 		switch action {

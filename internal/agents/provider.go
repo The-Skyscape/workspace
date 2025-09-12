@@ -10,22 +10,22 @@ type Provider interface {
 	// Core identification
 	Name() string
 	Model() string
-	
+
 	// Capabilities (built into each provider)
 	MaxContextTokens() int
 	SupportedTools() []string
 	SupportsToolCalling() bool
 	SupportsStreaming() bool
 	RequiresGPU() bool
-	
+
 	// Message formatting for provider-specific needs
 	FormatMessages(messages []Message, tools []Tool) []Message
 	ParseResponse(response *Response) *Response
-	
+
 	// Tool handling preferences
-	RequiresToolsInMessages() bool  // Some models want tools in system message
-	PrefersSeparateTools() bool      // Some models want tools as separate parameter
-	
+	RequiresToolsInMessages() bool // Some models want tools in system message
+	PrefersSeparateTools() bool    // Some models want tools as separate parameter
+
 	// Chat methods
 	Chat(messages []Message, options ChatOptions) (*Response, error)
 	ChatWithTools(messages []Message, tools []Tool, options ChatOptions) (*Response, error)
@@ -63,9 +63,9 @@ type ResponseMetadata struct {
 
 // ToolCall represents a tool invocation
 type ToolCall struct {
-	ID       string          `json:"id,omitempty"`
-	Type     string          `json:"type"` // Usually "function"
-	Function FunctionCall    `json:"function"`
+	ID       string       `json:"id,omitempty"`
+	Type     string       `json:"type"` // Usually "function"
+	Function FunctionCall `json:"function"`
 }
 
 // FunctionCall contains the function call details
@@ -85,9 +85,9 @@ type Tool struct {
 
 // ToolFunction defines a callable function
 type ToolFunction struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 // ConvertToOllamaMessage converts an agent Message to Ollama format
@@ -96,7 +96,7 @@ func ConvertToOllamaMessage(msg Message) services.OllamaMessage {
 		Role:    msg.Role,
 		Content: msg.Content,
 	}
-	
+
 	// Convert tool calls if present
 	if len(msg.ToolCalls) > 0 {
 		ollamaMsg.ToolCalls = make([]services.OllamaToolCall, len(msg.ToolCalls))
@@ -111,7 +111,7 @@ func ConvertToOllamaMessage(msg Message) services.OllamaMessage {
 			}
 		}
 	}
-	
+
 	return ollamaMsg
 }
 
@@ -121,7 +121,7 @@ func ConvertFromOllamaMessage(msg services.OllamaMessage) Message {
 		Role:    msg.Role,
 		Content: msg.Content,
 	}
-	
+
 	// Convert tool calls if present
 	if len(msg.ToolCalls) > 0 {
 		agentMsg.ToolCalls = make([]ToolCall, len(msg.ToolCalls))
@@ -136,6 +136,6 @@ func ConvertFromOllamaMessage(msg services.OllamaMessage) Message {
 			}
 		}
 	}
-	
+
 	return agentMsg
 }

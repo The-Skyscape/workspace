@@ -9,24 +9,24 @@ import (
 type ToolImplementation interface {
 	// Name returns the tool's name (used in tool calls)
 	Name() string
-	
+
 	// Description returns a description for the AI to understand when to use this tool
 	Description() string
-	
+
 	// Execute runs the tool with the given parameters
-	Execute(params map[string]interface{}, userID string) (string, error)
-	
+	Execute(params map[string]any, userID string) (string, error)
+
 	// ValidateParams checks if the parameters are valid
-	ValidateParams(params map[string]interface{}) error
-	
+	ValidateParams(params map[string]any) error
+
 	// Schema returns the parameter schema for structured outputs (optional)
-	Schema() map[string]interface{}
+	Schema() map[string]any
 }
 
 // ToolCallRequest represents a parsed tool call from the AI
 type ToolCallRequest struct {
-	Tool   string                 `json:"tool"`
-	Params map[string]interface{} `json:"params,omitempty"`
+	Tool   string         `json:"tool"`
+	Params map[string]any `json:"params,omitempty"`
 }
 
 // ToolRegistry manages available tools
@@ -62,23 +62,23 @@ func (r *ToolRegistry) ListTools() map[string]string {
 }
 
 // ExecuteTool executes a tool by name with given parameters
-func (r *ToolRegistry) ExecuteTool(name string, params map[string]interface{}, userID string) (string, error) {
+func (r *ToolRegistry) ExecuteTool(name string, params map[string]any, userID string) (string, error) {
 	tool, exists := r.tools[name]
 	if !exists {
 		return "", fmt.Errorf("tool '%s' not found", name)
 	}
-	
+
 	// Validate parameters
 	if err := tool.ValidateParams(params); err != nil {
 		return "", fmt.Errorf("invalid parameters for tool '%s': %w", name, err)
 	}
-	
+
 	// Execute the tool
 	result, err := tool.Execute(params, userID)
 	if err != nil {
 		return "", fmt.Errorf("tool '%s' execution failed: %w", name, err)
 	}
-	
+
 	return result, nil
 }
 
@@ -95,17 +95,17 @@ func (r *ToolRegistry) GenerateToolPrompt() string {
 	if len(r.tools) == 0 {
 		return ""
 	}
-	
+
 	prompt := "\n\nYou have access to the following tools:\n\n"
 	for name, tool := range r.tools {
 		prompt += fmt.Sprintf("- **%s**: %s\n", name, tool.Description())
-		
+
 		// Include schema if available for Ollama structured outputs
 		if schema := tool.Schema(); schema != nil {
-			if params, ok := schema["parameters"].(map[string]interface{}); ok {
+			if params, ok := schema["parameters"].(map[string]any); ok {
 				prompt += "  Parameters:\n"
 				for paramName, paramInfo := range params {
-					if info, ok := paramInfo.(map[string]interface{}); ok {
+					if info, ok := paramInfo.(map[string]any); ok {
 						required := ""
 						if info["required"] == true {
 							required = " (required)"
@@ -116,69 +116,69 @@ func (r *ToolRegistry) GenerateToolPrompt() string {
 			}
 		}
 	}
-	
+
 	// Note: gpt-oss uses native Ollama tool calling, not XML format
 	prompt += `
 These tools will be available to you through native function calling. The GPT-OSS model will automatically select and use the appropriate tools based on your request.`
-	
+
 	return prompt
 }
 
 // GenerateStructuredToolsSchema generates a schema for all tools (for Ollama structured outputs)
-func (r *ToolRegistry) GenerateStructuredToolsSchema() []map[string]interface{} {
-	var schemas []map[string]interface{}
-	
+func (r *ToolRegistry) GenerateStructuredToolsSchema() []map[string]any {
+	var schemas []map[string]any
+
 	for name, tool := range r.tools {
-		schema := map[string]interface{}{
+		schema := map[string]any{
 			"name":        name,
 			"description": tool.Description(),
 		}
-		
+
 		// Add parameter schema if available
 		if toolSchema := tool.Schema(); toolSchema != nil {
 			schema["parameters"] = toolSchema
 		} else {
 			// Default schema for tools without explicit schemas
-			schema["parameters"] = map[string]interface{}{
+			schema["parameters"] = map[string]any{
 				"type":       "object",
-				"properties": map[string]interface{}{},
+				"properties": map[string]any{},
 			}
 		}
-		
+
 		schemas = append(schemas, schema)
 	}
-	
+
 	return schemas
 }
 
 // GenerateOllamaTools generates tool definitions in Ollama's native format
-func (r *ToolRegistry) GenerateOllamaTools() []map[string]interface{} {
-	var tools []map[string]interface{}
-	
+func (r *ToolRegistry) GenerateOllamaTools() []map[string]any {
+	var tools []map[string]any
+
 	for name, tool := range r.tools {
 		// Build the tool definition in OpenAI-compatible format
-		toolDef := map[string]interface{}{
+		toolDef := map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        name,
 				"description": tool.Description(),
 			},
 		}
-		
+
 		// Add parameter schema if available
 		if toolSchema := tool.Schema(); toolSchema != nil {
-			toolDef["function"].(map[string]interface{})["parameters"] = toolSchema
+			toolDef["function"].(map[string]any)["parameters"] = toolSchema
 		} else {
 			// Default schema for tools without explicit schemas
-			toolDef["function"].(map[string]interface{})["parameters"] = map[string]interface{}{
+			toolDef["function"].(map[string]any)["parameters"] = map[string]any{
 				"type":       "object",
-				"properties": map[string]interface{}{},
+				"properties": map[string]any{},
 			}
 		}
-		
+
 		tools = append(tools, toolDef)
 	}
-	
+
 	return tools
 }
 

@@ -72,28 +72,28 @@ func (c *Conversation) GenerateTitle() error {
 }
 
 // GetWorkingContext returns the parsed working context
-func (c *Conversation) GetWorkingContext() map[string]interface{} {
+func (c *Conversation) GetWorkingContext() map[string]any {
 	if c.WorkingContext == "" {
-		return make(map[string]interface{})
+		return make(map[string]any)
 	}
-	
-	var context map[string]interface{}
+
+	var context map[string]any
 	if err := json.Unmarshal([]byte(c.WorkingContext), &context); err != nil {
-		return make(map[string]interface{})
+		return make(map[string]any)
 	}
 	return context
 }
 
 // UpdateWorkingContext updates a key in the working context
-func (c *Conversation) UpdateWorkingContext(key string, value interface{}) error {
+func (c *Conversation) UpdateWorkingContext(key string, value any) error {
 	context := c.GetWorkingContext()
 	context[key] = value
-	
+
 	contextJSON, err := json.Marshal(context)
 	if err != nil {
 		return err
 	}
-	
+
 	c.WorkingContext = string(contextJSON)
 	c.UpdatedAt = time.Now()
 	return Conversations.Update(c)
@@ -107,22 +107,22 @@ func (c *Conversation) ClearWorkingContext() error {
 }
 
 // GetSettings returns the parsed settings
-func (c *Conversation) GetSettings() map[string]interface{} {
+func (c *Conversation) GetSettings() map[string]any {
 	if c.Settings == "" {
 		// Default settings
-		return map[string]interface{}{
-			"showThinking": false,
+		return map[string]any{
+			"showThinking":  false,
 			"maxIterations": 10,
-			"autoMode": true,
+			"autoMode":      true,
 		}
 	}
-	
-	var settings map[string]interface{}
+
+	var settings map[string]any
 	if err := json.Unmarshal([]byte(c.Settings), &settings); err != nil {
-		return map[string]interface{}{
-			"showThinking": false,
+		return map[string]any{
+			"showThinking":  false,
 			"maxIterations": 10,
-			"autoMode": true,
+			"autoMode":      true,
 		}
 	}
 	return settings

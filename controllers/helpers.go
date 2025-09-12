@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"workspace/models"
-
 )
 
 // SearchParams represents common search parameters
@@ -48,9 +47,9 @@ func GetSearchParams(r *http.Request) SearchParams {
 }
 
 // BuildSearchQuery builds a SQL query from search parameters
-func BuildSearchQuery(baseTable string, params SearchParams, repoID string) (string, []interface{}) {
+func BuildSearchQuery(baseTable string, params SearchParams, repoID string) (string, []any) {
 	var conditions []string
-	var args []interface{}
+	var args []any
 
 	// Always filter by repository
 	if repoID != "" {

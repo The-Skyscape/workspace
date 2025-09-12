@@ -115,14 +115,14 @@ func (m *MonitoringController) getCurrentStats(w http.ResponseWriter, r *http.Re
 func (m *MonitoringController) getLiveStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := m.collector.GetCurrent()
 	if err != nil {
-		m.Render(w, r, "monitoring-error.html", map[string]interface{}{
+		m.Render(w, r, "monitoring-error.html", map[string]any{
 			"Error": err.Error(),
 		})
 		return
 	}
 
 	// Return HTML partial for HTMX
-	m.Render(w, r, "monitoring-stats.html", map[string]interface{}{
+	m.Render(w, r, "monitoring-stats.html", map[string]any{
 		"Stats":  stats,
 		"Alerts": m.collector.CheckAlerts(),
 	})
@@ -186,7 +186,7 @@ func (m *MonitoringController) getCPUPartial(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	m.Render(w, r, "monitoring-cpu.html", map[string]interface{}{
+	m.Render(w, r, "monitoring-cpu.html", map[string]any{
 		"CPU":  stats.CPU,
 		"Load": stats.LoadAverage,
 	})
@@ -200,7 +200,7 @@ func (m *MonitoringController) getMemoryPartial(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	m.Render(w, r, "monitoring-memory.html", map[string]interface{}{
+	m.Render(w, r, "monitoring-memory.html", map[string]any{
 		"Memory": stats.Memory,
 	})
 }
@@ -213,7 +213,7 @@ func (m *MonitoringController) getDiskPartial(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	m.Render(w, r, "monitoring-disk.html", map[string]interface{}{
+	m.Render(w, r, "monitoring-disk.html", map[string]any{
 		"Disk": stats.Disk,
 	})
 }
@@ -230,7 +230,7 @@ func (m *MonitoringController) getContainersPartial(w http.ResponseWriter, r *ht
 func (m *MonitoringController) getAlertsPartial(w http.ResponseWriter, r *http.Request) {
 	alerts := m.collector.CheckAlerts()
 
-	m.Render(w, r, "monitoring-alerts.html", map[string]interface{}{
+	m.Render(w, r, "monitoring-alerts.html", map[string]any{
 		"Alerts": alerts,
 	})
 }

@@ -42,7 +42,7 @@ func (c *LogsController) GetRecentLogs(limit int) []middleware.LogEntry {
 }
 
 // GetLogStats returns log statistics for templates
-func (c *LogsController) GetLogStats() map[string]interface{} {
+func (c *LogsController) GetLogStats() map[string]any {
 	return middleware.AppLogger.GetLogStats()
 }
 
@@ -50,10 +50,10 @@ func (c *LogsController) GetLogStats() map[string]interface{} {
 
 func (c *LogsController) getRecentLogs(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		// Use pagination helper for limit
+	// Use pagination helper for limit
 	pagination := c.Pagination(100) // default 100 items
 	limit := pagination.Limit
-	
+
 	// Cap at maximum 1000 for safety
 	if limit > 1000 {
 		limit = 1000
@@ -68,7 +68,7 @@ func (c *LogsController) getRecentLogs(w http.ResponseWriter, r *http.Request) {
 
 func (c *LogsController) getLogStats(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
-		stats := middleware.AppLogger.GetLogStats()
+	stats := middleware.AppLogger.GetLogStats()
 
 	// Add rate limiting stats
 	rateLimitController := c.Use("ratelimit").(*RateLimitController)

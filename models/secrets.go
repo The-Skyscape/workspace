@@ -29,7 +29,7 @@ const (
 // StoreGitHubOAuthToken stores a GitHub OAuth token for a user
 func StoreGitHubOAuthToken(userID string, token string) error {
 	key := fmt.Sprintf("%s%s", GitHubUserPrefix, userID)
-	return Secrets.StoreSecret(key, map[string]interface{}{
+	return Secrets.StoreSecret(key, map[string]any{
 		"token": token,
 	})
 }
@@ -41,23 +41,23 @@ func GetGitHubOAuthToken(userID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	token, ok := secret["token"].(string)
 	if !ok {
 		return "", fmt.Errorf("token not found or invalid format")
 	}
-	
+
 	return token, nil
 }
 
 // StoreGitHubRepoIntegration stores GitHub integration data for a repository
-func StoreGitHubRepoIntegration(repoID string, data map[string]interface{}) error {
+func StoreGitHubRepoIntegration(repoID string, data map[string]any) error {
 	key := fmt.Sprintf("%s%s", GitHubRepoPrefix, repoID)
 	return Secrets.StoreSecret(key, data)
 }
 
 // GetGitHubRepoIntegration retrieves GitHub integration data for a repository
-func GetGitHubRepoIntegration(repoID string) (map[string]interface{}, error) {
+func GetGitHubRepoIntegration(repoID string) (map[string]any, error) {
 	key := fmt.Sprintf("%s%s", GitHubRepoPrefix, repoID)
 	return Secrets.GetSecret(key)
 }

@@ -19,7 +19,7 @@ func (t *BuildTool) Description() string {
 	return "Run build commands and analyze output. Required params: repo_id, command. Optional params: working_dir, timeout_seconds"
 }
 
-func (t *BuildTool) ValidateParams(params map[string]interface{}) error {
+func (t *BuildTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -27,7 +27,7 @@ func (t *BuildTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	command, exists := params["command"]
 	if !exists {
 		return fmt.Errorf("command is required")
@@ -35,59 +35,59 @@ func (t *BuildTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := command.(string); !ok {
 		return fmt.Errorf("command must be a string")
 	}
-	
+
 	return nil
 }
 
-func (t *BuildTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *BuildTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"command": map[string]interface{}{
+		"command": map[string]any{
 			"type":        "string",
 			"description": "Build command to run (e.g., 'make', 'npm run build', 'go build')",
 			"required":    true,
 		},
-		"working_dir": map[string]interface{}{
+		"working_dir": map[string]any{
 			"type":        "string",
 			"description": "Working directory relative to repo root",
 		},
-		"timeout_seconds": map[string]interface{}{
+		"timeout_seconds": map[string]any{
 			"type":        "integer",
 			"description": "Timeout in seconds (default: 300)",
 			"default":     300,
 		},
-		"environment": map[string]interface{}{
+		"environment": map[string]any{
 			"type":        "object",
 			"description": "Environment variables for the build",
 		},
 	})
 }
 
-func (t *BuildTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *BuildTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	command := params["command"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if !user.IsAdmin && repo.UserID != user.ID {
 		return "", fmt.Errorf("access denied: you don't have build permissions")
 	}
-	
+
 	// Get parameters
 	workingDir := ""
 	if wd, exists := params["working_dir"]; exists {
@@ -95,7 +95,7 @@ func (t *BuildTool) Execute(params map[string]interface{}, userID string) (strin
 			workingDir = wdStr
 		}
 	}
-	
+
 	timeout := 300
 	if t, exists := params["timeout_seconds"]; exists {
 		switch v := t.(type) {
@@ -105,16 +105,16 @@ func (t *BuildTool) Execute(params map[string]interface{}, userID string) (strin
 			timeout = v
 		}
 	}
-	
+
 	// Build the command with proper directory change if needed
 	fullCommand := command
 	if workingDir != "" {
 		fullCommand = fmt.Sprintf("cd %s && %s", workingDir, command)
 	}
-	
+
 	// Add environment variables if provided
 	if env, exists := params["environment"]; exists {
-		if envMap, ok := env.(map[string]interface{}); ok {
+		if envMap, ok := env.(map[string]any); ok {
 			var envVars []string
 			for key, val := range envMap {
 				envVars = append(envVars, fmt.Sprintf("%s=%v", key, val))
@@ -124,7 +124,7 @@ func (t *BuildTool) Execute(params map[string]interface{}, userID string) (strin
 			}
 		}
 	}
-	
+
 	// Execute in sandbox
 	sandboxName := fmt.Sprintf("build-%s-%d", repo.ID, time.Now().Unix())
 	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, fullCommand, timeout)
@@ -132,31 +132,31 @@ func (t *BuildTool) Execute(params map[string]interface{}, userID string) (strin
 		return "", fmt.Errorf("failed to create sandbox: %w", err)
 	}
 	defer sandbox.Cleanup()
-	
+
 	// Execute the build
 	startTime := time.Now()
 	output, exitCode, err := sandbox.Execute(fullCommand)
 	duration := time.Since(startTime)
-	
+
 	// Analyze build output
 	success := err == nil && exitCode == 0
 	var result strings.Builder
-	
+
 	if success {
 		result.WriteString(fmt.Sprintf("✅ **Build Successful**\n"))
 	} else {
 		result.WriteString(fmt.Sprintf("❌ **Build Failed**\n"))
 	}
-	
+
 	result.WriteString(fmt.Sprintf("**Command:** `%s`\n", command))
 	result.WriteString(fmt.Sprintf("**Duration:** %s\n", duration.Round(time.Second)))
 	result.WriteString(fmt.Sprintf("**Repository:** %s\n\n", repo.Name))
-	
+
 	// Parse output for common patterns
 	result.WriteString("### Build Output\n```\n")
 	result.WriteString(output)
 	result.WriteString("\n```\n\n")
-	
+
 	// Log the activity
 	activity := &models.Activity{
 		Type:        "build",
@@ -165,7 +165,7 @@ func (t *BuildTool) Execute(params map[string]interface{}, userID string) (strin
 		Description: fmt.Sprintf("Ran build command: %s", command),
 	}
 	models.Activities.Insert(activity)
-	
+
 	// If build failed, suggest fixes
 	if !success {
 		result.WriteString("### Suggested Actions\n")
@@ -182,7 +182,7 @@ func (t *BuildTool) Execute(params map[string]interface{}, userID string) (strin
 			result.WriteString("- Check available make targets with `make help`\n")
 		}
 	}
-	
+
 	return result.String(), nil
 }
 
@@ -197,7 +197,7 @@ func (t *TestTool) Description() string {
 	return "Execute tests and parse results. Required params: repo_id, command. Optional params: working_dir, timeout_seconds, coverage"
 }
 
-func (t *TestTool) ValidateParams(params map[string]interface{}) error {
+func (t *TestTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -205,7 +205,7 @@ func (t *TestTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	command, exists := params["command"]
 	if !exists {
 		return fmt.Errorf("command is required")
@@ -213,32 +213,32 @@ func (t *TestTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := command.(string); !ok {
 		return fmt.Errorf("command must be a string")
 	}
-	
+
 	return nil
 }
 
-func (t *TestTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *TestTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"command": map[string]interface{}{
+		"command": map[string]any{
 			"type":        "string",
 			"description": "Test command to run (e.g., 'npm test', 'go test ./...', 'pytest')",
 			"required":    true,
 		},
-		"working_dir": map[string]interface{}{
+		"working_dir": map[string]any{
 			"type":        "string",
 			"description": "Working directory relative to repo root",
 		},
-		"timeout_seconds": map[string]interface{}{
+		"timeout_seconds": map[string]any{
 			"type":        "integer",
 			"description": "Timeout in seconds (default: 600)",
 			"default":     600,
 		},
-		"coverage": map[string]interface{}{
+		"coverage": map[string]any{
 			"type":        "boolean",
 			"description": "Include coverage report",
 			"default":     false,
@@ -246,27 +246,27 @@ func (t *TestTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *TestTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *TestTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	command := params["command"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions
 	if !user.IsAdmin && repo.UserID != user.ID {
 		return "", fmt.Errorf("access denied: you don't have test permissions")
 	}
-	
+
 	// Get parameters
 	workingDir := ""
 	if wd, exists := params["working_dir"]; exists {
@@ -274,7 +274,7 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 			workingDir = wdStr
 		}
 	}
-	
+
 	timeout := 600
 	if t, exists := params["timeout_seconds"]; exists {
 		switch v := t.(type) {
@@ -284,14 +284,14 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 			timeout = v
 		}
 	}
-	
+
 	coverage := false
 	if c, exists := params["coverage"]; exists {
 		if cBool, ok := c.(bool); ok {
 			coverage = cBool
 		}
 	}
-	
+
 	// Modify command for coverage if requested
 	if coverage {
 		if strings.Contains(command, "go test") {
@@ -302,13 +302,13 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 			command = strings.Replace(command, "pytest", "pytest --cov", 1)
 		}
 	}
-	
+
 	// Build the command with proper directory change if needed
 	fullCommand := command
 	if workingDir != "" {
 		fullCommand = fmt.Sprintf("cd %s && %s", workingDir, command)
 	}
-	
+
 	// Execute in sandbox
 	sandboxName := fmt.Sprintf("test-%s-%d", repo.ID, time.Now().Unix())
 	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, fullCommand, timeout)
@@ -316,29 +316,29 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 		return "", fmt.Errorf("failed to create sandbox: %w", err)
 	}
 	defer sandbox.Cleanup()
-	
+
 	// Execute the tests
 	startTime := time.Now()
 	output, exitCode, err := sandbox.Execute(fullCommand)
 	duration := time.Since(startTime)
-	
+
 	// Parse test results
 	success := err == nil && exitCode == 0
 	var result strings.Builder
-	
+
 	if success {
 		result.WriteString(fmt.Sprintf("✅ **Tests Passed**\n"))
 	} else {
 		result.WriteString(fmt.Sprintf("❌ **Tests Failed**\n"))
 	}
-	
+
 	result.WriteString(fmt.Sprintf("**Command:** `%s`\n", command))
 	result.WriteString(fmt.Sprintf("**Duration:** %s\n", duration.Round(time.Second)))
 	result.WriteString(fmt.Sprintf("**Repository:** %s\n\n", repo.Name))
-	
+
 	// Parse test statistics
 	result.WriteString("### Test Results\n")
-	
+
 	// Try to extract test counts from common formats
 	if strings.Contains(output, "PASS") || strings.Contains(output, "FAIL") {
 		// Go test format
@@ -354,11 +354,11 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 		// Python pytest format
 		result.WriteString("- Test results detected (Python)\n")
 	}
-	
+
 	result.WriteString("\n### Test Output\n```\n")
 	result.WriteString(output)
 	result.WriteString("\n```\n")
-	
+
 	// Log the activity
 	activity := &models.Activity{
 		Type:        "test",
@@ -367,17 +367,17 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 		Description: fmt.Sprintf("Ran tests: %s", command),
 	}
 	models.Activities.Insert(activity)
-	
+
 	// If tests failed, create issues for failures
 	if !success {
 		result.WriteString("\n### Actions Taken\n")
-		
+
 		// Parse for specific test failures and suggest creating issues
 		failedTests := extractFailedTests(output)
 		if len(failedTests) > 0 {
 			result.WriteString(fmt.Sprintf("- Found %d test failures\n", len(failedTests)))
 			result.WriteString("- Consider creating issues for each failure\n")
-			
+
 			for i, testName := range failedTests {
 				if i < 5 { // Limit to first 5
 					result.WriteString(fmt.Sprintf("  - `%s`\n", testName))
@@ -388,7 +388,7 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 			}
 		}
 	}
-	
+
 	return result.String(), nil
 }
 
@@ -396,7 +396,7 @@ func (t *TestTool) Execute(params map[string]interface{}, userID string) (string
 func extractFailedTests(output string) []string {
 	var failed []string
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		// Go test failures
 		if strings.Contains(line, "--- FAIL:") {
@@ -417,7 +417,7 @@ func extractFailedTests(output string) []string {
 			}
 		}
 	}
-	
+
 	return failed
 }
 
@@ -432,7 +432,7 @@ func (t *DeployTool) Description() string {
 	return "Deploy application to staging or production. Required params: repo_id, environment. Optional params: version, rollback"
 }
 
-func (t *DeployTool) ValidateParams(params map[string]interface{}) error {
+func (t *DeployTool) ValidateParams(params map[string]any) error {
 	repoID, exists := params["repo_id"]
 	if !exists {
 		return fmt.Errorf("repo_id is required")
@@ -440,7 +440,7 @@ func (t *DeployTool) ValidateParams(params map[string]interface{}) error {
 	if _, ok := repoID.(string); !ok {
 		return fmt.Errorf("repo_id must be a string")
 	}
-	
+
 	environment, exists := params["environment"]
 	if !exists {
 		return fmt.Errorf("environment is required")
@@ -449,7 +449,7 @@ func (t *DeployTool) ValidateParams(params map[string]interface{}) error {
 	if !ok {
 		return fmt.Errorf("environment must be a string")
 	}
-	
+
 	// Validate environment
 	validEnvs := []string{"staging", "production", "development", "test"}
 	valid := false
@@ -462,39 +462,39 @@ func (t *DeployTool) ValidateParams(params map[string]interface{}) error {
 	if !valid {
 		return fmt.Errorf("environment must be one of: staging, production, development, test")
 	}
-	
+
 	return nil
 }
 
-func (t *DeployTool) Schema() map[string]interface{} {
-	return SimpleSchema(map[string]interface{}{
-		"repo_id": map[string]interface{}{
+func (t *DeployTool) Schema() map[string]any {
+	return SimpleSchema(map[string]any{
+		"repo_id": map[string]any{
 			"type":        "string",
 			"description": "The repository ID",
 			"required":    true,
 		},
-		"environment": map[string]interface{}{
+		"environment": map[string]any{
 			"type":        "string",
 			"description": "Target environment (staging, production, development, test)",
 			"required":    true,
 			"enum":        []string{"staging", "production", "development", "test"},
 		},
-		"version": map[string]interface{}{
+		"version": map[string]any{
 			"type":        "string",
 			"description": "Version/tag to deploy (default: latest)",
 		},
-		"rollback": map[string]interface{}{
+		"rollback": map[string]any{
 			"type":        "boolean",
 			"description": "Rollback to previous version",
 			"default":     false,
 		},
-		"strategy": map[string]interface{}{
+		"strategy": map[string]any{
 			"type":        "string",
 			"description": "Deployment strategy (blue-green, rolling, recreate)",
 			"default":     "rolling",
 			"enum":        []string{"blue-green", "rolling", "recreate"},
 		},
-		"dry_run": map[string]interface{}{
+		"dry_run": map[string]any{
 			"type":        "boolean",
 			"description": "Perform a dry run without actual deployment",
 			"default":     false,
@@ -502,22 +502,22 @@ func (t *DeployTool) Schema() map[string]interface{} {
 	})
 }
 
-func (t *DeployTool) Execute(params map[string]interface{}, userID string) (string, error) {
+func (t *DeployTool) Execute(params map[string]any, userID string) (string, error) {
 	repoID := params["repo_id"].(string)
 	environment := params["environment"].(string)
-	
+
 	// Get user for permissions
 	user, err := models.Auth.GetUser(userID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
-	
+
 	// Get repository
 	repo, err := models.Repositories.Get(repoID)
 	if err != nil {
 		return "", fmt.Errorf("repository not found: %s", repoID)
 	}
-	
+
 	// Check permissions - production requires admin
 	if environment == "production" && !user.IsAdmin {
 		return "", fmt.Errorf("access denied: production deployment requires admin permissions")
@@ -525,7 +525,7 @@ func (t *DeployTool) Execute(params map[string]interface{}, userID string) (stri
 	if !user.IsAdmin && repo.UserID != user.ID {
 		return "", fmt.Errorf("access denied: you don't have deployment permissions")
 	}
-	
+
 	// Get parameters
 	version := "latest"
 	if v, exists := params["version"]; exists {
@@ -533,46 +533,46 @@ func (t *DeployTool) Execute(params map[string]interface{}, userID string) (stri
 			version = vStr
 		}
 	}
-	
+
 	rollback := false
 	if r, exists := params["rollback"]; exists {
 		if rBool, ok := r.(bool); ok {
 			rollback = rBool
 		}
 	}
-	
+
 	strategy := "rolling"
 	if s, exists := params["strategy"]; exists {
 		if sStr, ok := s.(string); ok && sStr != "" {
 			strategy = sStr
 		}
 	}
-	
+
 	dryRun := false
 	if d, exists := params["dry_run"]; exists {
 		if dBool, ok := d.(bool); ok {
 			dryRun = dBool
 		}
 	}
-	
+
 	// Build deployment script based on repository configuration
 	var deployScript string
-	
+
 	// Detect deployment method
 	deployMethod := "docker" // default
-	
+
 	// Build deployment command based on method
 	if rollback {
 		deployScript = buildRollbackScript(environment, strategy)
 	} else {
 		deployScript = buildDeployScript(repo.Name, environment, version, strategy, deployMethod)
 	}
-	
+
 	if dryRun {
-		deployScript = fmt.Sprintf("echo 'DRY RUN MODE - No actual deployment'\n%s", 
+		deployScript = fmt.Sprintf("echo 'DRY RUN MODE - No actual deployment'\n%s",
 			strings.ReplaceAll(deployScript, "docker", "echo docker"))
 	}
-	
+
 	// Execute in sandbox
 	sandboxName := fmt.Sprintf("deploy-%s-%s-%d", repo.ID, environment, time.Now().Unix())
 	sandbox, err := services.NewSandbox(sandboxName, repo.Path(), repo.Name, deployScript, 600)
@@ -580,21 +580,21 @@ func (t *DeployTool) Execute(params map[string]interface{}, userID string) (stri
 		return "", fmt.Errorf("failed to create sandbox: %w", err)
 	}
 	defer sandbox.Cleanup()
-	
+
 	// Execute the deployment
 	startTime := time.Now()
 	output, exitCode, err := sandbox.Execute(deployScript)
 	duration := time.Since(startTime)
-	
+
 	success := err == nil && exitCode == 0
 	var result strings.Builder
-	
+
 	if success {
 		result.WriteString(fmt.Sprintf("✅ **Deployment Successful**\n"))
 	} else {
 		result.WriteString(fmt.Sprintf("❌ **Deployment Failed**\n"))
 	}
-	
+
 	result.WriteString(fmt.Sprintf("**Environment:** %s\n", environment))
 	result.WriteString(fmt.Sprintf("**Version:** %s\n", version))
 	result.WriteString(fmt.Sprintf("**Strategy:** %s\n", strategy))
@@ -603,12 +603,12 @@ func (t *DeployTool) Execute(params map[string]interface{}, userID string) (stri
 		result.WriteString("**Mode:** Dry Run\n")
 	}
 	result.WriteString(fmt.Sprintf("**Repository:** %s\n\n", repo.Name))
-	
+
 	// Add deployment details
 	result.WriteString("### Deployment Output\n```\n")
 	result.WriteString(output)
 	result.WriteString("\n```\n")
-	
+
 	// Log the activity
 	if !dryRun {
 		activity := &models.Activity{
@@ -619,7 +619,7 @@ func (t *DeployTool) Execute(params map[string]interface{}, userID string) (stri
 		}
 		models.Activities.Insert(activity)
 	}
-	
+
 	// Add post-deployment actions
 	if success && !dryRun {
 		result.WriteString("\n### Post-Deployment Actions\n")
@@ -627,31 +627,31 @@ func (t *DeployTool) Execute(params map[string]interface{}, userID string) (stri
 		result.WriteString("- ✅ Monitoring initiated\n")
 		result.WriteString("- Consider running smoke tests\n")
 		result.WriteString("- Consider checking application health\n")
-		
+
 		if environment == "production" {
 			result.WriteString("- **Production deployment** - Monitor closely for issues\n")
 			result.WriteString("- Be ready to rollback if needed\n")
 		}
 	}
-	
+
 	return result.String(), nil
 }
 
 // buildDeployScript creates a deployment script based on the method
 func buildDeployScript(appName, environment, version, strategy, method string) string {
 	var script strings.Builder
-	
+
 	script.WriteString("#!/bin/bash\n")
 	script.WriteString("set -e\n\n")
 	script.WriteString(fmt.Sprintf("echo 'Deploying %s to %s environment'\n", appName, environment))
 	script.WriteString(fmt.Sprintf("echo 'Version: %s'\n", version))
 	script.WriteString(fmt.Sprintf("echo 'Strategy: %s'\n\n", strategy))
-	
+
 	switch method {
 	case "docker":
 		script.WriteString("# Docker deployment\n")
 		script.WriteString(fmt.Sprintf("docker build -t %s:%s .\n", appName, version))
-		
+
 		if strategy == "blue-green" {
 			script.WriteString("# Blue-Green deployment\n")
 			script.WriteString(fmt.Sprintf("docker tag %s:%s %s:%s-new\n", appName, version, appName, environment))
@@ -667,16 +667,16 @@ func buildDeployScript(appName, environment, version, strategy, method string) s
 			script.WriteString(fmt.Sprintf("docker rm %s-%s || true\n", appName, environment))
 			script.WriteString(fmt.Sprintf("docker run -d --name %s-%s %s:%s\n", appName, environment, appName, version))
 		}
-		
+
 		script.WriteString("\necho 'Deployment complete'\n")
 		script.WriteString(fmt.Sprintf("docker ps | grep %s-%s\n", appName, environment))
-		
+
 	case "kubernetes":
 		script.WriteString("# Kubernetes deployment\n")
-		script.WriteString(fmt.Sprintf("kubectl set image deployment/%s %s=%s:%s -n %s\n", 
+		script.WriteString(fmt.Sprintf("kubectl set image deployment/%s %s=%s:%s -n %s\n",
 			appName, appName, appName, version, environment))
 		script.WriteString(fmt.Sprintf("kubectl rollout status deployment/%s -n %s\n", appName, environment))
-		
+
 	default:
 		script.WriteString("# Generic deployment\n")
 		script.WriteString("echo 'Running deployment script'\n")
@@ -686,25 +686,25 @@ func buildDeployScript(appName, environment, version, strategy, method string) s
 		script.WriteString("  echo 'No deploy.sh found, using default deployment'\n")
 		script.WriteString("fi\n")
 	}
-	
+
 	return script.String()
 }
 
 // buildRollbackScript creates a rollback script
 func buildRollbackScript(environment, strategy string) string {
 	var script strings.Builder
-	
+
 	script.WriteString("#!/bin/bash\n")
 	script.WriteString("set -e\n\n")
 	script.WriteString(fmt.Sprintf("echo 'Rolling back %s environment'\n", environment))
 	script.WriteString(fmt.Sprintf("echo 'Strategy: %s'\n\n", strategy))
-	
+
 	script.WriteString("# Rollback to previous version\n")
 	script.WriteString("echo 'Identifying previous version...'\n")
 	script.WriteString("# This would typically query your deployment history\n")
 	script.WriteString("echo 'Rolling back...'\n")
 	script.WriteString("# Actual rollback commands would go here\n")
 	script.WriteString("echo 'Rollback complete'\n")
-	
+
 	return script.String()
 }
