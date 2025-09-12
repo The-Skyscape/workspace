@@ -19,16 +19,17 @@ import (
 	"workspace/models"
 	"workspace/services"
 
+	"errors"
+
 	"github.com/The-Skyscape/devtools/pkg/application"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
-	"errors"
 )
 
-// AIController handles AI chat conversations
-type AIController struct {
+// AHandler handles AI chat conversations
+type AHandler struct {
 	application.Controller
 	toolRegistry *agents.ToolRegistry
 	provider     agents.Provider
@@ -49,30 +50,30 @@ type AIMetrics struct {
 }
 
 // AI returns the controller factory
-func AI() (string, *AIController) {
+func AI() (string, *AHandler) {
 	// Initialize tool registry
 	registry := agents.NewToolRegistry()
 
 	// Note: Tools will be registered in Setup based on provider capabilities
 
-	return "ai", &AIController{
+	return "ai", &AHandler{
 		toolRegistry: registry,
 	}
 }
 
 // Setup initializes the AI controller
-func (c *AIController) Setup(app *application.App) {
+func (c *AHandler) Setup(app *application.App) {
 	c.App = app
 	auth := app.Use("auth").(*AuthController)
 
 	// Initialize provider based on AI_MODEL environment variable
 	provider, err := providers.NewProvider()
 	if err != nil {
-		log.Printf("AIController: Failed to initialize provider: %v", err)
+		log.Printf("AHandler: Failed to initialize provider: %v", err)
 		// Continue without provider - AI features will be disabled
 	} else {
 		c.provider = provider
-		log.Printf("AIController: Initialized %s with model %s", provider.Name(), provider.Model())
+		log.Printf("AHandler: Initialized %s with model %s", provider.Name(), provider.Model())
 
 		// Register only the tools supported by this provider
 		c.registerSupportedTools(provider)
@@ -122,13 +123,13 @@ func (c *AIController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for request handling
-func (c AIController) Handle(req *http.Request) application.IController {
+func (c AHandler) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }
 
 // registerSupportedTools registers only the tools supported by the provider
-func (c *AIController) registerSupportedTools(provider agents.Provider) {
+func (c *AHandler) registerSupportedTools(provider agents.Provider) {
 	// Map of all available tools
 	allTools := map[string]agents.ToolImplementation{
 		// Repository tools
@@ -187,22 +188,22 @@ func (c *AIController) registerSupportedTools(provider agents.Provider) {
 			c.toolRegistry.Register(tool)
 			registeredCount++
 		} else {
-			log.Printf("AIController: Warning - provider claims support for unknown tool: %s", toolName)
+			log.Printf("AHandler: Warning - provider claims support for unknown tool: %s", toolName)
 		}
 	}
 
-	log.Printf("AIController: Registered %d/%d tools for %s", registeredCount, len(supportedTools), provider.Name())
+	log.Printf("AHandler: Registered %d/%d tools for %s", registeredCount, len(supportedTools), provider.Name())
 }
 
 // Template helper methods
 
 // IsAIEnabled returns whether AI features are enabled (checks environment variable)
-func (c *AIController) IsAIEnabled() bool {
+func (c *AHandler) IsAIEnabled() bool {
 	return services.Ollama.IsRunning()
 }
 
 // GetConversations returns all conversations for the current user (admin only)
-func (c *AIController) GetConversations() []*models.Conversation {
+func (c *AHandler) GetConversations() []*models.Conversation {
 	if c.Request == nil {
 		return nil
 	}
@@ -217,7 +218,7 @@ func (c *AIController) GetConversations() []*models.Conversation {
 }
 
 // IsOllamaReady checks if Ollama service is ready and user is admin
-func (c *AIController) IsOllamaReady() bool {
+func (c *AHandler) IsOllamaReady() bool {
 	if c.Request == nil {
 		return false
 	}
@@ -233,7 +234,7 @@ func (c *AIController) IsOllamaReady() bool {
 // Handler methods
 
 // panel renders the main AI panel with conversation list (admin only)
-func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) panel(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -301,14 +302,14 @@ func (c *AIController) panel(w http.ResponseWriter, r *http.Request) {
 }
 
 // redirectToPanel redirects /ai/chat to /ai/panel
-func (c *AIController) redirectToPanel(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) redirectToPanel(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	c.Redirect(w, r, "/ai/panel")
 }
 
 // createConversation creates a new conversation (admin only)
-func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) createConversation(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -325,7 +326,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 
 	conversation, err = models.Conversations.Insert(conversation)
 	if err != nil {
-		log.Printf("AIController: Failed to create conversation: %v", err)
+		log.Printf("AHandler: Failed to create conversation: %v", err)
 		c.RenderError(w, r, errors.New("Failed to create conversation"))
 		return
 	}
@@ -335,7 +336,7 @@ func (c *AIController) createConversation(w http.ResponseWriter, r *http.Request
 }
 
 // deleteConversation deletes a conversation and its messages (admin only)
-func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) deleteConversation(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -360,7 +361,7 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 
 	// Delete conversation
 	if err := models.Conversations.Delete(conversation); err != nil {
-		log.Printf("AIController: Failed to delete conversation: %v", err)
+		log.Printf("AHandler: Failed to delete conversation: %v", err)
 		c.RenderError(w, r, errors.New("Failed to delete conversation"))
 		return
 	}
@@ -370,7 +371,7 @@ func (c *AIController) deleteConversation(w http.ResponseWriter, r *http.Request
 }
 
 // loadChat loads the chat interface for a conversation (admin only)
-func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) loadChat(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -391,7 +392,7 @@ func (c *AIController) loadChat(w http.ResponseWriter, r *http.Request) {
 }
 
 // getMessages returns messages for a conversation (admin only)
-func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) getMessages(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -411,7 +412,7 @@ func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 	// Get messages
 	messages, err := conversation.GetMessages()
 	if err != nil {
-		log.Printf("AIController: Failed to get messages: %v", err)
+		log.Printf("AHandler: Failed to get messages: %v", err)
 		messages = []*models.Message{}
 	}
 
@@ -419,7 +420,7 @@ func (c *AIController) getMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 // sendMessage sends a message to the AI and gets a response
-func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) sendMessage(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -457,7 +458,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	userMsg, err = models.Messages.Insert(userMsg)
 	if err != nil {
-		log.Printf("AIController: Failed to save user message: %v", err)
+		log.Printf("AHandler: Failed to save user message: %v", err)
 	}
 
 	// Update conversation title if it's the first message
@@ -516,7 +517,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Check if provider is ready
 	if c.provider == nil {
-		log.Printf("AIController: AI provider not initialized")
+		log.Printf("AHandler: AI provider not initialized")
 
 		// Save error message with helpful information
 		errorMsg := &models.Message{
@@ -540,13 +541,13 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Use provider to send request with tools
 	thinkingStart := time.Now()
-	log.Printf("AIController: Sending request to %s with %d tools available", c.provider.Model(), len(tools))
+	log.Printf("AHandler: Sending request to %s with %d tools available", c.provider.Model(), len(tools))
 	response, err := c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 	metrics.ThinkingDuration = time.Since(thinkingStart)
-	log.Printf("AIController: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
+	log.Printf("AHandler: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
 
 	if err != nil {
-		log.Printf("AIController: Failed to get AI response: %v", err)
+		log.Printf("AHandler: Failed to get AI response: %v", err)
 
 		// Determine error message based on error type
 		errorMessage := "Unable to get AI response. Please try again."
@@ -578,7 +579,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	// Check if model decided to use tools
 	if len(response.ToolCalls) == 0 {
 		// Native tool calling only - no text parsing needed
-		log.Printf("AIController: Model chose not to use tools for this query")
+		log.Printf("AHandler: Model chose not to use tools for this query")
 		// Save and return the response immediately
 		assistantMsg := &models.Message{
 			ConversationID: conversationID,
@@ -589,7 +590,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		conversation.UpdateLastMessage(finalResponse, models.MessageRoleAssistant)
 
 		metrics.TotalDuration = time.Since(metrics.StartTime)
-		log.Printf("AIController: Direct response completed - Total: %.2fs, Thinking: %.2fs",
+		log.Printf("AHandler: Direct response completed - Total: %.2fs, Thinking: %.2fs",
 			metrics.TotalDuration.Seconds(), metrics.ThinkingDuration.Seconds())
 
 		messages, _ = conversation.GetMessages()
@@ -600,7 +601,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	maxIterations := 5 // Prevent infinite loops
 	iteration := 0
 
-	log.Printf("AIController: Model decided to use tools, entering agentic loop")
+	log.Printf("AHandler: Model decided to use tools, entering agentic loop")
 
 	for iteration < maxIterations {
 		var toolResults []string
@@ -612,7 +613,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			for _, tc := range response.ToolCalls {
 				toolNames = append(toolNames, tc.Function.Name)
 			}
-			log.Printf("AIController: Executing %d tools (iteration %d): %v", len(response.ToolCalls), iteration+1, toolNames)
+			log.Printf("AHandler: Executing %d tools (iteration %d): %v", len(response.ToolCalls), iteration+1, toolNames)
 
 			// Process native tool calls (without streaming in sendMessage)
 			toolResults = c.processNativeAgentToolCalls(response.ToolCalls, conversationID, user.ID, nil, nil)
@@ -620,7 +621,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 			toolDuration := time.Since(toolStart)
 			metrics.ToolDuration += toolDuration
 			metrics.ToolCallCount += len(response.ToolCalls)
-			log.Printf("AIController: Tools executed in %.2fs", toolDuration.Seconds())
+			log.Printf("AHandler: Tools executed in %.2fs", toolDuration.Seconds())
 		} else {
 			// No more tool calls, exit loop
 			break
@@ -655,18 +656,18 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 				Content: result,
 			})
 
-			log.Printf("AIController: Added tool result %d/%d to context", i+1, len(toolResults))
+			log.Printf("AHandler: Added tool result %d/%d to context", i+1, len(toolResults))
 		}
 
 		// Get new response with tool results
 		followUpStart := time.Now()
-		log.Printf("AIController: Getting follow-up response after tool execution (iteration %d)", iteration+1)
+		log.Printf("AHandler: Getting follow-up response after tool execution (iteration %d)", iteration+1)
 		agentMessages = agents.ConvertOllamaToAgentMessages(ollamaMessages)
 		tools = agents.ConvertRegistryToAgentTools(c.toolRegistry, c.provider.SupportedTools())
 		response, err = c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 		metrics.ThinkingDuration += time.Since(followUpStart)
 		if err != nil {
-			log.Printf("AIController: Failed to get follow-up response: %v", err)
+			log.Printf("AHandler: Failed to get follow-up response: %v", err)
 			// If we can't get a follow-up, save what we have with the tool results
 			finalResponse = finalResponse + "\n\n" + strings.Join(toolResults, "\n")
 			break
@@ -677,7 +678,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 		iteration++
 
 		// The loop will continue if the new response contains tool calls
-		log.Printf("AIController: Iteration %d complete, checking for more tool calls", iteration)
+		log.Printf("AHandler: Iteration %d complete, checking for more tool calls", iteration)
 	}
 
 	// Save the final assistant response
@@ -688,7 +689,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	assistantMsg, err = models.Messages.Insert(assistantMsg)
 	if err != nil {
-		log.Printf("AIController: Failed to save assistant message: %v", err)
+		log.Printf("AHandler: Failed to save assistant message: %v", err)
 	}
 
 	// Update conversation's last message
@@ -699,13 +700,13 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Log comprehensive metrics
 	if metrics.ToolCallCount > 0 {
-		log.Printf("AIController: Response complete - Total: %.2fs, Thinking: %.2fs, Tools: %d calls in %.2fs",
+		log.Printf("AHandler: Response complete - Total: %.2fs, Thinking: %.2fs, Tools: %d calls in %.2fs",
 			metrics.TotalDuration.Seconds(),
 			metrics.ThinkingDuration.Seconds(),
 			metrics.ToolCallCount,
 			metrics.ToolDuration.Seconds())
 	} else {
-		log.Printf("AIController: Response complete - Total: %.2fs, Thinking: %.2fs",
+		log.Printf("AHandler: Response complete - Total: %.2fs, Thinking: %.2fs",
 			metrics.TotalDuration.Seconds(),
 			metrics.ThinkingDuration.Seconds())
 	}
@@ -716,7 +717,7 @@ func (c *AIController) sendMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildSystemPrompt creates the system prompt optimized for gpt-oss
-func (c *AIController) buildSystemPrompt(conversationID string) string {
+func (c *AHandler) buildSystemPrompt(conversationID string) string {
 	// Prompt optimized for native tool calling with gpt-oss
 	prompt := `You are an AI coding assistant in the Skyscape development platform, similar to Claude Code but integrated into a web interface.
 
@@ -805,7 +806,7 @@ Never jump ahead - explore methodically and share insights at each step.
 }
 
 // loadProjectContext loads the SKYSCAPE.md file if it exists
-func (c *AIController) loadProjectContext() string {
+func (c *AHandler) loadProjectContext() string {
 	// Try to find SKYSCAPE.md in common locations
 	possiblePaths := []string{
 		"/home/coder/skyscape/workspace/SKYSCAPE.md",
@@ -826,7 +827,7 @@ func (c *AIController) loadProjectContext() string {
 }
 
 // RenderMessageMarkdown converts message content to HTML with markdown formatting
-func (c *AIController) RenderMessageMarkdown(content string) template.HTML {
+func (c *AHandler) RenderMessageMarkdown(content string) template.HTML {
 	// Create goldmark markdown processor with GitHub Flavored Markdown
 	md := goldmark.New(
 		goldmark.WithExtensions(
@@ -886,7 +887,7 @@ func (c *AIController) RenderMessageMarkdown(content string) template.HTML {
 }
 
 // categorizeTools returns relevant tools based on the user's message and conversation state
-func (c *AIController) categorizeTools(message string, isFirstMessage bool, lastToolUsed string) []string {
+func (c *AHandler) categorizeTools(message string, isFirstMessage bool, lastToolUsed string) []string {
 	messageLower := strings.ToLower(message)
 
 	// Quick responses that don't need tools
@@ -905,7 +906,7 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 			strings.Contains(messageLower, "skycastle") ||
 			strings.Contains(messageLower, "sky-castle") {
 			// Start with just list_repos - this forces step-by-step exploration
-			log.Printf("AIController: First exploration message - providing only list_repos tool")
+			log.Printf("AHandler: First exploration message - providing only list_repos tool")
 			return []string{"list_repos"}
 		}
 		// For other queries, also start minimal
@@ -926,38 +927,38 @@ func (c *AIController) categorizeTools(message string, isFirstMessage bool, last
 	switch lastToolUsed {
 	case "list_repos":
 		// After listing repos, allow getting details
-		log.Printf("AIController: After list_repos - providing get_repo tool")
+		log.Printf("AHandler: After list_repos - providing get_repo tool")
 		return []string{"get_repo"}
 
 	case "get_repo":
 		// After getting repo details, allow exploring files
-		log.Printf("AIController: After get_repo - providing list_files and read_file")
+		log.Printf("AHandler: After get_repo - providing list_files and read_file")
 		return []string{"list_files", "read_file"}
 
 	case "list_files":
 		// After listing files, allow reading them or listing more directories
-		log.Printf("AIController: After list_files - providing read_file and list_files")
+		log.Printf("AHandler: After list_files - providing read_file and list_files")
 		return []string{"read_file", "list_files"}
 
 	case "read_file":
 		// After reading a file, allow reading more or exploring directories
-		log.Printf("AIController: After read_file - providing read_file and list_files")
+		log.Printf("AHandler: After read_file - providing read_file and list_files")
 		return []string{"read_file", "list_files"}
 
 	case "todo_update":
 		// After updating todos, provide more general tools
-		log.Printf("AIController: After todo_update - providing general tools")
+		log.Printf("AHandler: After todo_update - providing general tools")
 		return []string{"list_repos", "todo_update"}
 
 	default:
 		// If we don't know the last tool, provide a safe default set
-		log.Printf("AIController: Unknown last tool '%s' - providing default exploration tools", lastToolUsed)
+		log.Printf("AHandler: Unknown last tool '%s' - providing default exploration tools", lastToolUsed)
 		return []string{"get_repo", "list_files", "read_file"}
 	}
 }
 
 // streamResponse handles SSE streaming of AI responses
-func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) streamResponse(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -1033,7 +1034,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 	// Check if Ollama service is ready
 	if !services.Ollama.IsRunning() {
-		log.Printf("AIController: Ollama service is not running")
+		log.Printf("AHandler: Ollama service is not running")
 
 		// Save error as message in conversation
 		errorMsg := &models.Message{
@@ -1075,9 +1076,9 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 	// Categorize and filter tools based on the user's message and conversation state
 	relevantToolNames := c.categorizeTools(lastUserMessage, isFirstMessage, "")
-	log.Printf("AIController: Last user message: %s", lastUserMessage)
-	log.Printf("AIController: First message: %v, User messages: %d", isFirstMessage, userMessageCount)
-	log.Printf("AIController: Selected %d relevant tools based on query: %v", len(relevantToolNames), relevantToolNames)
+	log.Printf("AHandler: Last user message: %s", lastUserMessage)
+	log.Printf("AHandler: First message: %v, User messages: %d", isFirstMessage, userMessageCount)
+	log.Printf("AHandler: Selected %d relevant tools based on query: %v", len(relevantToolNames), relevantToolNames)
 
 	// Send initial thinking status based on query type
 	initialStatus := "🤔 Understanding your request..."
@@ -1113,7 +1114,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	agentMessages := agents.ConvertOllamaToAgentMessages(ollamaMessages)
 	var initialResponse *agents.Response
 
-	log.Printf("AIController: Streaming response with %s", c.provider.Model())
+	log.Printf("AHandler: Streaming response with %s", c.provider.Model())
 
 	// Get tools in agent format - provider will filter to supported ones
 	tools := agents.ConvertRegistryToAgentTools(c.toolRegistry, c.provider.SupportedTools())
@@ -1123,15 +1124,15 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	for _, t := range tools {
 		toolNames = append(toolNames, t.Function.Name)
 	}
-	log.Printf("AIController: Providing %d tools to model: %v", len(tools), toolNames)
+	log.Printf("AHandler: Providing %d tools to model: %v", len(tools), toolNames)
 
 	initialResponse, err = c.provider.ChatWithTools(agentMessages, tools, agents.ChatOptions{})
 
 	metrics.ThinkingDuration = time.Since(thinkingStart)
-	log.Printf("AIController: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
+	log.Printf("AHandler: Initial response received in %.2fs", metrics.ThinkingDuration.Seconds())
 
 	if err != nil {
-		log.Printf("AIController: Failed to get initial AI response: %v", err)
+		log.Printf("AHandler: Failed to get initial AI response: %v", err)
 
 		// Save error as message in conversation
 		errorMsg := &models.Message{
@@ -1170,12 +1171,12 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 	// Check if there are tool calls to process
 	if len(initialResponse.ToolCalls) == 0 {
 		// Native tool calling only - no text parsing needed
-		log.Printf("AIController: No tool calls detected, proceeding with direct response")
+		log.Printf("AHandler: No tool calls detected, proceeding with direct response")
 		// Skip directly to streaming the response
 		goto streamResponse
 	}
 
-	log.Printf("AIController: Entering autonomous execution mode")
+	log.Printf("AHandler: Entering autonomous execution mode")
 
 	// Send initial thinking message
 	c.streamThought(w, flusher, "Analyzing the task and planning approach...")
@@ -1184,7 +1185,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		// Check for cancellation
 		select {
 		case <-r.Context().Done():
-			log.Printf("AIController: Execution cancelled by user")
+			log.Printf("AHandler: Execution cancelled by user")
 			fmt.Fprintf(w, "event: status\ndata: ❌ Execution cancelled\n\n")
 			flusher.Flush()
 			return
@@ -1203,7 +1204,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 
 			// ENFORCE SINGLE TOOL EXECUTION
 			if len(initialResponse.ToolCalls) > 1 {
-				log.Printf("AIController: WARNING - Model attempted to call %d tools at once: %v. Taking only the first one.", len(toolNames), toolNames)
+				log.Printf("AHandler: WARNING - Model attempted to call %d tools at once: %v. Taking only the first one.", len(toolNames), toolNames)
 				c.streamThought(w, flusher, fmt.Sprintf("I was about to use multiple tools, but I should focus on one at a time. Starting with %s...", toolNames[0]))
 				// Take only the first tool call
 				initialResponse.ToolCalls = initialResponse.ToolCalls[:1]
@@ -1216,7 +1217,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 
 			// Process native tool calls with streaming
-			log.Printf("AIController: Processing %d tool call (iteration %d): %v", len(initialResponse.ToolCalls), iteration+1, toolNames)
+			log.Printf("AHandler: Processing %d tool call (iteration %d): %v", len(initialResponse.ToolCalls), iteration+1, toolNames)
 			toolResults = c.processNativeAgentToolCalls(initialResponse.ToolCalls, conversationID, user.ID, w, flusher)
 
 			// Extract and update working context from tool calls
@@ -1236,7 +1237,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		toolDuration := time.Since(toolStart)
 		metrics.ToolDuration += toolDuration
 		metrics.ToolCallCount += len(toolResults)
-		log.Printf("AIController: Tools executed in %.2fs", toolDuration.Seconds())
+		log.Printf("AHandler: Tools executed in %.2fs", toolDuration.Seconds())
 
 		if len(toolResults) == 0 {
 			// No tool calls found
@@ -1312,7 +1313,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		if lastToolUsed != "" {
 			// Re-categorize tools based on the last tool used
 			relevantToolNames := c.categorizeTools("", false, lastToolUsed)
-			log.Printf("AIController: Updating tool availability after %s - providing: %v", lastToolUsed, relevantToolNames)
+			log.Printf("AHandler: Updating tool availability after %s - providing: %v", lastToolUsed, relevantToolNames)
 
 			// Tools are dynamically filtered by the provider
 		}
@@ -1357,9 +1358,9 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Log the response for debugging
-		log.Printf("AIController: Follow-up response content length: %d", len(response.Content))
+		log.Printf("AHandler: Follow-up response content length: %d", len(response.Content))
 		if response.Content == "" && len(toolResults) > 0 {
-			log.Printf("AIController: WARNING - Empty response after tool execution, requesting regeneration")
+			log.Printf("AHandler: WARNING - Empty response after tool execution, requesting regeneration")
 			// Don't force a generic response - instead ask the model to try again with stronger prompting
 			retryMessages := append(ollamaMessages, services.OllamaMessage{
 				Role:    "system",
@@ -1370,10 +1371,10 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			retryResponse, retryErr := c.provider.ChatWithTools(retryAgentMessages, tools, agents.ChatOptions{})
 			if retryErr == nil && retryResponse.Content != "" {
 				response = retryResponse
-				log.Printf("AIController: Regenerated response successfully")
+				log.Printf("AHandler: Regenerated response successfully")
 			} else {
 				// If still empty, provide a fallback response based on what was found
-				log.Printf("AIController: Both attempts returned empty, generating fallback response")
+				log.Printf("AHandler: Both attempts returned empty, generating fallback response")
 				switch lastToolUsed {
 				case "list_repos":
 					// Parse the tool results to find the requested repo
@@ -1409,11 +1410,11 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 			(noMoreTools && iteration >= 2) ||
 			(noMoreTools && strings.Contains(lowerResponse, "would you like") && iteration > 0) {
 			taskComplete = true
-			log.Printf("AIController: Task marked as complete after %d iterations", iteration+1)
+			log.Printf("AHandler: Task marked as complete after %d iterations", iteration+1)
 		} else if noMoreTools && iteration == 0 && strings.Contains(strings.ToLower(lastUserMessage), "explore") {
 			// For exploration tasks, don't stop after just one iteration
 			// Encourage the model to continue exploring
-			log.Printf("AIController: Exploration task detected, encouraging continuation")
+			log.Printf("AHandler: Exploration task detected, encouraging continuation")
 			ollamaMessages = append(ollamaMessages, services.OllamaMessage{
 				Role:    "assistant",
 				Content: finalResponse,
@@ -1442,7 +1443,7 @@ func (c *AIController) streamResponse(w http.ResponseWriter, r *http.Request) {
 		}
 
 		iteration++
-		log.Printf("AIController: Autonomous iteration %d complete", iteration)
+		log.Printf("AHandler: Autonomous iteration %d complete", iteration)
 	}
 
 streamResponse:
@@ -1457,7 +1458,7 @@ streamResponse:
 	fmt.Fprintf(w, "event: status\ndata: \n\n")
 	flusher.Flush()
 
-	log.Printf("AIController: Beginning response streaming, content length: %d", len(finalResponse))
+	log.Printf("AHandler: Beginning response streaming, content length: %d", len(finalResponse))
 
 	// Send initial message structure (replaces typing indicator)
 	startHTML := `<div class="chat chat-start my-2" id="streaming-message">
@@ -1508,7 +1509,7 @@ streamResponse:
 			metrics.ToolDuration.Seconds())
 	}
 
-	log.Printf("AIController: Response complete - %s", perfSummary)
+	log.Printf("AHandler: Response complete - %s", perfSummary)
 
 	// Send the complete formatted message with metrics
 	htmlContent := c.RenderMessageMarkdown(finalResponse)
@@ -1551,9 +1552,9 @@ streamResponse:
 }
 
 // processNativeAgentToolCalls processes native tool calls from agent provider
-func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
+func (c *AHandler) processNativeAgentToolCalls(toolCalls []agents.ToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
 	if c.toolRegistry == nil {
-		log.Printf("AIController: ERROR - Tool registry is nil")
+		log.Printf("AHandler: ERROR - Tool registry is nil")
 		return nil
 	}
 
@@ -1561,7 +1562,7 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 	startTime := time.Now()
 	streaming := w != nil && flusher != nil // Check if streaming is enabled
 
-	log.Printf("AIController: Processing %d tool calls", len(toolCalls))
+	log.Printf("AHandler: Processing %d tool calls", len(toolCalls))
 
 	for i, tc := range toolCalls {
 		toolStart := time.Now()
@@ -1600,7 +1601,7 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 		// Parse arguments from JSON
 		var params map[string]any
 		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
-			log.Printf("AIController: Failed to parse tool arguments: %v", err)
+			log.Printf("AHandler: Failed to parse tool arguments: %v", err)
 			result := fmt.Sprintf("❌ Tool %s failed: Invalid arguments", tc.Function.Name)
 			toolResults = append(toolResults, result)
 			continue
@@ -1609,7 +1610,7 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 		// Get the tool instance
 		tool, exists := c.toolRegistry.Get(tc.Function.Name)
 		if !exists {
-			log.Printf("AIController: Tool %s not found", tc.Function.Name)
+			log.Printf("AHandler: Tool %s not found", tc.Function.Name)
 			result := fmt.Sprintf("❌ Tool %s not found", tc.Function.Name)
 			toolResults = append(toolResults, result)
 			continue
@@ -1617,14 +1618,14 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 
 		// Validate parameters
 		if err := tool.ValidateParams(params); err != nil {
-			log.Printf("AIController: Invalid parameters for tool %s: %v", tc.Function.Name, err)
+			log.Printf("AHandler: Invalid parameters for tool %s: %v", tc.Function.Name, err)
 			result := fmt.Sprintf("❌ Tool %s: Invalid parameters - %v", tc.Function.Name, err)
 			toolResults = append(toolResults, result)
 			continue
 		}
 
 		// Execute the tool
-		log.Printf("AIController: Executing tool %s [%d/%d] with params: %v", tc.Function.Name, i+1, len(toolCalls), params)
+		log.Printf("AHandler: Executing tool %s [%d/%d] with params: %v", tc.Function.Name, i+1, len(toolCalls), params)
 
 		// Update status (only if streaming)
 		if streaming {
@@ -1637,10 +1638,10 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 
 		toolDuration := time.Since(toolStart)
 		if err != nil {
-			log.Printf("AIController: Tool %s failed after %.2fs: %v", tc.Function.Name, toolDuration.Seconds(), err)
+			log.Printf("AHandler: Tool %s failed after %.2fs: %v", tc.Function.Name, toolDuration.Seconds(), err)
 			result = fmt.Sprintf("❌ Tool %s failed: %v", tc.Function.Name, err)
 		} else {
-			log.Printf("AIController: Tool %s succeeded in %.2fs", tc.Function.Name, toolDuration.Seconds())
+			log.Printf("AHandler: Tool %s succeeded in %.2fs", tc.Function.Name, toolDuration.Seconds())
 
 			// Compress output if too verbose
 			result = c.compressToolOutput(tc.Function.Name, result)
@@ -1650,15 +1651,15 @@ func (c *AIController) processNativeAgentToolCalls(toolCalls []agents.ToolCall, 
 	}
 
 	totalDuration := time.Since(startTime)
-	log.Printf("AIController: All %d tools executed in %.2fs", len(toolCalls), totalDuration.Seconds())
+	log.Printf("AHandler: All %d tools executed in %.2fs", len(toolCalls), totalDuration.Seconds())
 
 	return toolResults
 }
 
 // processNativeToolCalls processes tool calls from Ollama's native response format
-func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
+func (c *AHandler) processNativeToolCalls(toolCalls []services.OllamaToolCall, conversationID, userID string, w http.ResponseWriter, flusher http.Flusher) []string {
 	if c.toolRegistry == nil {
-		log.Printf("AIController: ERROR - Tool registry is nil")
+		log.Printf("AHandler: ERROR - Tool registry is nil")
 		return nil
 	}
 
@@ -1666,7 +1667,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	startTime := time.Now()
 	streaming := w != nil && flusher != nil // Check if streaming is enabled
 
-	log.Printf("AIController: Processing %d tool calls", len(toolCalls))
+	log.Printf("AHandler: Processing %d tool calls", len(toolCalls))
 
 	for i, tc := range toolCalls {
 		toolStart := time.Now()
@@ -1700,12 +1701,12 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 			time.Sleep(100 * time.Millisecond) // Brief pause for readability
 		}
 
-		log.Printf("AIController: [Tool %d/%d] Executing '%s'", i+1, len(toolCalls), tc.Function.Name)
+		log.Printf("AHandler: [Tool %d/%d] Executing '%s'", i+1, len(toolCalls), tc.Function.Name)
 
 		// Parse arguments from json.RawMessage
 		var params map[string]any
 		if err := json.Unmarshal(tc.Function.Arguments, &params); err != nil {
-			log.Printf("AIController: [Tool %d/%d] ERROR - Failed to parse arguments for '%s': %v",
+			log.Printf("AHandler: [Tool %d/%d] ERROR - Failed to parse arguments for '%s': %v",
 				i+1, len(toolCalls), tc.Function.Name, err)
 			errorResult := agents.FormatToolResult(tc.Function.Name, "", fmt.Errorf("invalid arguments: %v", err))
 			toolResults = append(toolResults, errorResult)
@@ -1723,7 +1724,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 		}
 
 		// Log parsed parameters for debugging
-		log.Printf("AIController: [Tool %d/%d] Parameters: %v", i+1, len(toolCalls), params)
+		log.Printf("AHandler: [Tool %d/%d] Parameters: %v", i+1, len(toolCalls), params)
 
 		// Stream execution status (only if streaming enabled)
 		if streaming {
@@ -1743,7 +1744,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 			// Format error result with clear indication of failure
 			errorResult := fmt.Sprintf("❌ Tool '%s' failed: %v\nThe tool encountered an error and could not complete. You may want to try again with different parameters or use an alternative approach.", tc.Function.Name, err)
 			toolResults = append(toolResults, errorResult)
-			log.Printf("AIController: [Tool %d/%d] '%s' FAILED in %.3fs: %v",
+			log.Printf("AHandler: [Tool %d/%d] '%s' FAILED in %.3fs: %v",
 				i+1, len(toolCalls), tc.Function.Name, toolDuration.Seconds(), err)
 
 			// Stream error result immediately (only if streaming enabled)
@@ -1762,7 +1763,7 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 			} else if len(result) > 200 {
 				preview = result[:200] + "..."
 			}
-			log.Printf("AIController: [Tool %d/%d] '%s' SUCCESS in %.3fs. Result preview: %s",
+			log.Printf("AHandler: [Tool %d/%d] '%s' SUCCESS in %.3fs. Result preview: %s",
 				i+1, len(toolCalls), tc.Function.Name, toolDuration.Seconds(), preview)
 
 			// Stream success result immediately (only if streaming enabled)
@@ -1781,19 +1782,19 @@ func (c *AIController) processNativeToolCalls(toolCalls []services.OllamaToolCal
 	}
 
 	totalDuration := time.Since(startTime)
-	log.Printf("AIController: All %d tools completed in %.3fs", len(toolCalls), totalDuration.Seconds())
+	log.Printf("AHandler: All %d tools completed in %.3fs", len(toolCalls), totalDuration.Seconds())
 
 	return toolResults
 }
 
 // streamThought sends a thinking event via SSE
-func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher, thought string) {
+func (c *AHandler) streamThought(w http.ResponseWriter, flusher http.Flusher, thought string) {
 	if w == nil || flusher == nil {
-		log.Printf("AIController: streamThought - Skipping, w or flusher is nil")
+		log.Printf("AHandler: streamThought - Skipping, w or flusher is nil")
 		return // Skip if not streaming
 	}
 
-	log.Printf("AIController: streamThought - Sending: %s", thought)
+	log.Printf("AHandler: streamThought - Sending: %s", thought)
 
 	// Format thinking as HTML for HTMX to insert
 	thinkingHTML := fmt.Sprintf(`<div class="text-xs italic text-base-content/50 pl-4 border-l-2 border-base-300">%s</div>`, template.HTMLEscapeString(thought))
@@ -1807,7 +1808,7 @@ func (c *AIController) streamThought(w http.ResponseWriter, flusher http.Flusher
 }
 
 // streamToolResult streams a single tool result via SSE
-func (c *AIController) streamToolResult(w http.ResponseWriter, flusher http.Flusher, toolName string, result string, current int, total int) {
+func (c *AHandler) streamToolResult(w http.ResponseWriter, flusher http.Flusher, toolName string, result string, current int, total int) {
 	// Create the tool result HTML
 	toolHTML := fmt.Sprintf(`<div class="collapse collapse-arrow bg-base-200/30 my-2">
 		<input type="checkbox" class="peer" />
@@ -1842,11 +1843,11 @@ func (c *AIController) streamToolResult(w http.ResponseWriter, flusher http.Flus
 	fmt.Fprintf(w, "event: tool\ndata: %s\n\n", toolHTMLEscaped)
 	flusher.Flush()
 
-	log.Printf("AIController: Streamed tool result %d/%d via SSE", current, total)
+	log.Printf("AHandler: Streamed tool result %d/%d via SSE", current, total)
 }
 
 // getTodoPanel renders the todo panel for a conversation
-func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -1897,7 +1898,7 @@ func (c *AIController) getTodoPanel(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTodos returns just the todo list items (for HTMX refresh)
-func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) getTodos(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -1947,7 +1948,7 @@ func (c *AIController) getTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 // streamTodos provides SSE endpoint for todo updates
-func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) streamTodos(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -1999,7 +2000,7 @@ func (c *AIController) streamTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 // stopExecution handles cancellation of AI execution
-func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) stopExecution(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	conversationID := r.PathValue("id")
@@ -2018,7 +2019,7 @@ func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
 
 	// The actual cancellation is handled by context.Done() in streamResponse
 	// This endpoint just acknowledges the request
-	log.Printf("AIController: Stop execution requested for conversation %s", conversationID)
+	log.Printf("AHandler: Stop execution requested for conversation %s", conversationID)
 
 	// For HTMX requests, use c.Refresh to properly handle the response
 	// This will trigger the appropriate HTMX behavior
@@ -2026,7 +2027,7 @@ func (c *AIController) stopExecution(w http.ResponseWriter, r *http.Request) {
 }
 
 // compressToolOutput compresses verbose tool outputs to save context window space
-func (c *AIController) compressToolOutput(toolName string, output string) string {
+func (c *AHandler) compressToolOutput(toolName string, output string) string {
 	lines := strings.Split(output, "\n")
 
 	switch toolName {
@@ -2112,22 +2113,22 @@ func (c *AIController) compressToolOutput(toolName string, output string) string
 }
 
 // updateWorkingContext updates the conversation's working context with new information
-func (c *AIController) updateWorkingContext(conversationID string, updates map[string]any) {
+func (c *AHandler) updateWorkingContext(conversationID string, updates map[string]any) {
 	conversation, err := models.Conversations.Get(conversationID)
 	if err != nil {
-		log.Printf("AIController: Failed to get conversation for context update: %v", err)
+		log.Printf("AHandler: Failed to get conversation for context update: %v", err)
 		return
 	}
 
 	for key, value := range updates {
 		if err := conversation.UpdateWorkingContext(key, value); err != nil {
-			log.Printf("AIController: Failed to update working context: %v", err)
+			log.Printf("AHandler: Failed to update working context: %v", err)
 		}
 	}
 }
 
 // extractContextFromToolCall extracts contextual information from tool calls
-func (c *AIController) extractContextFromToolCall(toolName string, params map[string]any, result string) map[string]any {
+func (c *AHandler) extractContextFromToolCall(toolName string, params map[string]any, result string) map[string]any {
 	context := make(map[string]any)
 
 	switch toolName {
@@ -2173,7 +2174,7 @@ func (c *AIController) extractContextFromToolCall(toolName string, params map[st
 }
 
 // resolveContextualReferences enhances user messages with context
-func (c *AIController) resolveContextualReferences(message string, workingContext map[string]any) string {
+func (c *AHandler) resolveContextualReferences(message string, workingContext map[string]any) string {
 	lowerMessage := strings.ToLower(message)
 	contextHints := []string{}
 
@@ -2215,7 +2216,7 @@ func (c *AIController) resolveContextualReferences(message string, workingContex
 }
 
 // buildContextWindow creates an optimized context window for the AI
-func (c *AIController) buildContextWindow(conversation *models.Conversation, maxMessages int) []services.OllamaMessage {
+func (c *AHandler) buildContextWindow(conversation *models.Conversation, maxMessages int) []services.OllamaMessage {
 	messages, _ := conversation.GetMessages()
 	context := []services.OllamaMessage{
 		{
@@ -2278,7 +2279,7 @@ func (c *AIController) buildContextWindow(conversation *models.Conversation, max
 }
 
 // buildSystemPromptWithAutonomy creates an enhanced system prompt for autonomous execution
-func (c *AIController) buildSystemPromptWithAutonomy(conversationID string) string {
+func (c *AHandler) buildSystemPromptWithAutonomy(conversationID string) string {
 	basePrompt := c.buildSystemPrompt(conversationID)
 
 	autonomousInstructions := `
@@ -2322,7 +2323,7 @@ Be curious and thorough. For "explore" requests, don't stop after just listing -
 }
 
 // updateConfig handles AI configuration updates
-func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2351,7 +2352,7 @@ func (c *AIController) updateConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // getRecentActivity returns recent AI activity
-func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) getRecentActivity(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2391,7 +2392,7 @@ func (c *AIController) getRecentActivity(w http.ResponseWriter, r *http.Request)
 }
 
 // GetQueueStats returns AI queue statistics for templates
-func (c *AIController) GetQueueStats() map[string]any {
+func (c *AHandler) GetQueueStats() map[string]any {
 	// Use the new internal AI service
 	if ai := c.getAIService(); ai != nil {
 		return ai.GetQueueStats()
@@ -2400,17 +2401,17 @@ func (c *AIController) GetQueueStats() map[string]any {
 }
 
 // GetRecentActivity returns recent AI activity for templates
-func (c *AIController) GetRecentActivity() []*models.AIActivity {
+func (c *AHandler) GetRecentActivity() []*models.AIActivity {
 	activities, err := models.GetRecentAIActivities(10)
 	if err != nil {
-		log.Printf("AIController: Failed to get recent activities: %v", err)
+		log.Printf("AHandler: Failed to get recent activities: %v", err)
 		return []*models.AIActivity{}
 	}
 	return activities
 }
 
 // GetTodayStats returns today's AI processing statistics
-func (c *AIController) GetTodayStats() map[string]int {
+func (c *AHandler) GetTodayStats() map[string]int {
 	stats := map[string]int{
 		"issue_triage": 0,
 		"pr_review":    0,
@@ -2443,7 +2444,7 @@ func (c *AIController) GetTodayStats() map[string]int {
 }
 
 // GetFeatureStatus returns the status of AI features
-func (c *AIController) GetFeatureStatus() map[string]bool {
+func (c *AHandler) GetFeatureStatus() map[string]bool {
 	status := map[string]bool{
 		"issue_triage":     false,
 		"pr_review":        false,
@@ -2467,7 +2468,7 @@ func (c *AIController) GetFeatureStatus() map[string]bool {
 }
 
 // GetCurrentConfig returns the current AI configuration for templates
-func (c *AIController) GetCurrentConfig() map[string]any {
+func (c *AHandler) GetCurrentConfig() map[string]any {
 	config := map[string]any{
 		"model":            "Llama 3.2:3b",
 		"automation_level": "balanced",
@@ -2489,12 +2490,12 @@ func (c *AIController) GetCurrentConfig() map[string]any {
 }
 
 // getAIService returns the global AI service instance
-func (c *AIController) getAIService() *aiService.Service {
+func (c *AHandler) getAIService() *aiService.Service {
 	return aiService.Instance
 }
 
 // GetActiveAlerts returns active AI alerts for the template
-func (c *AIController) GetActiveAlerts() map[string]any {
+func (c *AHandler) GetActiveAlerts() map[string]any {
 	// Check for critical issues that need attention
 	criticalIssues, _ := models.Issues.Search("WHERE Status = 'open' AND Priority = 'critical' LIMIT 10")
 	if len(criticalIssues) > 0 {
@@ -2507,7 +2508,7 @@ func (c *AIController) GetActiveAlerts() map[string]any {
 }
 
 // GetLatestInsights returns AI-generated insights
-func (c *AIController) GetLatestInsights() []map[string]string {
+func (c *AHandler) GetLatestInsights() []map[string]string {
 	insights := []map[string]string{}
 
 	// Check recent activity patterns
@@ -2556,7 +2557,7 @@ func (c *AIController) GetLatestInsights() []map[string]string {
 }
 
 // getRecommendations returns AI recommendations (admin only)
-func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) getRecommendations(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2606,7 +2607,7 @@ func (c *AIController) getRecommendations(w http.ResponseWriter, r *http.Request
 }
 
 // viewAlerts shows AI alerts (admin only)
-func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) viewAlerts(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2621,7 +2622,7 @@ func (c *AIController) viewAlerts(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetEventQueueStats returns event queue statistics for the metrics dashboard
-func (c *AIController) GetEventQueueStats() map[string]any {
+func (c *AHandler) GetEventQueueStats() map[string]any {
 	stats := map[string]any{
 		"running":   false,
 		"workers":   0,
@@ -2648,17 +2649,17 @@ func (c *AIController) GetEventQueueStats() map[string]any {
 }
 
 // GetRecentActivities returns recent AI activities for the metrics dashboard
-func (c *AIController) GetRecentActivities(limit int) []*models.AIActivity {
+func (c *AHandler) GetRecentActivities(limit int) []*models.AIActivity {
 	activities, err := models.GetRecentAIActivities(limit)
 	if err != nil {
-		log.Printf("AIController: Failed to get recent activities: %v", err)
+		log.Printf("AHandler: Failed to get recent activities: %v", err)
 		return []*models.AIActivity{}
 	}
 	return activities
 }
 
 // GetEventTypeStats returns event type distribution statistics
-func (c *AIController) GetEventTypeStats() map[string]int {
+func (c *AHandler) GetEventTypeStats() map[string]int {
 	stats := make(map[string]int)
 
 	// Query activities grouped by type from last 7 days
@@ -2678,7 +2679,7 @@ func (c *AIController) GetEventTypeStats() map[string]int {
 }
 
 // GetAverageProcessingTime returns average processing time in milliseconds
-func (c *AIController) GetAverageProcessingTime() string {
+func (c *AHandler) GetAverageProcessingTime() string {
 	activities, err := models.GetRecentAIActivities(100)
 	if err != nil || len(activities) == 0 {
 		return "0ms"
@@ -2705,7 +2706,7 @@ func (c *AIController) GetAverageProcessingTime() string {
 }
 
 // GetSuccessRate returns the success rate percentage
-func (c *AIController) GetSuccessRate() int {
+func (c *AHandler) GetSuccessRate() int {
 	activities, err := models.GetRecentAIActivities(100)
 	if err != nil || len(activities) == 0 {
 		return 100
@@ -2722,7 +2723,7 @@ func (c *AIController) GetSuccessRate() int {
 }
 
 // GetQueueEfficiency returns queue processing efficiency percentage
-func (c *AIController) GetQueueEfficiency() int {
+func (c *AHandler) GetQueueEfficiency() int {
 	if ai := c.getAIService(); ai != nil {
 		stats := ai.GetQueueStats()
 		if stats != nil {
@@ -2741,7 +2742,7 @@ func (c *AIController) GetQueueEfficiency() int {
 }
 
 // triggerDailyReport triggers a daily report generation (admin only)
-func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) triggerDailyReport(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2771,7 +2772,7 @@ func (c *AIController) triggerDailyReport(w http.ResponseWriter, r *http.Request
 }
 
 // triggerSecurityScan triggers a security scan (admin only)
-func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) triggerSecurityScan(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2800,7 +2801,7 @@ func (c *AIController) triggerSecurityScan(w http.ResponseWriter, r *http.Reques
 }
 
 // triggerStaleCheck triggers a stale issue/PR check (admin only)
-func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) triggerStaleCheck(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2829,7 +2830,7 @@ func (c *AIController) triggerStaleCheck(w http.ResponseWriter, r *http.Request)
 }
 
 // triggerDependencyCheck triggers a dependency update check (admin only)
-func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) triggerDependencyCheck(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2858,7 +2859,7 @@ func (c *AIController) triggerDependencyCheck(w http.ResponseWriter, r *http.Req
 }
 
 // toggleFeature toggles an AI feature on/off (admin only)
-func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) toggleFeature(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2903,7 +2904,7 @@ func (c *AIController) toggleFeature(w http.ResponseWriter, r *http.Request) {
 }
 
 // updateAggressiveness updates AI automation level (admin only)
-func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) updateAggressiveness(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2931,7 +2932,7 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 		ai.UpdateConfig(config)
 
 		// Log the change
-		log.Printf("AIController: Updated automation level to %s by %s", level, user.Name)
+		log.Printf("AHandler: Updated automation level to %s by %s", level, user.Name)
 
 		// Return empty success response for HTMX
 		w.WriteHeader(http.StatusOK)
@@ -2941,7 +2942,7 @@ func (c *AIController) updateAggressiveness(w http.ResponseWriter, r *http.Reque
 }
 
 // updateDelay updates AI response delay (admin only)
-func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
+func (c *AHandler) updateDelay(w http.ResponseWriter, r *http.Request) {
 	c.SetRequest(r)
 
 	user, _, err := c.App.Use("auth").(*AuthController).Authenticate(r)
@@ -2972,7 +2973,7 @@ func (c *AIController) updateDelay(w http.ResponseWriter, r *http.Request) {
 		ai.UpdateConfig(config)
 
 		// Log the change
-		log.Printf("AIController: Updated response delay to %d seconds by %s", seconds, user.Name)
+		log.Printf("AHandler: Updated response delay to %d seconds by %s", seconds, user.Name)
 
 		// Return empty success response for HTMX
 		w.WriteHeader(http.StatusOK)

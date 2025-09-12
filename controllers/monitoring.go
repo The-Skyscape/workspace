@@ -83,7 +83,7 @@ func (m *MonitoringController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for each request
-func (m MonitoringController) Handle(req *http.Request) application.IController {
+func (m MonitoringController) Handle(req *http.Request) application.Handler {
 	m.Request = req
 	return &m
 }

@@ -42,7 +42,7 @@ func (w *WorkspacesController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (w WorkspacesController) Handle(req *http.Request) application.IController {
+func (w WorkspacesController) Handle(req *http.Request) application.Handler {
 	w.Request = req
 	return &w
 }

@@ -61,7 +61,7 @@ func (c *HomeController) Setup(app *application.App) {
 }
 
 // Handle is called when each request is handled
-func (c HomeController) Handle(req *http.Request) application.IController {
+func (c HomeController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

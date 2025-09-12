@@ -14,8 +14,9 @@ import (
 	"workspace/internal/github"
 	"workspace/models"
 
-	"github.com/The-Skyscape/devtools/pkg/application"
 	"errors"
+
+	"github.com/The-Skyscape/devtools/pkg/application"
 )
 
 // IntegrationsController handles all external service integrations
@@ -65,7 +66,7 @@ func (c *IntegrationsController) Setup(app *application.App) {
 }
 
 // Handle prepares controller for request
-func (c IntegrationsController) Handle(req *http.Request) application.IController {
+func (c IntegrationsController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

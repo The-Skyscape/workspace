@@ -44,7 +44,7 @@ func (c *UsersController) Setup(app *application.App) {
 	http.Handle("POST /settings/users/{id}/enable", app.ProtectFunc(c.enableUser, adminRequired))
 }
 
-func (c UsersController) Handle(req *http.Request) application.IController {
+func (c UsersController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

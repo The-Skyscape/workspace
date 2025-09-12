@@ -55,7 +55,7 @@ func (b *BackupController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for each request
-func (b BackupController) Handle(req *http.Request) application.IController {
+func (b BackupController) Handle(req *http.Request) application.Handler {
 	b.Request = req
 	return &b
 }

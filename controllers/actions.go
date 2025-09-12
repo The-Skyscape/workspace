@@ -27,7 +27,7 @@ type ActionsController struct {
 }
 
 // Handle returns a new controller instance for the request
-func (c ActionsController) Handle(req *http.Request) application.IController {
+func (c ActionsController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

@@ -65,7 +65,7 @@ func (c *ReposController) Setup(app *application.App) {
 }
 
 // Handle returns a controller instance configured for the current request
-func (c ReposController) Handle(req *http.Request) application.IController {
+func (c ReposController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

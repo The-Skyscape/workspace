@@ -75,7 +75,7 @@ func (c *RateLimitController) Setup(app *application.App) {
 }
 
 // Handle prepares controller for request
-func (c RateLimitController) Handle(req *http.Request) application.IController {
+func (c RateLimitController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

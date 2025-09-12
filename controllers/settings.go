@@ -76,7 +76,7 @@ func (s *SettingsController) Setup(app *application.App) {
 	http.Handle("POST /settings/workspace", app.ProtectFunc(s.updateWorkspace, adminRequired))
 }
 
-func (s SettingsController) Handle(req *http.Request) application.IController {
+func (s SettingsController) Handle(req *http.Request) application.Handler {
 	s.Request = req
 	return &s
 }

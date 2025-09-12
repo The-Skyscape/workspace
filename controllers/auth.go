@@ -48,7 +48,7 @@ func (c *AuthController) Setup(app *application.App) {
 }
 
 // Handle prepares the controller for request-specific operations.
-func (c AuthController) Handle(req *http.Request) application.IController {
+func (c AuthController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return &c
 }

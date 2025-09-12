@@ -29,7 +29,7 @@ func (c *HealthController) Setup(app *application.App) {
 	http.HandleFunc("GET /health/detailed", c.detailedHealthCheck)
 }
 
-func (c *HealthController) Handle(req *http.Request) application.IController {
+func (c *HealthController) Handle(req *http.Request) application.Handler {
 	c.Request = req
 	return c
 }
