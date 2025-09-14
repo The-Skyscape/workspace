@@ -12,16 +12,16 @@ import (
 	"time"
 
 	"github.com/The-Skyscape/devtools/pkg/application"
-	"github.com/The-Skyscape/devtools/pkg/monitoring"
+	"github.com/The-Skyscape/devtools/pkg/containers"
 )
 
 // MonitoringController handles system resource monitoring
 type MonitoringController struct {
 	application.Controller
-	collector *monitoring.Collector
+	collector *containers.Collector
 
 	// Container monitoring state
-	containers              []monitoring.ContainerStats
+	containers              []containers.ContainerStats
 	containersMu            *sync.RWMutex
 	containerUpdateInterval time.Duration
 	stopContainerMonitor    chan struct{}
@@ -30,7 +30,7 @@ type MonitoringController struct {
 // Monitoring is the factory function for the monitoring controller
 func Monitoring() (string, *MonitoringController) {
 	return "monitoring", &MonitoringController{
-		collector:               monitoring.NewCollector(false, 100), // Don't include containers in main collector
+		collector:               containers.NewCollector(false, 100), // Don't include containers in main collector
 		containersMu:            &sync.RWMutex{},
 		containerUpdateInterval: 15 * time.Second,
 		stopContainerMonitor:    make(chan struct{}),
@@ -89,7 +89,7 @@ func (m MonitoringController) Handle(req *http.Request) application.Handler {
 }
 
 // GetCurrentStats returns current system statistics for templates
-func (m *MonitoringController) GetCurrentStats() *monitoring.SystemStats {
+func (m *MonitoringController) GetCurrentStats() *containers.SystemStats {
 	stats, _ := m.collector.GetCurrent()
 	return stats
 }
@@ -101,6 +101,7 @@ func (m *MonitoringController) GetAlertCount() int {
 
 // getCurrentStats returns current statistics as JSON
 func (m *MonitoringController) getCurrentStats(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	stats, err := m.collector.GetCurrent()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -113,6 +114,7 @@ func (m *MonitoringController) getCurrentStats(w http.ResponseWriter, r *http.Re
 
 // getLiveStats returns live statistics for HTMX polling
 func (m *MonitoringController) getLiveStats(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	stats, err := m.collector.GetCurrent()
 	if err != nil {
 		m.Render(w, r, "monitoring-error.html", map[string]any{
@@ -130,6 +132,7 @@ func (m *MonitoringController) getLiveStats(w http.ResponseWriter, r *http.Reque
 
 // getHistory returns statistics history
 func (m *MonitoringController) getHistory(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	// Parse duration parameter
 	durationStr := r.URL.Query().Get("duration")
 	duration := 1 * time.Hour // Default to 1 hour
@@ -148,6 +151,7 @@ func (m *MonitoringController) getHistory(w http.ResponseWriter, r *http.Request
 
 // getAlerts returns current resource alerts
 func (m *MonitoringController) getAlerts(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	alerts := m.collector.CheckAlerts()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -156,6 +160,7 @@ func (m *MonitoringController) getAlerts(w http.ResponseWriter, r *http.Request)
 
 // getTopProcesses returns top processes by CPU or memory
 func (m *MonitoringController) getTopProcesses(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	sortBy := r.URL.Query().Get("sort")
 	if sortBy == "" {
 		sortBy = "cpu"
@@ -167,7 +172,7 @@ func (m *MonitoringController) getTopProcesses(w http.ResponseWriter, r *http.Re
 		count = c
 	}
 
-	monitor := monitoring.NewMonitor(false)
+	monitor := containers.NewMonitor(false)
 	processes, err := monitor.GetTopProcesses(count, sortBy)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -180,6 +185,7 @@ func (m *MonitoringController) getTopProcesses(w http.ResponseWriter, r *http.Re
 
 // getCPUPartial returns CPU stats as HTML partial
 func (m *MonitoringController) getCPUPartial(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	stats, err := m.collector.GetCurrent()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -194,6 +200,7 @@ func (m *MonitoringController) getCPUPartial(w http.ResponseWriter, r *http.Requ
 
 // getMemoryPartial returns memory stats as HTML partial
 func (m *MonitoringController) getMemoryPartial(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	stats, err := m.collector.GetCurrent()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -207,6 +214,7 @@ func (m *MonitoringController) getMemoryPartial(w http.ResponseWriter, r *http.R
 
 // getDiskPartial returns disk stats as HTML partial
 func (m *MonitoringController) getDiskPartial(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	stats, err := m.collector.GetCurrent()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -220,6 +228,7 @@ func (m *MonitoringController) getDiskPartial(w http.ResponseWriter, r *http.Req
 
 // getContainersPartial returns container stats as HTML partial
 func (m *MonitoringController) getContainersPartial(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	// Use cached container data for instant response
 	containers := m.GetContainers()
 
@@ -228,6 +237,7 @@ func (m *MonitoringController) getContainersPartial(w http.ResponseWriter, r *ht
 
 // getAlertsPartial returns alerts as HTML partial
 func (m *MonitoringController) getAlertsPartial(w http.ResponseWriter, r *http.Request) {
+	m.SetRequest(r)
 	alerts := m.collector.CheckAlerts()
 
 	m.Render(w, r, "monitoring-alerts.html", map[string]any{
@@ -237,21 +247,21 @@ func (m *MonitoringController) getAlertsPartial(w http.ResponseWriter, r *http.R
 
 // FormatBytes formats bytes for display
 func (m *MonitoringController) FormatBytes(bytes uint64) string {
-	return monitoring.FormatBytes(bytes)
+	return containers.FormatBytes(bytes)
 }
 
 // FormatPercent formats percentage for display
 func (m *MonitoringController) FormatPercent(percent float64) string {
-	return monitoring.FormatPercent(percent)
+	return containers.FormatPercent(percent)
 }
 
 // GetContainers returns cached container stats for templates
-func (m *MonitoringController) GetContainers() []monitoring.ContainerStats {
+func (m *MonitoringController) GetContainers() []containers.ContainerStats {
 	m.containersMu.RLock()
 	defer m.containersMu.RUnlock()
 
 	// Return a copy to avoid race conditions
-	result := make([]monitoring.ContainerStats, len(m.containers))
+	result := make([]containers.ContainerStats, len(m.containers))
 	copy(result, m.containers)
 	return result
 }
@@ -298,7 +308,7 @@ func (m *MonitoringController) updateContainers() {
 		return
 	}
 
-	var containers []monitoring.ContainerStats
+	var containerList []containers.ContainerStats
 	lines := strings.Split(string(output), "\n")
 
 	for _, line := range lines {
@@ -330,7 +340,7 @@ func (m *MonitoringController) updateContainers() {
 		// Determine status (simplified - in real implementation would use docker ps)
 		status := "running"
 
-		container := monitoring.ContainerStats{
+		container := containers.ContainerStats{
 			ID:         parts[0][:12], // First 12 chars of container ID
 			Name:       parts[1],
 			Status:     status,
@@ -341,12 +351,12 @@ func (m *MonitoringController) updateContainers() {
 			BlockIO:    parts[6],
 		}
 
-		containers = append(containers, container)
+		containerList = append(containerList, container)
 	}
 
 	// Update cached state
 	m.containersMu.Lock()
-	m.containers = containers
+	m.containers = containerList
 	m.containersMu.Unlock()
 }
 

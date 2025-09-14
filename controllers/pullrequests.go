@@ -338,7 +338,7 @@ func (c *PullRequestsController) createPR(w http.ResponseWriter, r *http.Request
 	if services.Ollama.IsRunning() && user.IsAdmin {
 		go func() {
 			// Use the new AI service from internal/ai
-			if ai := c.App.Use("ai").(*AHandler).getAIService(); ai != nil {
+			if ai := c.App.Use("ai").(*AIController).getAIService(); ai != nil {
 				if err := ai.EnqueuePR(pr, user.ID); err != nil {
 					log.Printf("PullRequestsController: Failed to enqueue AI review: %v", err)
 				}

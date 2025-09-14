@@ -336,35 +336,81 @@ The `c.Refresh()` and `c.Redirect()` methods properly set HTMX headers (HX-Refre
 - ✅ CSRF: HTMX same-origin policy
 - ✅ Secrets: Store in Vault, never in code
 
-## File Structure
+## File Structure & CRITICAL Rules
 
 ```
 workspace/
-├── controllers/     # HTTP handlers (MVC)
-│   ├── repos.go    # Repository management
-│   ├── issues.go   # Issue tracking
-│   ├── prs.go      # Pull requests
-│   ├── actions.go  # CI/CD
-│   └── coder.go    # IDE management
-├── models/         # Data models & repositories
-├── services/       # Docker container services ONLY
-│   ├── ollama.go   # Manages Ollama Docker container
-│   ├── coder.go    # Manages Coder Docker container
-│   ├── actions.go  # Manages action Docker containers
-│   └── sandbox.go  # Manages sandbox Docker containers
-├── internal/       # Internal business logic & utilities
-│   ├── ai/        # AI logic (event queue, processors, tools)
-│   ├── agents/    # Agent system (providers, registry)
-│   └── coding/    # Git operations
-├── views/          # HTML templates
-├── auth/          # Authentication (moved from pkg)
+├── controllers/     # HTTP handlers ONLY (no business logic!)
+├── internal/       # Business logic ONLY (no HTTP!)
+├── services/       # Docker containers ONLY (no business logic!)
+├── models/         # Data models ONLY (no business logic!)
+├── views/          # Templates (access controllers only)
+├── auth/           # Authentication (local copy from devtools)
 └── Makefile       # Build configuration
 ```
 
-**IMPORTANT**: Directory usage rules:
-- `services/` - ONLY for Docker container management services
-- `internal/` - Business logic, algorithms, utilities, AI logic
-- Never put non-Docker logic in `services/`
+### Directory Responsibilities (NEVER VIOLATE)
+
+#### controllers/
+- **Purpose**: HTTP request/response handling ONLY
+- **Do**: Parse requests → Call internal/ → Render responses
+- **Never**: Business logic, calculations, direct DB queries
+- **Example**:
+```go
+func (c *ReposController) create(w http.ResponseWriter, r *http.Request) {
+    c.SetRequest(r)
+    name := r.FormValue("name")
+
+    // Delegate to internal/
+    repo, err := repos.Create(name, c.CurrentUser())
+    if err != nil {
+        c.RenderError(w, r, err)
+        return
+    }
+
+    c.Redirect(w, r, "/repo/" + repo.ID)
+}
+```
+
+#### internal/
+- **Purpose**: Business logic, algorithms, orchestration
+- **Packages**: `ai/`, `agents/`, `coding/`
+- **Do**: Implement business rules, complex calculations
+- **Never**: HTTP handling, request/response
+
+#### services/
+- **Purpose**: Docker container management ONLY
+- **Pattern**: Wraps containers.Service from devtools
+- **Do**: Start/stop containers, health checks, API wrappers
+- **Never**: Business logic, orchestration
+- **Example**:
+```go
+type OllamaService struct {
+    container *containers.Service
+    mu        sync.Mutex
+}
+```
+
+#### models/
+- **Purpose**: Data structures and repositories
+- **Do**: Define structs, implement Table() method
+- **Never**: Business logic, HTTP handling
+
+### Import Rules (CRITICAL)
+
+**What each directory CAN import:**
+- **controllers** CAN import: `internal/`, `services/`, `models/`, `devtools/pkg/*`
+- **internal** CAN import: `services/`, `models/`, `devtools/pkg/*`
+- **services** CAN import: `models/`, `devtools/pkg/containers`
+- **models** CAN import: `devtools/pkg/database`
+- **views** CAN import: NOTHING (templates access controllers via template functions)
+
+### Forbidden Imports (NEVER DO THESE)
+- ❌ **internal** CANNOT import `controllers` (business logic doesn't know about HTTP)
+- ❌ **services** CANNOT import `internal` (containers don't know about business logic)
+- ❌ **services** CANNOT import `controllers` (containers don't know about HTTP)
+- ❌ **models** CANNOT import `services`, `internal`, or `controllers` (data doesn't know about logic)
+- ❌ **No circular dependencies**
 
 ## Environment Variables
 

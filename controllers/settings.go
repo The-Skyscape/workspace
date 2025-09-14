@@ -90,12 +90,10 @@ func (s *SettingsController) GetSettings() (*models.Settings, error) {
 
 // updateSettings handles the main settings form submission
 func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (adminRequired)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		s.RenderError(w, r, errors.New("unauthorized"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	// Get current settings
 	settings, err := models.GetSettings()
@@ -151,12 +149,10 @@ func (s *SettingsController) updateSettings(w http.ResponseWriter, r *http.Reque
 
 // updateTheme handles theme change requests
 func (s *SettingsController) updateTheme(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (adminRequired)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		s.RenderError(w, r, errors.New("unauthorized"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	theme := r.URL.Query().Get("theme")
 	if theme == "" {
@@ -208,12 +204,10 @@ func (s *SettingsController) GetWorkspace() (*models.Profile, error) {
 
 // updateAccount handles user account settings form submission
 func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (auth.Required)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		s.RenderError(w, r, errors.New("authentication required"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	// Parse form to get values
 	if err := r.ParseForm(); err != nil {
@@ -236,7 +230,7 @@ func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Save user updates
-	err = auth.Users.Update(user)
+	err := auth.Users.Update(user)
 	if err != nil {
 		s.RenderError(w, r, err)
 		return
@@ -252,12 +246,10 @@ func (s *SettingsController) updateAccount(w http.ResponseWriter, r *http.Reques
 
 // updatePassword handles password change requests
 func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (auth.Required)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		s.RenderError(w, r, errors.New("authentication required"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	currentPassword := r.FormValue("current_password")
 	newPassword := r.FormValue("new_password")
@@ -276,15 +268,14 @@ func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Update password
-	err = user.SetupPassword(newPassword)
+	err := user.SetupPassword(newPassword)
 	if err != nil {
 		s.RenderError(w, r, err)
 		return
 	}
 
 	// Save user
-	err = auth.Users.Update(user)
-	if err != nil {
+	if err := auth.Users.Update(user); err != nil {
 		s.RenderError(w, r, err)
 		return
 	}
@@ -299,15 +290,13 @@ func (s *SettingsController) updatePassword(w http.ResponseWriter, r *http.Reque
 
 // uploadAvatar handles avatar image upload
 func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (auth.Required)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil {
-		s.RenderError(w, r, errors.New("authentication required"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	// Parse multipart form (max 10MB)
-	err = r.ParseMultipartForm(10 << 20)
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		s.RenderError(w, r, errors.New("failed to parse upload"))
 		return
@@ -374,6 +363,7 @@ func (s *SettingsController) uploadAvatar(w http.ResponseWriter, r *http.Request
 
 // serveAvatar serves uploaded avatar images
 func (s *SettingsController) serveAvatar(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
 	filename := r.PathValue("filename")
 	if filename == "" {
 		http.NotFound(w, r)
@@ -395,12 +385,10 @@ func (s *SettingsController) serveAvatar(w http.ResponseWriter, r *http.Request)
 
 // updateWorkspace handles workspace profile settings form submission
 func (s *SettingsController) updateWorkspace(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (adminRequired)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		s.RenderError(w, r, errors.New("unauthorized"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	// Parse the form to get all values
 	if err := r.ParseForm(); err != nil {
@@ -475,12 +463,10 @@ func (s *SettingsController) GetSSHKeys() ([]*models.SSHKey, error) {
 
 // addSSHKey handles adding a new SSH key
 func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (adminRequired)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		s.RenderError(w, r, errors.New("unauthorized"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	// Parse form
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -516,12 +502,10 @@ func (s *SettingsController) addSSHKey(w http.ResponseWriter, r *http.Request) {
 
 // deleteSSHKey handles removing an SSH key
 func (s *SettingsController) deleteSSHKey(w http.ResponseWriter, r *http.Request) {
+	s.SetRequest(r)
+	// Access already checked by route middleware (adminRequired)
 	auth := s.App.Use("auth").(*AuthController)
-	user, _, err := auth.Authenticate(r)
-	if err != nil || !user.IsAdmin {
-		s.RenderError(w, r, errors.New("unauthorized"))
-		return
-	}
+	user := auth.CurrentUser()
 
 	keyID := r.PathValue("id")
 	if keyID == "" {
@@ -530,7 +514,7 @@ func (s *SettingsController) deleteSSHKey(w http.ResponseWriter, r *http.Request
 	}
 
 	// Delete the key (function verifies ownership)
-	err = models.DeleteSSHKey(keyID, user.ID)
+	err := models.DeleteSSHKey(keyID, user.ID)
 	if err != nil {
 		s.RenderError(w, r, fmt.Errorf("Failed to delete SSH key: %v", err))
 		return

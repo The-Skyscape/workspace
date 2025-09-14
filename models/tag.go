@@ -199,9 +199,15 @@ func AddLabelToIssue(issueID, tagID, userID string) error {
 
 // RemoveLabelFromIssue removes a label from an issue
 func RemoveLabelFromIssue(issueID, tagID string) error {
+	// Note: SQL field names are PascalCase
 	labels, err := IssueLabels.Search("WHERE IssueID = ? AND TagID = ?", issueID, tagID)
 	if err != nil {
 		return err
+	}
+	
+	if len(labels) == 0 {
+		// No labels found to delete - this might be OK
+		return nil
 	}
 	
 	for _, label := range labels {

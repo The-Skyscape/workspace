@@ -61,3 +61,47 @@ var (
 	AIActivities  = database.Manage(DB, new(AIActivity))
 )
 
+func init() {
+	// Create database indexes for common queries
+	createIndexes()
+}
+
+// createIndexes creates database indexes for common queries
+func createIndexes() {
+	// Repository-related indexes
+	Repositories.Index("UserID")
+	Issues.Index("RepoID")
+	Issues.Index("Status")
+	Issues.Index("Priority")
+	Issues.Index("AssigneeID")
+	PullRequests.Index("RepoID")
+	PullRequests.Index("Status")
+	PullRequests.Index("ReviewStatus")
+	Comments.Index("IssueID")
+	Comments.Index("PullRequestID")
+	
+	// Actions and activities
+	Actions.Index("RepoID")
+	ActionRuns.Index("ActionID")
+	ActionRuns.Index("Status")
+	Activities.Index("UserID")
+	Activities.Index("RepoID")
+	
+	// AI-related indexes
+	Conversations.Index("UserID")
+	Messages.Index("ConversationID")
+	AIActivities.Index("Status")
+	AIActivities.Index("Priority")
+	
+	// Sorting indexes
+	Issues.Index("CreatedAt")
+	Issues.Index("UpdatedAt")
+	PullRequests.Index("CreatedAt")
+	Activities.Index("CreatedAt")
+	Conversations.Index("UpdatedAt")
+	
+	// Composite indexes for complex queries
+	Issues.Index("Status", "Priority") // For critical issue queries
+	Issues.Index("RepoID", "Status")   // For repo-specific open issues
+}
+

@@ -71,12 +71,40 @@ func TestIssueModel(t *testing.T) {
 		testutils.AssertContains(t, labelNames, "bug")
 		testutils.AssertContains(t, labelNames, "enhancement")
 		
+		// Debug: check labels before removal
+		labelsBefore, _ := IssueLabels.Search("WHERE IssueID = ?", issue.ID)
+		t.Logf("Labels before removal: %d", len(labelsBefore))
+		for _, l := range labelsBefore {
+			t.Logf("  IssueLabel: IssueID=%s, TagID=%s", l.IssueID, l.TagID)
+		}
+		
 		// Remove a label
+		t.Logf("Removing tag with ID: %s", bugTag.ID)
 		err = RemoveLabelFromIssue(issue.ID, bugTag.ID)
+		if err != nil {
+			t.Logf("Error removing label: %v", err)
+		}
 		testutils.AssertNoError(t, err)
 		
+		// Debug: check labels after removal  
+		labelsAfter, _ := IssueLabels.Search("WHERE IssueID = ?", issue.ID)
+		t.Logf("Labels after removal: %d", len(labelsAfter))
+		for _, l := range labelsAfter {
+			t.Logf("  IssueLabel: IssueID=%s, TagID=%s", l.IssueID, l.TagID)
+		}
+		
+		// Refresh issue to get updated labels
 		labels, err = issue.Labels()
 		testutils.AssertNoError(t, err)
+		
+		// Debug: print what we actually got
+		if len(labels) != 1 {
+			t.Logf("Expected 1 label, got %d labels:", len(labels))
+			for i, label := range labels {
+				t.Logf("  [%d] %s (ID: %s)", i, label.Name, label.ID)
+			}
+		}
+		
 		testutils.AssertEqual(t, 1, len(labels))
 		testutils.AssertEqual(t, "enhancement", labels[0].Name)
 	})
@@ -151,17 +179,4 @@ func TestIssueModel(t *testing.T) {
 	})
 }
 
-// Helper function to create test repository
-func createTestRepository(t *testing.T, name string, userID string) *Repository {
-	repo := &Repository{
-		Name:        name,
-		Description: "Test repository",
-		UserID:      userID,
-		Visibility:  "public",
-	}
-	
-	inserted, err := Repos.Insert(repo)
-	testutils.AssertNoError(t, err)
-	return inserted
-}
 

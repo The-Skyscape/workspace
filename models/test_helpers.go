@@ -1,31 +1,24 @@
 package models
 
 import (
-	"os"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 	
 	"github.com/The-Skyscape/devtools/pkg/authentication"
 	"github.com/The-Skyscape/devtools/pkg/database"
+	"github.com/The-Skyscape/devtools/pkg/database/engines/sqlite3"
 	"github.com/The-Skyscape/devtools/pkg/testutils"
 )
 
-// Global test workspace for the current test
-var testWorkspace *testutils.TestWorkspace
+func init() {
+	// Don't override global DB in init - let each test create its own
+	// This ensures test isolation
+}
 
-// SetupTestDB creates a test database and initializes all models
-func SetupTestDB(t *testing.T) *database.DynamicDB {
-	// Create test workspace with temp directories
-	testWorkspace = testutils.SetupTestWorkspace(t)
-	
-	// Set DataDir environment variable for any code that needs it
-	os.Setenv("DATADIR", testWorkspace.DataDir)
-	
-	// Re-initialize all model collections with test database
-	DB = testWorkspace.DB
-	Auth = testWorkspace.Auth
-	Users = Auth.Users
-	
-	// Initialize all collections
+// initializeCollections initializes all model collections
+func initializeCollections() {
 	Repositories = database.Manage(DB, new(Repository))
 	Repos = Repositories
 	AccessTokens = database.Manage(DB, new(AccessToken))
@@ -49,29 +42,74 @@ func SetupTestDB(t *testing.T) *database.DynamicDB {
 	IssueLabels = database.Manage(DB, new(IssueLabel))
 	Events = database.Manage(DB, new(Event))
 	EventMetadataEntries = database.Manage(DB, new(EventMetadata))
+}
+
+// Global test workspace for the current test
+var testWorkspace *testutils.TestWorkspace
+
+// SetupTestDB creates a test database and initializes all models
+func SetupTestDB(t *testing.T) *database.DynamicDB {
+	// Create a fresh in-memory database for this test
+	testDB := sqlite3.Open(":memory:", nil).Dynamic()
+	
+	// Save current global state
+	oldDB := DB
+	oldAuth := Auth
+	oldUsers := Users
+	
+	// Override globals for this test
+	DB = testDB
+	Auth = authentication.Manage(DB)
+	Users = Auth.Users
+	
+	// Re-initialize all collections with test database
+	initializeCollections()
 	
 	// Initialize system tags
 	if err := CreateSystemTags(); err != nil {
 		t.Logf("Warning: Failed to create system tags: %v", err)
 	}
 	
-	return testWorkspace.DB
+	// Register cleanup to restore globals
+	t.Cleanup(func() {
+		DB = oldDB
+		Auth = oldAuth
+		Users = oldUsers
+		initializeCollections()
+	})
+	
+	return testDB
 }
 
 // CleanupTestDB cleans up the test database
 func CleanupTestDB(t *testing.T, db *database.DynamicDB) {
-	if testWorkspace != nil {
-		testWorkspace.Cleanup()
-		testWorkspace = nil
-	}
+	// Nothing to clean up for in-memory database
+	// It will be garbage collected when test ends
 }
 
 // CreateTestUser creates a test user
 func CreateTestUser(t *testing.T, db *database.DynamicDB, email string) *authentication.User {
-	if testWorkspace == nil {
-		t.Fatal("Test workspace not initialized. Call SetupTestDB first.")
+	// Extract handle from email (e.g., "user@example.com" -> "user")
+	handle := email
+	if idx := strings.Index(email, "@"); idx > 0 {
+		handle = email[:idx]
 	}
-	return testWorkspace.CreateTestUser(email)
+	
+	// Make handle unique by appending timestamp if needed
+	handle = fmt.Sprintf("%s-%d", handle, time.Now().UnixNano())
+	
+	user := &authentication.User{
+		Email:  email,
+		Handle: handle,
+		Name:   handle,
+	}
+	
+	created, err := Users.Insert(user)
+	if err != nil {
+		t.Fatalf("Failed to create test user: %v", err)
+	}
+	
+	return created
 }
 
 // GetTestDataDir returns the test data directory
@@ -80,4 +118,24 @@ func GetTestDataDir() string {
 		return testWorkspace.DataDir
 	}
 	return ""
+}
+
+// createTestRepository creates a test repository for testing
+func createTestRepository(t *testing.T, name string, userID string) *Repository {
+	t.Helper()
+	
+	repo := &Repository{
+		Name:        name,
+		Description: "Test repository",
+		UserID:      userID,
+		Visibility:  "public",
+	}
+	
+	// Insert into database
+	created, err := Repositories.Insert(repo)
+	if err != nil {
+		t.Fatalf("Failed to create test repository: %v", err)
+	}
+	
+	return created
 }
