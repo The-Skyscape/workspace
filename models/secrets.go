@@ -16,6 +16,8 @@ var Secrets = security.Manage(
 		security.WithDataDir(fmt.Sprintf("%s/vault", database.DataDir())),
 		security.WithDevMode(true),
 		security.WithRootToken("skyscape-dev-token"),
+		security.WithNetwork("skyscape-internal"),
+		security.WithPortBinding(false), // Don't expose port externally
 	),
 )
 
