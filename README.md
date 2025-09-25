@@ -211,7 +211,7 @@ For production deployments, use the launch-app tool from DevTools:
 cd workspace && make clean && make
 
 # Build and use the launch-app tool
-cd ../devtools && make build
+cd ../devtools && make -B 
 export DIGITAL_OCEAN_API_KEY="your-token"
 ./build/launch-app deploy \
   --name skyscape-prod \
@@ -232,7 +232,7 @@ This will:
 - `PORT`: Application port (default: 5000)
 - `PREFIX`: URL prefix for the application (default: empty)
 - `THEME`: DaisyUI theme (default: corporate)
-- `INTERNAL_DATA`: Custom data directory (default: ~/.skyscape)
+- `DATA_DIR`: Custom data directory (default: ~/.skyscape)
 - `AI_ENABLED`: Enable OpenAI GPT features ("true" for Pro tier, "false" for Standard)
   - Automatically set during deployment based on infrastructure
   - Controls whether AI services start and UI features are shown
